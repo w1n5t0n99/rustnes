@@ -1,0 +1,1 @@
+c:\projects\rustnes\mos\target\debug\libmos.rlib: c:\projects\rustnes\mos\src\bus.rs c:\projects\rustnes\mos\src\core.rs c:\projects\rustnes\mos\src\instructions.rs c:\projects\rustnes\mos\src\lib.rs c:\projects\rustnes\mos\src\operations.rs c:\projects\rustnes\mos\src\rp2a03.rs

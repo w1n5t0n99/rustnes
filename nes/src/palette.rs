@@ -1,0 +1,143 @@
+/*
+    The NES doesn't output an RGB signal; it directly outputs analog video signal, hence
+    there is a multitude of ways of interpreting the colors it generates.
+
+    Implementation based on https://wiki.nesdev.com/w/index.php/NTSC_video
+*/
+
+static BLACK: f32 = 0.518_f32;
+static WHITE: f32 = 1.962_f32;
+static ATTENUATION: f32 = 0.746_f32;
+
+// simple precomputed palette
+static SIMPLE_PALETTE: [u32; 64] = [
+    0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00,
+	0x333500, 0x0B4800, 0x005200, 0x004F08, 0x00404D, 0x000000, 0x000000, 0x000000,
+	0xADADAD, 0x155FD9, 0x4240FF, 0x7527FE, 0xA01ACC, 0xB71E7B, 0xB53120, 0x994E00,
+	0x6B6D00, 0x388700, 0x0C9300, 0x008F32, 0x007C8D, 0x000000, 0x000000, 0x000000,
+	0xFFFEFF, 0x64B0FF, 0x9290FF, 0xC676FF, 0xF36AFF, 0xFE6ECC, 0xFE8170, 0xEA9E22,
+	0xBCBE00, 0x88D800, 0x5CE430, 0x45E082, 0x48CDDE, 0x4F4F4F, 0x000000, 0x000000,
+	0xFFFEFF, 0xC0DFFF, 0xD3D2FF, 0xE8C8FF, 0xFBC2FF, 0xFEC4EA, 0xFECCC5, 0xF7D8A5,
+	0xE4E594, 0xCFEF96, 0xBDF4AB, 0xB3F3CC, 0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000,
+];
+
+static LEVELS: [f32; 8] = [
+    0.350_f32, 0.518_f32, 0.962_f32,1.550_f32,  // Signal low
+    1.094_f32,1.506_f32,1.962_f32,1.962_f32  // Signal high
+    ];
+
+#[inline]
+fn incolor_phase(color: u64, phase: u64) -> bool {
+    color.wrapping_add(phase).wrapping_rem_euclid(12) < 6
+}
+
+#[inline]
+fn gamma_fix(f: f32) -> f32 {
+    let gamma = 2.0_f32; // Assumed display gamma
+    if f <= 0.0_f32 {
+        0.0_f32
+    }
+    else {
+        f.powf(2.2_f32/gamma)
+    }
+}
+
+#[inline]
+fn clamp(v: u32) -> u32 {
+    if v > 255 { 255 } else { v }
+}
+
+fn ntsc_signal(ppu_pixel: u16, phase: u64) -> f32 {
+    // ppu_output: Output color (9-bit) given as input. Bitmask format: "eeellcccc".
+    // phase: Signal phase (0..11). It is a variable that increases by 8 each pixel.
+    let color = (ppu_pixel & 0x0F) as u64;                                        // 0..15 "cccc"
+    let level = if color > 13 { 1 } else { (ppu_pixel >> 4) & 0x03 };             // 0..3  "ll", For colors 14..15, level 1 is forced.
+    let emphasis = ppu_pixel >> 6;                                                // 0..7  "eee"
+    
+    // The square wave for this color alternates between these two voltages:
+    let low = if color == 0 { LEVELS[(4+level) as usize] } else { LEVELS[(0+level) as usize] };
+    let high = if color > 12 { LEVELS[(0+level) as usize] } else { LEVELS[(4+level) as usize] };
+
+    // Generate the square wave
+    let mut signal = if incolor_phase(color, phase) { high } else { low };
+
+    // When de-emphasis bits are set, some parts of the signal are attenuated:
+    if ((emphasis & 0x01) > 0 && incolor_phase(0, phase)) ||
+        ((emphasis & 0x02) > 0 && incolor_phase(4, phase)) ||
+        ((emphasis & 0x04) > 0 && incolor_phase(8, phase)) {
+            signal = signal * ATTENUATION;
+        }
+
+     signal
+}
+
+// The process of generating NTSC signal for a single pixel
+fn ntsc_signal_levels_for_single_ouput(x: usize, pixel: u16, ppu_cycle: u64, signal_levels: &mut[f32]) {
+    let phase = ppu_cycle.wrapping_mul(8).wrapping_rem_euclid(12);
+    
+    // Each pixel produces distinct 8 samples of NTSC signal.
+    for p in 0..8 {
+        let signal = (ntsc_signal(pixel, phase.wrapping_add(p)) - BLACK) / (WHITE - BLACK);
+        signal_levels[(x*8)+(p as usize)] = signal;
+    }
+}
+
+// calculate the signal levels for a scanline - (256 * 8) levels
+fn ntsc_signal_levels(ppu_pixels: &[u16],  levels: &mut[f32], mut ppu_cycle: u64) {
+    for x in 0..256 {
+        ntsc_signal_levels_for_single_ouput(x, ppu_pixels[x], ppu_cycle, levels);
+        ppu_cycle += 1;
+    }
+}
+
+// The ppu cycle at start of scanline
+fn ntsc_decode_line(signal_levels: &[f32], ntsc_pixels: &mut [u32], ppu_cycle: u64) {
+    let phase = ppu_cycle.wrapping_mul(8).wrapping_rem_euclid(12) as f32 + 3.9_f32;
+
+    for x in 0..256 {
+        let center: usize = x * (256 * 8) / 256 + 0;
+        let begin: usize = center.saturating_sub(6);
+        let end: usize = if (center+6) > (256*8) { 256 * 8 } else { center + 6 };
+        let mut y =  0.0_f32; 
+        let mut i = 0.0_f32;
+        let mut q = 0.0_f32;
+
+        for p in begin..end {
+            let level = signal_levels[p] / 12.0_f32;
+            y = y + level;
+            i = i + level * (std::f32::consts::PI * (phase + (p as f32)) / 6.0_f32).cos();
+            q = q + level * (std::f32::consts::PI * (phase + (p as f32)) / 6.0_f32).sin();
+        }
+
+        // convert yiq to rgb
+        let pixel_rgb = 
+        0x10000 * clamp((255.95_f32 * gamma_fix(y + 0.946882_f32*i +  0.623557_f32*q)) as u32)
+        + 0x00100 * clamp((255.95_f32 * gamma_fix(y + -0.274788_f32*i +  -0.635691_f32*q)) as u32)
+        + 0x00001 * clamp((255.95_f32 * gamma_fix(y + -1.108545_f32*i +  1.709007_f32*q)) as u32);
+
+        ntsc_pixels[x] = pixel_rgb;
+    }
+}
+
+// ppu_cycle: cycle at start of frame rendering
+pub fn gen_ntsc_pixel_buffer(ppu_output_buffer: &[u16], ntsc_pixel_buffer: &mut [u32], frame_height: usize, mut ppu_cycle: u64) {
+    let mut signal_levels: Vec<f32> = vec![0.0_f32; 256*8];
+    let cycles_per_scanline = 341_u64;
+
+    for scanline_index in 0..frame_height {
+        let start = scanline_index * 256;
+        let end = start + 256;
+
+        ntsc_signal_levels(&ppu_output_buffer[start..end], &mut signal_levels, ppu_cycle);
+        ntsc_decode_line(&mut signal_levels, &mut ntsc_pixel_buffer[start..end], ppu_cycle);
+        ppu_cycle = ppu_cycle.wrapping_add(cycles_per_scanline);
+    }
+}
+
+pub fn simple_pixel_rgb(pixel: u16) -> u32 {
+    // clear emphasis bits
+    SIMPLE_PALETTE[(pixel & 0x3F) as usize]
+}
+
+
+
