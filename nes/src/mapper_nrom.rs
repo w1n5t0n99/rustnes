@@ -1,6 +1,6 @@
 use ::nes_rom::ines;
 use std::ptr;
-use super::mappers::{Mapper, POWER_ON_PALETTE};
+use super::mappers::{Mapper, NametableOffset, NametableType, POWER_ON_PALETTE};
 use super::ppu_pinout;
 
 pub struct MapperNrom {
@@ -11,6 +11,7 @@ pub struct MapperNrom {
     pub palette_ram: Vec<u8>,
     pub prg_size: u32,
     pub prg_mask: u16,
+    pub nt_offset: NametableOffset,
 }
 
 impl MapperNrom {
@@ -24,6 +25,7 @@ impl MapperNrom {
             palette_ram: v,
             prg_size: 0,
             prg_mask: 0,
+            nt_offset: NametableOffset::new(0, 0, 0, 0),
         }
     }
 
@@ -37,6 +39,16 @@ impl MapperNrom {
         }
         else {
             nrom.prg_mask = 0xFFFF;
+        }
+
+        match rom.nametable_mirroring {
+            ines::NametableMirroring::Horizontal => {
+                nrom.nt_offset = NametableOffset::from_nametable(NametableType::Horizontal);
+            }
+            ines::NametableMirroring::Vertical => {
+                nrom.nt_offset = NametableOffset::from_nametable(NametableType::Vertical);
+            }
+            _ => panic!("Invalid NROM nametable mirroring: {:?}", rom.nametable_mirroring),
         }
 
         // copy prg data
@@ -119,8 +131,45 @@ impl Mapper for MapperNrom {
         pinout
     }
     
-    fn read_nametable(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
-    fn write_nametable(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
+    fn read_nametable(&mut self, mut pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout {
+        /*
+        nametables are mirrored 0x3000 - 0x3EFF for simplicity we mirror 0x3000 - 0x3FFF
+        the memory map should check the addresses and call the appropriate read function,
+        so it shouldn't matter
+        */
+        let addr =  pinout.address & 0xD000;
+         match addr {
+             // A
+             0x2000..=0x23FF => { pinout.data = self.vram[(addr - self.nt_offset.nt_a) as usize]; },
+             // B
+             0x2400..=0x27FF => { pinout.data = self.vram[(addr - self.nt_offset.nt_b) as usize]; },
+             // C
+             0x2800..=0x2BFF => { pinout.data = self.vram[(addr - self.nt_offset.nt_c) as usize]; },
+             // D
+             0x2C00..=0x2FFF => { pinout.data = self.vram[(addr - self.nt_offset.nt_d) as usize]; },
+             _ => panic!("NROM PPU read out of bounds: {}", pinout.address),
+         }
+
+         pinout
+    }
+
+
+    fn write_nametable(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout {
+        let addr =  pinout.address & 0xD000;
+        match addr {
+            // A
+            0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = pinout.data; },
+            // B
+            0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = pinout.data; },
+            // C
+            0x2800..=0x2BFF => {self.vram[(addr - self.nt_offset.nt_c) as usize] = pinout.data; },
+            // D
+            0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = pinout.data; },
+            _ => panic!("NROM PPU write out of bounds: {}", pinout.address),
+        }
+
+        pinout
+    }
 
     fn read_palette(&mut self, mut pinout: ppu_pinout::Pinout, forced_vblank: bool) -> ppu_pinout::Pinout { 
         /* 
@@ -183,8 +232,36 @@ impl Mapper for MapperNrom {
         }
     }
 
-    fn peek_nametable(&mut self, _addr: u16) ->u8 { unimplemented!(); }
+    fn peek_nametable(&mut self, addr: u16) ->u8 {
+        let addr =  addr & 0xD000;
+         match addr {
+             // A
+             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] },
+             // B
+             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] },
+             // C
+             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] },
+             // D
+             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] },
+             _ => panic!("NROM PPU read out of bounds: {}", addr),
+         }
+     }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_nametable_read() {
+        //assert_eq!(add(1, 2), 3);
+    }
 
 }
+
+
+
+
 
 
