@@ -36,7 +36,7 @@ pub fn display_rom_chr<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
         borderless: false,
         title: true,
         resize: false,
-        scale: Scale::X2,
+        scale: Scale::X4,
         scale_mode: ScaleMode::AspectRatioStretch,
         topmost: true,
         transparency: false,
