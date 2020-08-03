@@ -6,6 +6,7 @@ mod bus;
 mod ppu_pinout;
 mod ppu_viewer;
 mod palette;
+mod nes_ntsc;
 
 pub use error::NesError;
 use mos::rp2a03::Rp2a03;
@@ -45,7 +46,6 @@ impl Nes {
         let ines_file = File::open(rom_path)?;
         let ines = ines::Ines::from_rom(ines_file)?;
         self.mapper = mappers::create_mapper(&ines)?;
-
         Ok(())
     }
 
