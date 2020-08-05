@@ -47,14 +47,16 @@ const RGB_BIAS: u32 = RGB_UNIT * 2 * NES_NTSC_RGB_BUILDER;
 const DEFAULT_DECODER: [f32; 6] = [0.956, 0.621, -0.272, -0.647, -1.105, 1.702];
 
 macro_rules! pixel_negate{
-    ($ntsc:expr) => { 1.0_f32 - (($ntsc as i32 + 100) & 2) as f32 };
+    ($ntsc:expr) => {{ 1.0_f32 - (($ntsc as i32 + 100) & 2) as f32 }};
 }
 
-const fn pixel_offset(mut ntsc: i32, mut scaled: i32) -> i32 {
-    ntsc = ntsc - scaled / RESCALE_OUT as i32 * RESCALE_IN as i32;
-    scaled = (scaled + RESCALE_OUT as i32 * 10) % RESCALE_OUT as i32;
+macro_rules! pixel_offset{
+    ($ntsc:expr, $scaled:expr) => {{
+        let ntsc_t = $ntsc as i32 - $scaled as i32 / RESCALE_OUT as i32 * RESCALE_IN as i32;
+        let scaled_t = ($scaled as i32 + RESCALE_OUT as i32 * 10) % RESCALE_OUT as i32;
 
-    KERNEL_SIZE as i32 / 2 + ntsc + 1 + (RESCALE_OUT as i32 - scaled) % RESCALE_OUT as i32 + (KERNEL_SIZE as i32 * 2 * scaled)
+        KERNEL_SIZE as i32 / 2 + ntsc_t + 1 + (RESCALE_OUT as i32 - scaled_t) % RESCALE_OUT as i32 + (KERNEL_SIZE as i32 * 2 * scaled_t)
+    }};
 }
 
 #[derive(Clone, Copy)]
@@ -164,19 +166,19 @@ pub struct PixelInfo {
 // macro expansion from original source
 pub const NES_NTSC_PIXELS: [PixelInfo; ALIGNMENT_COUNT as usize] = [
     PixelInfo { 
-        offset: pixel_offset(-4, -9),
+        offset: pixel_offset!(-4, -9),
         negate: pixel_negate!(-4),
         kernel: [1.0, 1.0, 0.6667, 0.0],
     },
     
     PixelInfo {
-        offset: pixel_offset(-2, -7),
+        offset: pixel_offset!(-2, -7),
         negate: pixel_negate!(-2),
         kernel: [0.3333, 1.0, 1.0, 0.3333],
     },
 
     PixelInfo {
-        offset: pixel_offset(0, -5),
+        offset: pixel_offset!(0, -5),
         negate: pixel_negate!(0),
         kernel: [0.0, 0.6667, 1.0, 1.0] 
     },
@@ -361,9 +363,70 @@ fn init(init: &mut Init, setup: &NesNtscSetup) {
 }
 
 /* Generate pixel at all burst phases and column alignments */
-fn gen_kernel(init: &mut Init, y: f32, i: f32, q: f32, out: &mut NesNtscRgb) {
-    
+fn gen_kernel(init: &mut Init, mut y: f32, i: f32, q: f32, out: &mut NesNtscRgb) {
+    /* generate for each scanline burst phase */
+    let to_rgb_index: usize = 0;
+    let mut burst_remain = NES_NTSC_BURST_COUNT;
+    y -= RGB_OFFSET;
+
+    loop {
+        /* Encode yiq into *two* composite signals (to allow control over artifacting).
+		Convolve these with kernels which: filter respective components, apply
+		sharpening, and rescale horizontally. Convert resulting yiq to rgb and pack
+        into integer. Based on algorithm by NewRisingSun. */
+        let mut pixel_info_index: usize = 0;
+        let mut alignment_remain = ALIGNMENT_COUNT;
+        loop {
+            /* negate is -1 when composite starts at odd multiple of 2 */
+            let yy = y * init.fringing * NES_NTSC_PIXELS[pixel_info_index].negate;
+            let ic0 = (i + yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[0];
+            let qc1 = (q + yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[1];
+            let ic2 = (i - yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[2];
+            let qc3 = (q - yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[3];
+
+            let factor = init.artifacts * NES_NTSC_PIXELS[pixel_info_index].negate;
+            let ii  = i * factor;
+            let yc0 = (y + ii) * NES_NTSC_PIXELS[pixel_info_index].kernel[0];
+            let yc2 = (y - ii) * NES_NTSC_PIXELS[pixel_info_index].kernel[2];
+
+            let qq = q * factor;
+            let yc1 = (y + qq) * NES_NTSC_PIXELS[pixel_info_index].kernel[1];
+            let yc3 = (y - qq) * NES_NTSC_PIXELS[pixel_info_index].kernel[3];
+
+            let mut kernel_index = NES_NTSC_PIXELS[pixel_info_index].offset as usize;
+            pixel_info_index += 1;
+
+            for n in (0..RGB_KERNEL_SIZE).rev() {
+                let i = init.kernel[kernel_index+0] * ic0 + init.kernel[kernel_index+2] * ic2;
+                let q = init.kernel[kernel_index+1] * qc1 + init.kernel[kernel_index+3] * qc3;
+                let y = init.kernel[KERNEL_SIZE as usize+0] * yc0 + init.kernel[KERNEL_SIZE as usize+1] * yc1 + 
+                    init.kernel[KERNEL_SIZE as usize+2] * yc2 + init.kernel[KERNEL_SIZE as usize+3] * yc3 + RGB_OFFSET;
+
+                if RESCALE_OUT <= 1 { kernel_index -= 1; }
+                else if kernel_index <  (KERNEL_SIZE * 2 * (RESCALE_OUT - 1)) as usize { kernel_index += (KERNEL_SIZE as usize * 2 -1); }
+            }
+
+            alignment_remain -= 1;
+            if alignment_remain == 0 { break; }
+        }
+
+       burst_remain -= 1;
+       if burst_remain == 0 { break; } 
+    }
+
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn test_pixel_info() {
+        for n in NES_NTSC_PIXELS.iter() {
+            assert!(n.offset >= 0);
+            println!("pixel offset {}", n.offset);
+        }
+    }
+
+}
 
