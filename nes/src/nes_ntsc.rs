@@ -46,6 +46,17 @@ const RGB_BIAS: u32 = RGB_UNIT * 2 * NES_NTSC_RGB_BUILDER;
 
 const DEFAULT_DECODER: [f32; 6] = [0.956, 0.621, -0.272, -0.647, -1.105, 1.702];
 
+macro_rules! pixel_negate{
+    ($ntsc:expr) => { 1.0_f32 - (($ntsc as i32 + 100) & 2) as f32 };
+}
+
+const fn pixel_offset(mut ntsc: i32, mut scaled: i32) -> i32 {
+    ntsc = ntsc - scaled / RESCALE_OUT as i32 * RESCALE_IN as i32;
+    scaled = (scaled + RESCALE_OUT as i32 * 10) % RESCALE_OUT as i32;
+
+    KERNEL_SIZE as i32 / 2 + ntsc + 1 + (RESCALE_OUT as i32 - scaled) % RESCALE_OUT as i32 + (KERNEL_SIZE as i32 * 2 * scaled)
+}
+
 #[derive(Clone, Copy)]
 struct Init {
     to_rgb: [f32; (NES_NTSC_BURST_COUNT * 6) as usize],
@@ -151,22 +162,22 @@ pub struct PixelInfo {
 
 /* 3 input pixels -> 8 composite samples */
 // macro expansion from original source
-pub const NES_NTSC_PIXELS: [PixelInfo; 3] = [
+pub const NES_NTSC_PIXELS: [PixelInfo; ALIGNMENT_COUNT as usize] = [
     PixelInfo { 
-        offset: KERNEL_SIZE as i32 / 2 + ((-4) - (-9) / 7 * 8) + 1 + (7 - (((-9) + 7 * 10) % 7)) % 7 + (KERNEL_SIZE as i32 * 2 * (((-9) + 7 * 10) % 7)),
-        negate: 1.0 - (((-4.0) + 100.0) as i32 & 2) as f32,
+        offset: pixel_offset(-4, -9),
+        negate: pixel_negate!(-4),
         kernel: [1.0, 1.0, 0.6667, 0.0],
     },
     
     PixelInfo {
-        offset: KERNEL_SIZE as i32 / 2 + ((-2) - (-7) / 7 * 8) + 0 + (7 - (((-7) + 7 * 10) % 7)) % 7 + (KERNEL_SIZE as i32 * 2 * (((-7) + 7 * 10) % 7)),
-        negate: 1.0 - (((-2.0) + 100.0)as i32 & 2) as f32,
+        offset: pixel_offset(-2, -7),
+        negate: pixel_negate!(-2),
         kernel: [0.3333, 1.0, 1.0, 0.3333],
     },
 
     PixelInfo {
-        offset: KERNEL_SIZE as i32 / 2 + ((0) - (-5) / 7 * 8) + 1 + (7 - (((-5) + 7 * 10) % 7)) % 7 + (KERNEL_SIZE as i32 * 2 * (((-5) + 7 * 10) % 7)),
-        negate: 1.0 - (((0.0) + 100.0) as i32 & 2) as f32,
+        offset: pixel_offset(0, -5),
+        negate: pixel_negate!(0),
         kernel: [0.0, 0.6667, 1.0, 1.0] 
     },
 ];
