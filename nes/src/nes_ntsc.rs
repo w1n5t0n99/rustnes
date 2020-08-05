@@ -70,6 +70,7 @@ struct Init {
     kernel: [f32; (RESCALE_OUT*KERNEL_SIZE*2) as usize],
 }
 
+#[inline]
 fn rotate_iq(i: &mut f32, q: &mut f32, sin_b: f32, cos_b: f32) {
     let t = *i * cos_b - *q * sin_b;
     *q = *i * sin_b * *q * cos_b;
@@ -362,10 +363,24 @@ fn init(init: &mut Init, setup: &NesNtscSetup) {
     }
 }
 
+#[inline]
+fn yiq_to_rgb_int(y: f32, i: f32, q: f32, to_rgb: &[f32]) -> (u32, u32, u32) {
+    let r = (y + to_rgb[0] * i + to_rgb[1] * q) as u32;
+    let g = (y + to_rgb[2] * i + to_rgb[3] * q) as u32;
+    let b = (y + to_rgb[4] * i + to_rgb[5] * q) as u32;
+    (r, g, b)
+}
+
+#[inline]
+fn pack_rgb(r: u32, g: u32, b: u32) -> u32 {
+    (r << 21) | (g << 11) | (b << 1)
+}
+
 /* Generate pixel at all burst phases and column alignments */
-fn gen_kernel(init: &mut Init, mut y: f32, i: f32, q: f32, out: &mut NesNtscRgb) {
+fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [NesNtscRgb]) {
     /* generate for each scanline burst phase */
-    let to_rgb_index: usize = 0;
+    let mut to_rgb_index: usize = 0;
+    let mut out_index: usize = 0;
     let mut burst_remain = NES_NTSC_BURST_COUNT;
     y -= RGB_OFFSET;
 
@@ -404,11 +419,19 @@ fn gen_kernel(init: &mut Init, mut y: f32, i: f32, q: f32, out: &mut NesNtscRgb)
 
                 if RESCALE_OUT <= 1 { kernel_index -= 1; }
                 else if kernel_index <  (KERNEL_SIZE * 2 * (RESCALE_OUT - 1)) as usize { kernel_index += (KERNEL_SIZE as usize * 2 -1); }
+                else { kernel_index -= (KERNEL_SIZE as usize * 2 * (RESCALE_OUT as usize - 1) + 2); }
+
+                let (r, g, b) = yiq_to_rgb_int(y, i, q, &init.to_rgb[to_rgb_index..]);
+                out[out_index] = pack_rgb(r, g, b) - RGB_BIAS;
+                out_index += 1;
             }
 
             alignment_remain -= 1;
             if alignment_remain == 0 { break; }
         }
+
+        to_rgb_index += 6;
+        rotate_iq(&mut i, &mut q, -0.866025_f32, -0.5_f32);  /* -120 degrees */
 
        burst_remain -= 1;
        if burst_remain == 0 { break; } 
