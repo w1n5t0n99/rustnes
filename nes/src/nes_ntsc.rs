@@ -7,6 +7,7 @@
 */
 type NesNtscRgbT = u32;
 const NES_NTSC_ENTRY_SIZE: u32 = 128;
+//TODO allow changing of palette size
 const NES_NTSC_PALETTE_SIZE: u32 = 64 * 8;    // 6 bit color + 3 bit emphasis
 // const NES_NTSC_PALETTE_SIZE: usize = 64;     // 6 bit  color only
 
@@ -70,6 +71,20 @@ struct Init {
     kernel: [f32; (RESCALE_OUT*KERNEL_SIZE*2) as usize],
 }
 
+impl Default for Init {
+    fn default() -> Self {
+         Init {
+             to_rgb: [0.0; (NES_NTSC_BURST_COUNT * 6) as usize],
+            to_float: [0.0; GAMMA_SIZE as usize],
+            contrast: 0.0,
+            brightness: 0.0,
+            artifacts: 0.0,
+            fringing: 0.0,
+            kernel: [0.0; (RESCALE_OUT*KERNEL_SIZE*2) as usize]
+         }
+    }
+}
+
 #[inline]
 fn rotate_iq(i: &mut f32, q: &mut f32, sin_b: f32, cos_b: f32) {
     let t = *i * cos_b - *q * sin_b;
@@ -77,7 +92,7 @@ fn rotate_iq(i: &mut f32, q: &mut f32, sin_b: f32, cos_b: f32) {
     *i = t;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct NesNtscSetup {
     /* Basic parameters */
     hue: f64,                   /* -1 = -180 degrees     +1 = +180 degrees */
@@ -157,6 +172,19 @@ const NES_NTSC_RGB: NesNtscSetup  = NesNtscSetup {
 };
 
 #[derive(Clone, Copy)]
+pub struct NesNtsc {
+    table: [[NesNtscRgbT; NES_NTSC_ENTRY_SIZE as usize]; NES_NTSC_PALETTE_SIZE as usize],
+}
+
+impl Default for NesNtsc {
+    fn default() -> Self {
+        NesNtsc {
+            table: [[0; NES_NTSC_ENTRY_SIZE as usize]; NES_NTSC_PALETTE_SIZE as usize],    
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct PixelInfo {
     offset: i32,
     negate: f32,
@@ -204,7 +232,7 @@ const fn nes_ntsc_in_width(out_width: u32) -> u32 {
     (out_width / (NES_NTSC_OUT_CHUNK - 1)) * (NES_NTSC_IN_CHUNK + 1)
 }
 
-fn init_filters(init: &mut Init, setup: &NesNtscSetup) {
+fn init_filters(imp: &mut Init, setup: &NesNtscSetup) {
     // TODO: as abitilty to switch kernel to user implementation
     let mut kernels: [f32; (KERNEL_SIZE * 2) as usize] = [0.0; (KERNEL_SIZE * 2) as usize];
 
@@ -290,7 +318,7 @@ fn init_filters(init: &mut Init, setup: &NesNtscSetup) {
     /* generate linear rescale kernels */
     {
         let mut weight: f32 = 1.0;
-        let x = &mut init.kernel;
+        let x = &mut imp.kernel;
         let mut kernel_index: usize = 0;
         for n in (0..RESCALE_OUT).rev() {
             let mut remain: f32 = 0.0;
@@ -307,20 +335,20 @@ fn init_filters(init: &mut Init, setup: &NesNtscSetup) {
     }        
 }
 
-fn init(init: &mut Init, setup: &NesNtscSetup) {
-    init.brightness = setup.brightness as f32 * (0.5 * RGB_UNIT as f32) + RGB_OFFSET;
-    init.contrast = setup.contrast as f32 * (0.5 * RGB_UNIT as f32) + RGB_UNIT as f32;
+fn init(imp: &mut Init, setup: &NesNtscSetup) {
+    imp.brightness = setup.brightness as f32 * (0.5 * RGB_UNIT as f32) + RGB_OFFSET;
+    imp.contrast = setup.contrast as f32 * (0.5 * RGB_UNIT as f32) + RGB_UNIT as f32;
     // TODO default palette contrast
 
-    init.artifacts = setup.artifacts as f32;
-    if init.artifacts > 0.0 { init.artifacts *= ARTIFACTS_MAX - ARTIFACTS_MID; }
-    init.artifacts = init.artifacts * ARTIFACTS_MID + ARTIFACTS_MID;
+    imp.artifacts = setup.artifacts as f32;
+    if imp.artifacts > 0.0 { imp.artifacts *= ARTIFACTS_MAX - ARTIFACTS_MID; }
+    imp.artifacts = imp.artifacts * ARTIFACTS_MID + ARTIFACTS_MID;
 
-    init.fringing = setup.fringing as f32;
-    if init.fringing > 0.0 { init.fringing *= FRINGING_MAX - FRINGING_MID; }
-    init.fringing = init.fringing * init.fringing + FRINGING_MID;
+    imp.fringing = setup.fringing as f32;
+    if imp.fringing > 0.0 { imp.fringing *= FRINGING_MAX - FRINGING_MID; }
+    imp.fringing = imp.fringing * imp.fringing + FRINGING_MID;
 
-    init_filters(init, setup);
+    init_filters(imp, setup);
 
     /* generate gamma table */
     if GAMMA_SIZE > 1 {
@@ -329,7 +357,7 @@ fn init(init: &mut Init, setup: &NesNtscSetup) {
         let gamma : f32 = 1.1333 - setup.gamma as f32 * 0.5;
         /* match common PC's 2.2 gamma to TV's 2.65 gamma */
         for i in 0..GAMMA_SIZE {
-            init.to_float[i as usize] = (i as f32 * to_float).powf(gamma) * init.contrast + init.brightness;
+            imp.to_float[i as usize] = (i as f32 * to_float).powf(gamma) * imp.contrast + imp.brightness;
         }
     }
 
@@ -352,9 +380,9 @@ fn init(init: &mut Init, setup: &NesNtscSetup) {
                 let q = setup.decoder_matrix[y];
                 y += 1;
 
-                init.to_rgb[x] = i * c - q * s;
+                imp.to_rgb[x] = i * c - q * s;
                 x += 1;
-                init.to_rgb[x] = i * s + q * c;
+                imp.to_rgb[x] = i * s + q * c;
                 x += 1;
             }
 
@@ -377,7 +405,7 @@ fn pack_rgb(r: u32, g: u32, b: u32) -> u32 {
 }
 
 /* Generate pixel at all burst phases and column alignments */
-fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [NesNtscRgbT]) {
+fn gen_kernel(imp: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [NesNtscRgbT]) {
     /* generate for each scanline burst phase */
     let mut to_rgb_index: usize = 0;
     let mut out_index: usize = 0;
@@ -393,13 +421,13 @@ fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [Ne
         let mut alignment_remain = ALIGNMENT_COUNT;
         loop {
             /* negate is -1 when composite starts at odd multiple of 2 */
-            let yy = y * init.fringing * NES_NTSC_PIXELS[pixel_info_index].negate;
+            let yy = y * imp.fringing * NES_NTSC_PIXELS[pixel_info_index].negate;
             let ic0 = (i + yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[0];
             let qc1 = (q + yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[1];
             let ic2 = (i - yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[2];
             let qc3 = (q - yy) * NES_NTSC_PIXELS[pixel_info_index].kernel[3];
 
-            let factor = init.artifacts * NES_NTSC_PIXELS[pixel_info_index].negate;
+            let factor = imp.artifacts * NES_NTSC_PIXELS[pixel_info_index].negate;
             let ii  = i * factor;
             let yc0 = (y + ii) * NES_NTSC_PIXELS[pixel_info_index].kernel[0];
             let yc2 = (y - ii) * NES_NTSC_PIXELS[pixel_info_index].kernel[2];
@@ -412,16 +440,16 @@ fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [Ne
             pixel_info_index += 1;
 
             for n in (0..RGB_KERNEL_SIZE).rev() {
-                let i = init.kernel[kernel_index+0] * ic0 + init.kernel[kernel_index+2] * ic2;
-                let q = init.kernel[kernel_index+1] * qc1 + init.kernel[kernel_index+3] * qc3;
-                let y = init.kernel[KERNEL_SIZE as usize+0] * yc0 + init.kernel[KERNEL_SIZE as usize+1] * yc1 + 
-                    init.kernel[KERNEL_SIZE as usize+2] * yc2 + init.kernel[KERNEL_SIZE as usize+3] * yc3 + RGB_OFFSET;
+                let i = imp.kernel[kernel_index+0] * ic0 + imp.kernel[kernel_index+2] * ic2;
+                let q = imp.kernel[kernel_index+1] * qc1 + imp.kernel[kernel_index+3] * qc3;
+                let y = imp.kernel[KERNEL_SIZE as usize+0] * yc0 + imp.kernel[KERNEL_SIZE as usize+1] * yc1 + 
+                imp.kernel[KERNEL_SIZE as usize+2] * yc2 + imp.kernel[KERNEL_SIZE as usize+3] * yc3 + RGB_OFFSET;
 
                 if RESCALE_OUT <= 1 { kernel_index -= 1; }
                 else if kernel_index <  (KERNEL_SIZE * 2 * (RESCALE_OUT - 1)) as usize { kernel_index += (KERNEL_SIZE as usize * 2 -1); }
                 else { kernel_index -= (KERNEL_SIZE as usize * 2 * (RESCALE_OUT as usize - 1) + 2); }
 
-                let (r, g, b) = yiq_to_rgb_int(y, i, q, &init.to_rgb[to_rgb_index..]);
+                let (r, g, b) = yiq_to_rgb_int(y, i, q, &imp.to_rgb[to_rgb_index..]);
                 out[out_index] = pack_rgb(r, g, b) - RGB_BIAS;
                 out_index += 1;
             }
@@ -469,7 +497,35 @@ fn merge_fields(io: &mut [NesNtscRgbT]) {
     }
 }
 
+pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
+    let mut imp: Init = Default::default();
+    let setup = setup.unwrap_or(NES_NTSC_COMPOSITE);
+    init(&mut imp, &setup);
+    /* setup fast gamma */
+    let gamma_factor = {
+        let mut gamma = setup.gamma as f32 * -0.5;
+        if std_hue_condition(&setup) {
+            gamma += 0.1333;
+        }
 
+        let mut gf =  gamma.abs().powf(0.73);
+        if gamma < 0.0 {
+            gf = -gf;
+        }
+
+        gf
+    };
+
+    let merge_fields = if setup.artifacts <= -1.0 && setup.fringing <= -1.0 {
+        1.0
+    }
+    else {
+        setup.merge_fields
+    };
+
+    
+
+}
 
 #[cfg(test)]
 mod tests {
