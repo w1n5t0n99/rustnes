@@ -5,7 +5,7 @@
     default). The NES pixels are 6-bit raw palette values (0 to 0x3F). Edit
     nes_ntsc_config.h to change this
 */
-type NesNtscRgb = u32;
+type NesNtscRgbT = u32;
 const NES_NTSC_ENTRY_SIZE: u32 = 128;
 const NES_NTSC_PALETTE_SIZE: u32 = 64 * 8;    // 6 bit color + 3 bit emphasis
 // const NES_NTSC_PALETTE_SIZE: usize = 64;     // 6 bit  color only
@@ -377,7 +377,7 @@ fn pack_rgb(r: u32, g: u32, b: u32) -> u32 {
 }
 
 /* Generate pixel at all burst phases and column alignments */
-fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [NesNtscRgb]) {
+fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [NesNtscRgbT]) {
     /* generate for each scanline burst phase */
     let mut to_rgb_index: usize = 0;
     let mut out_index: usize = 0;
@@ -436,8 +436,40 @@ fn gen_kernel(init: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [Ne
        burst_remain -= 1;
        if burst_remain == 0 { break; } 
     }
-
 }
+
+fn correct_errors(color: NesNtscRgbT, out: &mut [NesNtscRgbT]) {
+    for n in (0..NES_NTSC_BURST_COUNT).rev() {
+        for i in 0..(RGB_KERNEL_SIZE as usize/2) {
+            let error = color - out[i] - out[(i+12)%14+24] - out[(i+10)%14+28] -
+                out[i+7] - out[i+5+14] - out [i+3+28];
+            
+            // Distribute error
+            let mut fourth = (error + 2 * NES_NTSC_RGB_BUILDER) >> 2;
+            fourth &= (RGB_BIAS >> 1) - NES_NTSC_RGB_BUILDER;
+            fourth -= (RGB_BIAS >> 2);
+            out[i+3+28] += fourth;
+            out[i+5+14] += fourth;
+            out[i+7] += error - (fourth*3);            
+        }
+    }
+}
+
+fn merge_fields(io: &mut [NesNtscRgbT]) {
+    let mut io_index: usize = 0;
+    for _n in (0..BURST_SIZE).rev() {
+        let p0 = io[io_index + (BURST_SIZE as usize * 0)] + RGB_BIAS;
+        let p1 = io[io_index + (BURST_SIZE as usize * 1)] + RGB_BIAS;
+        let p2 = io[io_index + (BURST_SIZE as usize * 2)] + RGB_BIAS;
+        /* merge colors without losing precision */
+        io[io_index + (BURST_SIZE as usize * 0)] = ((p0 + p1 - ((p0 ^ p1) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
+        io[io_index + (BURST_SIZE as usize * 1)] = ((p1 + p2 - ((p1 ^ p2) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
+        io[io_index + (BURST_SIZE as usize * 2)] = ((p2 + p0 - ((p2 ^ p0) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
+        io_index += 1;
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {
