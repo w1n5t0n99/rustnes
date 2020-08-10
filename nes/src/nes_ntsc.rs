@@ -321,7 +321,7 @@ fn init_filters(imp: &mut Init, setup: &NesNtscSetup) {
         let x = &mut imp.kernel;
         let mut kernel_index: usize = 0;
         for n in (0..RESCALE_OUT).rev() {
-            let mut remain: f32 = 0.0;
+            let remain: f32 = 0.0;
             let mut i: usize = 0;
             weight -= 1.0 / (RESCALE_IN as f32);
             for i in 0..(KERNEL_SIZE * 2) {
@@ -400,6 +400,24 @@ fn yiq_to_rgb_int(y: f32, i: f32, q: f32, to_rgb: &[f32]) -> (u32, u32, u32) {
 }
 
 #[inline]
+fn yiq_to_rgb_float(y: f32, i: f32, q: f32, to_rgb: &[f32]) -> (f32, f32, f32) {
+    let r = y + to_rgb[0] * i + to_rgb[1] * q;
+    let g = y + to_rgb[2] * i + to_rgb[3] * q;
+    let b = y + to_rgb[4] * i + to_rgb[5] * q;
+    (r, g, b)
+}
+
+#[inline]
+fn rgb_to_yiq(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let y = r * 0.299 + g * 0.587 + b * 0.114;
+    let i = r * 0.596 - g * 0.275 - b * 0.321;
+    let q = r * 0.212 - g * 0.523 + b * 0.311;
+    (y, i, q)
+}
+
+
+
+#[inline]
 fn pack_rgb(r: u32, g: u32, b: u32) -> u32 {
     (r << 21) | (g << 11) | (b << 1)
 }
@@ -447,7 +465,7 @@ fn gen_kernel(imp: &mut Init, mut y: f32, mut i: f32, mut q: f32, out: &mut [Nes
 
                 if RESCALE_OUT <= 1 { kernel_index -= 1; }
                 else if kernel_index <  (KERNEL_SIZE * 2 * (RESCALE_OUT - 1)) as usize { kernel_index += (KERNEL_SIZE as usize * 2 -1); }
-                else { kernel_index -= (KERNEL_SIZE as usize * 2 * (RESCALE_OUT as usize - 1) + 2); }
+                else { kernel_index -= KERNEL_SIZE as usize * 2 * (RESCALE_OUT as usize - 1) + 2; }
 
                 let (r, g, b) = yiq_to_rgb_int(y, i, q, &imp.to_rgb[to_rgb_index..]);
                 out[out_index] = pack_rgb(r, g, b) - RGB_BIAS;
@@ -475,7 +493,7 @@ fn correct_errors(color: NesNtscRgbT, out: &mut [NesNtscRgbT]) {
             // Distribute error
             let mut fourth = (error + 2 * NES_NTSC_RGB_BUILDER) >> 2;
             fourth &= (RGB_BIAS >> 1) - NES_NTSC_RGB_BUILDER;
-            fourth -= (RGB_BIAS >> 2);
+            fourth -= RGB_BIAS >> 2;
             out[i+3+28] += fourth;
             out[i+5+14] += fourth;
             out[i+7] += error - (fourth*3);            
@@ -483,7 +501,7 @@ fn correct_errors(color: NesNtscRgbT, out: &mut [NesNtscRgbT]) {
     }
 }
 
-fn merge_fields(io: &mut [NesNtscRgbT]) {
+fn merge_kernel_fields(io: &mut [NesNtscRgbT]) {
     let mut io_index: usize = 0;
     for _n in (0..BURST_SIZE).rev() {
         let p0 = io[io_index + (BURST_SIZE as usize * 0)] + RGB_BIAS;
@@ -532,10 +550,10 @@ pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
         let mut lo = LO_LEVELS[level as usize];
         let mut hi = HIGH_LEVELS[level as usize];
 
-        let mut color = entry & 0x0F;
+        let color = entry & 0x0F;
         if color == 0 { lo = hi; }
         if color == 0x0D { hi = lo; }
-        if color > 0x0D { hi = 0; lo = 0;}
+        if color > 0x0D { hi = 0.0; lo = 0.0;}
 
         {
             let PHASES: [f32; 0x10+3] = [
@@ -550,19 +568,74 @@ pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
             
             /* Convert raw waveform to YIQ */
             let sat = (hi - lo) * 0.5;
-            let i  = PHASES[color as usize] * sat;
-            let q = PHASES[(color + 3) as usize] * sat;
-            let y = (hi + lo) * 0.5;
+            let mut i  = PHASES[color as usize] * sat;
+            let mut q = PHASES[(color + 3) as usize] * sat;
+            let mut y = (hi + lo) * 0.5;
 
             /* Apply color emphasis */
             // #ifdef NES_NTSC_EMPHASIS
+
             // upper 3 bits of 9 bit emphasis + color
             let tint = entry >> 6 & 7;
             
+            if tint > 0 && color <= 0x0D {
+                static ATTEN_MUL: f32 = 0.79399;
+                static ATTEN_SUB: f32 = 0.0782838;
 
+                if tint == 7 {
+                    y = y * (ATTEN_MUL * 1.13) - (ATTEN_SUB * 1.13);
+                }
+                else {
+                    static TINTS: [u32; 8] = [ 0, 6, 10, 8, 2, 4, 0, 0 ];
+                    let tint_color = TINTS[tint as usize];
+                    let mut sat = hi * (0.5 - ATTEN_MUL * 0.5) + ATTEN_SUB * 0.5;
+                    y -= sat * 0.5;
+                    if tint >= 3 && tint != 4 {
+                        /* combined tint bits */
+                        sat *= 0.6;
+                        y -= sat;
+                    } 
+
+                    i += PHASES[tint_color as usize] * sat;
+                    q += PHASES[(tint_color + 3) as usize] * sat;
+                }
+            }
+
+            /* Apply brightness, contrast, and gamma */
+            y *= setup.contrast as f32 * 0.5 + 1.0;
+            /* adjustment reduces error when using input palette */
+            y += setup.brightness as f32 * 0.5 - 0.5 / 256.0;
+
+            {
+                let (mut r, mut g, mut b) = yiq_to_rgb_float(y, i, q, &DEFAULT_DECODER);
+                /* fast approximation of n = pow( n, gamma ) */
+                r = (r * gamma_factor - gamma_factor) * r + r;
+                g = (g * gamma_factor - gamma_factor) * g + g;
+                b = (b * gamma_factor - gamma_factor) * b + b;
+                let (yy, ii, qq) = rgb_to_yiq(r, g, b);
+                y =yy;
+                i =ii;
+                q = qq;
+            }
+
+            i *= RGB_UNIT as f32;
+			q *= RGB_UNIT as f32;
+			y *= RGB_UNIT as f32;
+            y += RGB_OFFSET;
+            
+            /* Generate kernel */
+            {
+                let (r, g, mut b) = yiq_to_rgb_int(y, i, q, &imp.to_rgb);
+                /* blue tends to overflow, so clamp it */
+                b = if b < 0x3E0 { 0x3E0 } else { b };
+                let rgb: NesNtscRgbT = pack_rgb(r, g, b);
+
+                gen_kernel(&mut imp, y, i, q, &mut ntsc.table[entry as usize]);
+                if merge_fields > 0.0 { merge_kernel_fields(&mut ntsc.table[entry as usize]); }
+                correct_errors(rgb, &mut ntsc.table[entry as usize]);
+            }
         }
     }
-
 }
 
 #[cfg(test)]
