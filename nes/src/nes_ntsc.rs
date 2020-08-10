@@ -523,7 +523,45 @@ pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
         setup.merge_fields
     };
 
-    
+    for entry in 0..NES_NTSC_PALETTE_SIZE {
+        /* Base 64-color generation */
+        static LO_LEVELS: [f32; 4] = [-0.12, 0.00, 0.31, 0.72];
+        static HIGH_LEVELS: [f32; 4] = [0.40, 0.68, 1.00, 1.00];
+
+        let level = entry >> 4 & 0x03;
+        let mut lo = LO_LEVELS[level as usize];
+        let mut hi = HIGH_LEVELS[level as usize];
+
+        let mut color = entry & 0x0F;
+        if color == 0 { lo = hi; }
+        if color == 0x0D { hi = lo; }
+        if color > 0x0D { hi = 0; lo = 0;}
+
+        {
+            let PHASES: [f32; 0x10+3] = [
+                -1.0, -0.866025, -0.5, 0.0,  0.5,  0.866025,
+				 1.0,  0.866025,  0.5, 0.0, -0.5, -0.866025,
+				-1.0, -0.866025, -0.5, 0.0,  0.5,  0.866025,
+				 1.0
+            ];
+            
+            // #define TO_ANGLE_SIN( color )   phases [color]
+            // #define TO_ANGLE_COS( color )   phases [(color) + 3]
+            
+            /* Convert raw waveform to YIQ */
+            let sat = (hi - lo) * 0.5;
+            let i  = PHASES[color as usize] * sat;
+            let q = PHASES[(color + 3) as usize] * sat;
+            let y = (hi + lo) * 0.5;
+
+            /* Apply color emphasis */
+            // #ifdef NES_NTSC_EMPHASIS
+            // upper 3 bits of 9 bit emphasis + color
+            let tint = entry >> 6 & 7;
+            
+
+        }
+    }
 
 }
 
