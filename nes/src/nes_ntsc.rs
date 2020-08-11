@@ -638,6 +638,17 @@ pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
     }
 }
 
+/*
+    Custom Blitter
+    --------------
+    row_width - number of pixels to get to next row (may be greater than width)
+    For example if you want to blit 257 input
+    pixels on a row (for whatever odd reason)
+*/
+pub fn nes_ntsc_blit(ntsc: &mut NesNtsc, input: &[u16],  row_width: u32, burst_phase: u32, in_width: u32, in_height: u32, rgb_out: &mut[u32], long_pitch: u32) {
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
