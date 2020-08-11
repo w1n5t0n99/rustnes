@@ -11,7 +11,6 @@ const NES_NTSC_ENTRY_SIZE: u32 = 128;
 const NES_NTSC_PALETTE_SIZE: u32 = 64 * 8;    // 6 bit color + 3 bit emphasis
 // const NES_NTSC_PALETTE_SIZE: usize = 64;     // 6 bit  color only
 const NES_NTSC_BURST_SIZE: u32 = NES_NTSC_ENTRY_SIZE / NES_NTSC_BURST_COUNT;
-
 //TODO change to user mutable types
 /* Interface for user-defined custom blitters */
 const NES_NTSC_IN_CHUNK: u32 = 3;       /* number of input pixels read per chunk */
@@ -19,6 +18,10 @@ const NES_NTSC_OUT_CHUNK: u32 = 7;      /* number of output pixels generated per
 const NES_NTSC_BLACK: u32 = 15;         /* palette index for black */
 const NES_NTSC_BURST_COUNT: u32 = 3;    /* burst phase cycles through 0, 1, and 2 */
 const NES_NTSC_RGB_BUILDER: u32 = (1 << 21) | (1 << 11) | (1 << 1);
+/* Bits per pixel of output. Can be 15, 16, 32, or 24 (same as 32). */
+const NES_NTSC_OUT_DEPTH: u32 = 32;
+/* For each pixel, this is the basic operation:
+output_color = color_palette [NES_NTSC_ADJ_IN( NES_NTSC_IN_T )] */
 
 /* Common implementation of NTSC filters */
 const LUMA_CUTOFF: f32 = 0.20;
