@@ -10,6 +10,7 @@ const NES_NTSC_ENTRY_SIZE: u32 = 128;
 //TODO allow changing of palette size
 const NES_NTSC_PALETTE_SIZE: u32 = 64 * 8;    // 6 bit color + 3 bit emphasis
 // const NES_NTSC_PALETTE_SIZE: usize = 64;     // 6 bit  color only
+const NES_NTSC_BURST_SIZE: u32 = NES_NTSC_ENTRY_SIZE / NES_NTSC_BURST_COUNT;
 
 //TODO change to user mutable types
 /* Interface for user-defined custom blitters */
@@ -36,7 +37,6 @@ const FRINGING_MAX: f32 = FRINGING_MID * 2.0;
 const STD_DECODER_HUE: f32 = -15.0;
 const EXT_DECODER_HUE: f32 = STD_DECODER_HUE + 15.0;
 
-const BURST_SIZE: u32 = NES_NTSC_ENTRY_SIZE / NES_NTSC_BURST_COUNT;
 const KERNEL_HALF: u32 = 16;
 const KERNEL_SIZE: u32 = (KERNEL_HALF * 2) + 1;
 const RESCALE_OUT: u32 = 7;
@@ -638,6 +638,8 @@ pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
     }
 }
 
+
+
 /*
     Custom Blitter
     --------------
@@ -646,7 +648,10 @@ pub fn nes_ntsc_init(ntsc: &mut NesNtsc, setup: Option<NesNtscSetup>) {
     pixels on a row (for whatever odd reason)
 */
 pub fn nes_ntsc_blit(ntsc: &mut NesNtsc, input: &[u16],  row_width: u32, burst_phase: u32, in_width: u32, in_height: u32, rgb_out: &mut[u32], long_pitch: u32) {
+    let chunk_count = (in_width -1) / NES_NTSC_IN_CHUNK;
+    for _i in 0..in_height {
 
+    }    
 }
 
 #[cfg(test)]
@@ -660,6 +665,5 @@ mod tests {
             println!("pixel offset {}", n.offset);
         }
     }
-
 }
 
