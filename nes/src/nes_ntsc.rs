@@ -45,7 +45,7 @@ const KERNEL_SIZE: u32 = (KERNEL_HALF * 2) + 1;
 const RESCALE_OUT: u32 = 7;
 const RESCALE_IN: u32 = 8;
 const ALIGNMENT_COUNT: u32 = 3;
-const RGB_KERNEL_SIZE: u32 = BURST_SIZE / ALIGNMENT_COUNT;
+const RGB_KERNEL_SIZE: u32 = NES_NTSC_BURST_SIZE / ALIGNMENT_COUNT;
 const RGB_BIAS: u32 = RGB_UNIT * 2 * NES_NTSC_RGB_BUILDER;
 
 const DEFAULT_DECODER: [f32; 6] = [0.956, 0.621, -0.272, -0.647, -1.105, 1.702];
@@ -506,14 +506,14 @@ fn correct_errors(color: NesNtscRgbT, out: &mut [NesNtscRgbT]) {
 
 fn merge_kernel_fields(io: &mut [NesNtscRgbT]) {
     let mut io_index: usize = 0;
-    for _n in (0..BURST_SIZE).rev() {
-        let p0 = io[io_index + (BURST_SIZE as usize * 0)] + RGB_BIAS;
-        let p1 = io[io_index + (BURST_SIZE as usize * 1)] + RGB_BIAS;
-        let p2 = io[io_index + (BURST_SIZE as usize * 2)] + RGB_BIAS;
+    for _n in (0..NES_NTSC_BURST_SIZE).rev() {
+        let p0 = io[io_index + (NES_NTSC_BURST_SIZE as usize * 0)] + RGB_BIAS;
+        let p1 = io[io_index + (NES_NTSC_BURST_SIZE as usize * 1)] + RGB_BIAS;
+        let p2 = io[io_index + (NES_NTSC_BURST_SIZE as usize * 2)] + RGB_BIAS;
         /* merge colors without losing precision */
-        io[io_index + (BURST_SIZE as usize * 0)] = ((p0 + p1 - ((p0 ^ p1) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
-        io[io_index + (BURST_SIZE as usize * 1)] = ((p1 + p2 - ((p1 ^ p2) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
-        io[io_index + (BURST_SIZE as usize * 2)] = ((p2 + p0 - ((p2 ^ p0) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
+        io[io_index + (NES_NTSC_BURST_SIZE as usize * 0)] = ((p0 + p1 - ((p0 ^ p1) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
+        io[io_index + (NES_NTSC_BURST_SIZE as usize * 1)] = ((p1 + p2 - ((p1 ^ p2) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
+        io[io_index + (NES_NTSC_BURST_SIZE as usize * 2)] = ((p2 + p0 - ((p2 ^ p0) & NES_NTSC_RGB_BUILDER)) >> 1) - RGB_BIAS;
         io_index += 1;
     }
 }
