@@ -25,6 +25,10 @@ struct EmphasisColor {
     pub b: u8,
 }
 
+fn wave(p: u32, color: u32) -> bool {
+    ((color + p + 8) % 12) < 6
+}
+ 
 fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightness: f32, gamma: f32) -> RgbColor {
     // The input value is a NES color index (with de-emphasis bits).
 	// We need RGB values. Convert the index into RGB.
@@ -46,6 +50,27 @@ fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightne
 		1.094, 1.506, 1.962, 1.962  // Signal high
      ];
 
+     let lo_and_hi: [f32; 2] = [ 
+         LEVELS[(level + 4 * (color == 0) as u8) as usize],
+         LEVELS[(level + 4 * (color < 0x0D) as u8) as usize],
+        ];
+    
+    // Calculate the luma and chroma by emulating the relevant circuits
+    let mut y = 0.0_f32;
+    let mut i = 0.0_f32;
+    let mut q = 0.0_f32;
+    
+    // 12 clock cycles (samples) per pixel
+    for p in 0..12 {
+        // NES NTSC modulator (square wave between two voltage levels)
+        let mut spot = lo_and_hi[wave(p, color as u32) as usize];
+
+        // De-emphasis bits attenuate a part of the signal
+        if ((emphasis & 0x01) > 0 && wave(p, 12)) || ((emphasis & 0x02) > 0 && wave(p, 4)) || ((emphasis & 0x04) > 0 && wave(p, 8)) {
+			spot *= ATTENUATION;
+		}
+
+    }
 
      RgbColor { r: 0, g: 0, b: 0}
 }
