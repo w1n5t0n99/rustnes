@@ -105,9 +105,9 @@ fn ntsc_decode_line(signal_levels: &[f32], ntsc_pixels: &mut [u32], ppu_cycle: u
 
         // convert yiq to rgb
         let pixel_rgb = 
-        0x10000 * clamp((255.95_f32 * gamma_fix(y + 0.946882_f32*i +  0.623557_f32*q)) as u32)
-        + 0x00100 * clamp((255.95_f32 * gamma_fix(y + -0.274788_f32*i +  -0.635691_f32*q)) as u32)
-        + 0x00001 * clamp((255.95_f32 * gamma_fix(y + -1.108545_f32*i +  1.709007_f32*q)) as u32);
+        0x10000 * clamp((255.95_f32 * gamma_fix(y + 0.946882 * i +  0.623557_f32 * q)) as u32)
+        + 0x00100 * clamp((255.95_f32 * gamma_fix(y + -0.274788 * i +  -0.635691 * q)) as u32)
+        + 0x00001 * clamp((255.95_f32 * gamma_fix(y + -1.108545 * i +  1.709007 * q)) as u32);
 
         ntsc_pixels[x] = pixel_rgb;
     }
@@ -145,10 +145,6 @@ fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightne
         v *= brightness / 12.0;
 
         y += v;
-        //i += v * (std::f32::consts::PI / 6.0).cos() * (p as f32 + hue);
-        //q += v * (std::f32::consts::PI / 6.0).sin() * (p as f32 + hue);
-
-        //y = y + level;
         i = i + v * (std::f32::consts::PI * (hue + (phase as f32)) / 6.0).cos();
         q = q + v * (std::f32::consts::PI * (hue + (phase as f32)) / 6.0).sin();
     }
