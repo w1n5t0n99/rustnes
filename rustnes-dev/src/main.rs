@@ -72,7 +72,7 @@ pub fn display_rom_chr<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
 
 fn main() -> Result<(), NesError> {
     //execute_nestest_cpu_only("test_roms\\nestest.nes")?;
-    display_rom_chr("test_roms\\donkey_kong.nes")?;
+    display_rom_chr("test_roms\\nestest.nes")?;
 
     Ok(())
 }
