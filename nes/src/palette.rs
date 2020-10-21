@@ -5,87 +5,139 @@
     Implementation based on https://wiki.nesdev.com/w/index.php/NTSC_video
 */
 
-pub const DEFAULT_SATURATION: f32 = 1.0;
-pub const DEFAULT_HUE: f32 = 0.0;
-pub const DEFAULT_CONTRAST: f32 = 1.0;
-pub const DEFAULT_BRIGHTNESS: f32 = 1.0;
-pub const DEFAULT_GAMMA: f32 = 1.4;
+pub static DEFAULT_SATURATION: f32 = 1.0;
+pub static DEFAULT_HUE: f32 = 0.0;
+pub static DEFAULT_CONTRAST: f32 = 1.0;
+pub static DEFAULT_BRIGHTNESS: f32 = 1.0;
+pub static DEFAULT_GAMMA: f32 = 1.4;
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-struct RgbColor {
-    pub r: u32,
-    pub g: u32,
-    pub b: u32,
+static BLACK: f32 = 0.518;
+static WHITE: f32 = 1.962;
+static ATTENUATION: f32 = 0.746;
+
+static LEVELS: [f32; 8] = [
+    0.350, 0.518, 0.962,1.550,  // Signal low
+    1.094,1.506,1.962,1.962  // Signal high
+    ];
+
+#[inline]
+fn incolor_phase(color: u64, phase: u64) -> bool {
+    color.wrapping_add(phase).wrapping_rem_euclid(12) < 6
 }
 
-impl RgbColor {
-    pub fn merge(&self) -> u32 {
-        (self.r << 24) | (self.g << 16) | self.b
+#[inline]
+fn gamma_fix(f: f32) -> f32 {
+    let gamma = 2.0_f32; // Assumed display gamma
+    if f <= 0.0_f32 {
+        0.0_f32
+    }
+    else {
+        f.powf(2.2_f32/gamma)
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-struct EmphasisColor {
-    pub r: u32,
-    pub g: u32,
-    pub b: u32,
+#[inline]
+fn clamp(v: u32) -> u32 {
+    if v > 255 { 255 } else { v }
 }
 
-fn gamma_fix(f: f32, gamma: f32) -> f32 {
-    if f < 0.0 { 0.0 } else { f.powf(2.2 / gamma) }
+fn ntsc_signal(ppu_pixel: u16, phase: u64) -> f32 {
+    // ppu_output: Output color (9-bit) given as input. Bitmask format: "eeellcccc".
+    // phase: Signal phase (0..11). It is a variable that increases by 8 each pixel.
+    let color = (ppu_pixel & 0x0F) as u64;                                        // 0..15 "cccc"
+    let level = if color > 13 { 1 } else { (ppu_pixel >> 4) & 0x03 };             // 0..3  "ll", For colors 14..15, level 1 is forced.
+    let emphasis = ppu_pixel >> 6;                                                // 0..7  "eee"
+
+    // The square wave for this color alternates between these two voltages:
+    let low = if color == 0 { LEVELS[(4+level) as usize] } else { LEVELS[(0+level) as usize] };
+    let high = if color > 12 { LEVELS[(0+level) as usize] } else { LEVELS[(4+level) as usize] };
+
+    // Generate the square wave
+    let mut signal = if incolor_phase(color, phase) { high } else { low };
+
+    // When de-emphasis bits are set, some parts of the signal are attenuated:
+    if ((emphasis & 0x01) > 0 && incolor_phase(0, phase)) ||
+        ((emphasis & 0x02) > 0 && incolor_phase(4, phase)) ||
+        ((emphasis & 0x04) > 0 && incolor_phase(8, phase)) {
+            signal = signal * ATTENUATION;
+        }
+
+     signal
 }
 
-fn bound<T: std::cmp::Ord>(lower: T, value: T, upper: T) -> T {
-    std::cmp::max(lower, std::cmp::min(value, upper))
+// The process of generating NTSC signal for a single pixel
+fn ntsc_signal_levels_for_single_ouput(x: usize, pixel: u16, ppu_cycle: u64, signal_levels: &mut[f32]) {
+    let phase = ppu_cycle.wrapping_mul(8).wrapping_rem_euclid(12);
+
+    // Each pixel produces distinct 8 samples of NTSC signal.
+    for p in 0..8 {
+        let signal = (ntsc_signal(pixel, phase.wrapping_add(p)) - BLACK) / (WHITE - BLACK);
+        signal_levels[(x*8)+(p as usize)] = signal;
+    }
 }
 
-const fn wave(p: u32, color: u32) -> bool {
-    ((color + p + 8) % 12) < 6
+// calculate the signal levels for a scanline - (256 * 8) levels
+fn ntsc_signal_levels(ppu_pixels: &[u16],  levels: &mut[f32], mut ppu_cycle: u64) {
+    for x in 0..256 {
+        ntsc_signal_levels_for_single_ouput(x, ppu_pixels[x], ppu_cycle, levels);
+        ppu_cycle += 1;
+    }
 }
- 
-fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightness: f32, gamma: f32) -> RgbColor {
-    // The input value is a NES color index (with de-emphasis bits).
-	// We need RGB values. Convert the index into RGB.
-	// For most part, this process is described at:
-    // http://wiki.nesdev.com/w/index.php/NTSC_video
-    
-    // decode the nes color
-    let color = (pixel & 0x0F) as u8;
-    let level = ((pixel >> 4) & 0x03) as u8;
-    let emphasis = (pixel >> 6) as u8;
 
-    // voltage levels relative to sync voltage
-    const BLACK: f32 = 0.518;
-    const WHITE: f32 = 1.962;
-    const ATTENUATION: f32 = 0.746;
+// The ppu cycle at start of scanline
+fn ntsc_decode_line(signal_levels: &[f32], ntsc_pixels: &mut [u32], ppu_cycle: u64) {
+    let phase = ppu_cycle.wrapping_mul(8).wrapping_rem_euclid(12) as f32 + 3.9_f32;
 
-    const LEVELS: [f32; 8] = [
-        0.350, 0.518, 0.962, 1.550, // Signal low
-		1.094, 1.506, 1.962, 1.962  // Signal high
-     ];
+    for x in 0..256 {
+        let center: usize = x * (256 * 8) / 256 + 0;
+        let begin: usize = center.saturating_sub(6);
+        let end: usize = if (center+6) > (256*8) { 256 * 8 } else { center + 6 };
+        let mut y =  0.0_f32; 
+        let mut i = 0.0_f32;
+        let mut q = 0.0_f32;
 
-     let lo_and_hi: [f32; 2] = [ 
-         LEVELS[(level + 4 * (color == 0) as u8) as usize],
-         LEVELS[(level + 4 * (color < 0x0D) as u8) as usize],
-        ];
-    
+        for p in begin..end {
+            let level = signal_levels[p] / 12.0_f32;
+            y = y + level;
+            i = i + level * (std::f32::consts::PI * (phase + (p as f32)) / 6.0_f32).cos();
+            q = q + level * (std::f32::consts::PI * (phase + (p as f32)) / 6.0_f32).sin();
+        }
+
+        // convert yiq to rgb
+        let pixel_rgb = 
+        0x10000 * clamp((255.95_f32 * gamma_fix(y + 0.946882_f32*i +  0.623557_f32*q)) as u32)
+        + 0x00100 * clamp((255.95_f32 * gamma_fix(y + -0.274788_f32*i +  -0.635691_f32*q)) as u32)
+        + 0x00001 * clamp((255.95_f32 * gamma_fix(y + -1.108545_f32*i +  1.709007_f32*q)) as u32);
+
+        ntsc_pixels[x] = pixel_rgb;
+    }
+}
+
+// ppu_cycle: cycle at start of frame rendering
+pub fn gen_ntsc_pixel_buffer(ppu_output_buffer: &[u16], ntsc_pixel_buffer: &mut [u32], frame_height: usize, mut ppu_cycle: u64) {
+    let mut signal_levels: Vec<f32> = vec![0.0_f32; 256*8];
+    let cycles_per_scanline = 341_u64;
+
+    for scanline_index in 0..frame_height {
+        let start = scanline_index * 256;
+        let end = start + 256;
+
+        ntsc_signal_levels(&ppu_output_buffer[start..end], &mut signal_levels, ppu_cycle);
+        ntsc_decode_line(&mut signal_levels, &mut ntsc_pixel_buffer[start..end], ppu_cycle);
+        ppu_cycle = ppu_cycle.wrapping_add(cycles_per_scanline);
+    }
+}
+
+fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightness: f32, gamma: f32) -> u32 {
     // Calculate the luma and chroma by emulating the relevant circuits
     let mut y = 0.0_f32;
     let mut i = 0.0_f32;
     let mut q = 0.0_f32;
     
     // 12 clock cycles (samples) per pixel
-    for p in 0..12 {
-        // NES NTSC modulator (square wave between two voltage levels)
-        let mut spot = lo_and_hi[wave(p, color as u32) as usize];
-
-        // De-emphasis bits attenuate a part of the signal
-        if ((emphasis & 0x01) > 0 && wave(p, 12)) || ((emphasis & 0x02) > 0 && wave(p, 4)) || ((emphasis & 0x04) > 0 && wave(p, 8)) {
-			spot *= ATTENUATION;
-        }
-        
+    for phase in 0..12 {        
         // Normalize
-        let mut v = (spot - BLACK) / (WHITE - BLACK);
+        let mut v = (ntsc_signal(pixel, phase) - BLACK) / (WHITE - BLACK);
 
         // Ideal TV NTSC demodulator
         // Apply contrast/brightness
@@ -93,25 +145,29 @@ fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightne
         v *= brightness / 12.0;
 
         y += v;
-        i += v * (std::f32::consts::PI / 6.0).cos() * (p as f32 + hue);
-        q += v * (std::f32::consts::PI / 6.0).sin() * (p as f32 + hue);
+        //i += v * (std::f32::consts::PI / 6.0).cos() * (p as f32 + hue);
+        //q += v * (std::f32::consts::PI / 6.0).sin() * (p as f32 + hue);
+
+        //y = y + level;
+        i = i + v * (std::f32::consts::PI * (hue + (phase as f32)) / 6.0).cos();
+        q = q + v * (std::f32::consts::PI * (hue + (phase as f32)) / 6.0).sin();
     }
 
     i *= saturation;
     q *= saturation;
 
-    // Convert YIQ into RGB according to FCC-sanctioned conversion matrix.
-    let mut rgb = RgbColor { r: 0, g: 0, b: 0};
-    rgb.r = bound(0x00, (255.0 * gamma_fix(y + 0.946882 * i + 0.623557 * q, gamma)) as i32, 0xFF) as u32;
-    rgb.g = bound(0x00, (255.0 * gamma_fix(y + -0.274788 * i + -0.635691 * q, gamma)) as i32, 0xff) as u32;
-    rgb.b = bound(0x00, (255.0 * gamma_fix(y + -1.108545 * i + 1.709007 * q, gamma)) as i32, 0xff) as u32;
-
-    rgb
+    // convert yiq to rgb
+    0x10000 * clamp((255.95 * gamma_fix(y + 0.946882 * i +  0.623557 * q)) as u32)
+    + 0x00100 * clamp((255.95 * gamma_fix(y + -0.274788 * i +  -0.635691 * q)) as u32)
+    + 0x00001 * clamp((255.95 * gamma_fix(y + -1.108545 * i +  1.709007 * q)) as u32)
 }
 
 pub fn generate_palette(saturation: f32, hue: f32, contrast: f32, brightness: f32, gamma: f32) -> Vec<u32> {
-    (0..0x200).map(|pixel | calc_rgb_color(pixel, saturation, hue, contrast, brightness, gamma).merge()).collect()
+    let vc: Vec<u32> = (0..0x200).map(|pixel | calc_rgb_color(pixel, saturation, hue, contrast, brightness, gamma)).collect();
+    for (count, v) in vc.iter().enumerate() {
+        println!("{}: [{} - {:X}", count, v, v);
+    }
+    vc
 }
-
 
 
