@@ -5,27 +5,41 @@
     Implementation based on https://wiki.nesdev.com/w/index.php/NTSC_video
 */
 
-const DEFAULT_SATURATION: f32 = 1.0;
-const DEFAULT_HUE: f32 = 0.0;
-const DEFAULT_CONTRAST: f32 = 1.0;
-const DEFAULT_BRIGHTNESS: f32 = 1.0;
-const DEFAULT_GAMMA: f32 = 1.4;
+pub const DEFAULT_SATURATION: f32 = 1.0;
+pub const DEFAULT_HUE: f32 = 0.0;
+pub const DEFAULT_CONTRAST: f32 = 1.0;
+pub const DEFAULT_BRIGHTNESS: f32 = 1.0;
+pub const DEFAULT_GAMMA: f32 = 1.4;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct RgbColor {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub r: u32,
+    pub g: u32,
+    pub b: u32,
+}
+
+impl RgbColor {
+    pub fn merge(&self) -> u32 {
+        (self.r << 24) | (self.g << 16) | self.b
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct EmphasisColor {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub r: u32,
+    pub g: u32,
+    pub b: u32,
 }
 
-fn wave(p: u32, color: u32) -> bool {
+fn gamma_fix(f: f32, gamma: f32) -> f32 {
+    if f < 0.0 { 0.0 } else { f.powf(2.2 / gamma) }
+}
+
+fn bound<T: std::cmp::Ord>(lower: T, value: T, upper: T) -> T {
+    std::cmp::max(lower, std::cmp::min(value, upper))
+}
+
+const fn wave(p: u32, color: u32) -> bool {
     ((color + p + 8) % 12) < 6
 }
  
@@ -68,11 +82,35 @@ fn calc_rgb_color(pixel: u16, saturation: f32, hue: f32, contrast: f32, brightne
         // De-emphasis bits attenuate a part of the signal
         if ((emphasis & 0x01) > 0 && wave(p, 12)) || ((emphasis & 0x02) > 0 && wave(p, 4)) || ((emphasis & 0x04) > 0 && wave(p, 8)) {
 			spot *= ATTENUATION;
-		}
+        }
+        
+        // Normalize
+        let mut v = (spot - BLACK) / (WHITE - BLACK);
 
+        // Ideal TV NTSC demodulator
+        // Apply contrast/brightness
+        v = (v - 0.5) * contrast + 0.5;
+        v *= brightness / 12.0;
+
+        y += v;
+        i += v * (std::f32::consts::PI / 6.0).cos() * (p as f32 + hue);
+        q += v * (std::f32::consts::PI / 6.0).sin() * (p as f32 + hue);
     }
 
-     RgbColor { r: 0, g: 0, b: 0}
+    i *= saturation;
+    q *= saturation;
+
+    // Convert YIQ into RGB according to FCC-sanctioned conversion matrix.
+    let mut rgb = RgbColor { r: 0, g: 0, b: 0};
+    rgb.r = bound(0x00, (255.0 * gamma_fix(y + 0.946882 * i + 0.623557 * q, gamma)) as i32, 0xFF) as u32;
+    rgb.g = bound(0x00, (255.0 * gamma_fix(y + -0.274788 * i + -0.635691 * q, gamma)) as i32, 0xff) as u32;
+    rgb.b = bound(0x00, (255.0 * gamma_fix(y + -1.108545 * i + 1.709007 * q, gamma)) as i32, 0xff) as u32;
+
+    rgb
+}
+
+pub fn generate_palette(saturation: f32, hue: f32, contrast: f32, brightness: f32, gamma: f32) -> Vec<u32> {
+    (0..0x200).map(|pixel | calc_rgb_color(pixel, saturation, hue, contrast, brightness, gamma).merge()).collect()
 }
 
 

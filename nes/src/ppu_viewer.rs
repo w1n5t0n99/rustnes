@@ -27,15 +27,15 @@ impl Default for Tile {
 
 #[derive(Debug)]
 pub struct PpuViewer {
-    ppu_cycle: u64,
     ppu_output_buffer: Vec<u16>,
+    palette: Vec<u32>,
 }
 
 impl PpuViewer {
     pub fn new() -> PpuViewer {
         PpuViewer {
-            ppu_cycle: 0,
             ppu_output_buffer: Vec::new(),
+            palette: generate_palette(DEFAULT_SATURATION, DEFAULT_HUE, DEFAULT_CONTRAST, DEFAULT_BRIGHTNESS, DEFAULT_GAMMA),
         }
     }
 
@@ -138,16 +138,13 @@ impl PpuViewer {
     pub fn chr_buffer(&mut self) -> Vec<u32> {
         let scanlines = self.ppu_output_buffer.len() / 256;
         let mut ntsc_pixel_buffer: Vec<u32> = vec![0; 256*scanlines];
-    
-        gen_ntsc_pixel_buffer(&self.ppu_output_buffer, &mut ntsc_pixel_buffer, scanlines, self.ppu_cycle);
-    
-        /*
-        for (i, p) in ppu_output_buffer.iter().enumerate() {
-            ntsc_pixel_buffer[i] = PALETTE[*p as usize];
-        }
-        */
         
-        self.ppu_cycle = self.ppu_cycle.wrapping_add(89342);
+        
+        for (i, p) in self.ppu_output_buffer.iter().enumerate() {
+            ntsc_pixel_buffer[i] = self.palette[*p as usize];
+        }
+        
+        
         ntsc_pixel_buffer
     }
 }  

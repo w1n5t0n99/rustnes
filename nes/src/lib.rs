@@ -6,7 +6,6 @@ mod bus;
 mod ppu_pinout;
 mod ppu_viewer;
 mod palette;
-mod nes_ntsc;
 
 pub use error::NesError;
 use mos::rp2a03::Rp2a03;
