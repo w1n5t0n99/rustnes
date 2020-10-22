@@ -3,21 +3,43 @@
 pub struct AddrReg {
     pub v: u16,     // 15 bit current vram address
     pub t: u16,     // 15 bit temporary vram address, address of top-left of screen
+    pub x: u16,     // Fixe x scroll
+    pub w: bool,    // Write toggle
 }
 
 impl AddrReg {
-    pub fn io_write(&mut self, data: u8, w: bool) {
+    pub fn io_write_2006(&mut self, data: u8) {
         // First write
-        if w == false {
-            self.t = (self.t & 0x00FF) | ((data as u16) << 8);
-            // Clear bit 15
-            self.t = self.t & 0x7FFF;
+        if self.w == false {
+            self.t = (self.t & 0xC0FF) | ((data as u16) << 8);
+            // Clear bit 15 and 16, v has 15 bits but ppu address bus is only 14 bits
+            self.t = self.t & 0x3FFF;
         }
         // Second write
         else {
             self.t = (self.t & 0xFF00) | (data as u16);
             self.v = self.t;
         }
+
+        self.w = !self.w;
+    }
+
+    pub fn io_write_2005(&mut self, data: u8) {
+        // First write
+        if self.w == false {
+           self.x = (data as u16) & 0x07;
+           self.t = (self.t & 0xFFE0) | ((data as u16) >> 3);
+        }
+        // Second write
+        else {
+            let cba = ((data & 0x07) as u16) << 13;
+            let hgfed = ((data >> 3) as u16) << 5;
+
+            self.t = (self.t & 0x8FFF) | cba;
+            self.t = (self.t & 0xFC1F) | hgfed;
+        }
+
+        self.w = !self.w;
     }
 
     pub fn increment(&mut self, inc: u16) {
