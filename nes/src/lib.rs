@@ -4,6 +4,8 @@ mod mappers;
 mod mapper_nrom;
 mod bus;
 mod ppu_pinout;
+mod ppu_registers;
+mod ppu;
 mod ppu_viewer;
 mod palette;
 
