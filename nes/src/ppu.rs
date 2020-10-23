@@ -1,17 +1,11 @@
 use super::ppu_registers::{AddrReg, StatusRegister, ControlRegister, MaskRegister};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum IOPinout {
+pub enum Pinout {
     Clear,
-    ALE,
+    ALE_RD,
+    ALE_WR,
     WR,
-    RD,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum RenderPinout {
-    Clear,
-    ALE,
     RD,
 }
 
@@ -20,9 +14,11 @@ pub struct PPU {
     pub oam_ram: [u8; 256],
     pub scanline: u16,
     pub scanline_cycle: u16,
-    io_latch: u8,
-    ppudata_latch: u8,
-    addr_latch: u8,
+    pub io_pinout: Pinout,
+    pub render_pinout: Pinout,
+    io_latch: u8,                       // Reading a write only port returns data on internal data bus which acts as a dynamic latch
+    ppudata_rd_latch: u8,               // Buffered data read from PPUDATA
+    ppudata_wr_latch: u8,               // Buffered data written to PPUDATA
     oam_addr: u8,
     addr_reg: AddrReg,
     control_reg: ControlRegister,
@@ -38,18 +34,19 @@ impl PPU {
             scanline: 261,
             scanline_cycle: 0,
             io_latch: 0,
-            ppudata_latch: 0,
-            addr_latch: 0,
+            ppudata_rd_latch: 0,
+            ppudata_wr_latch: 0,
             oam_addr: 0,
             addr_reg: AddrReg::new(),
             control_reg: ControlRegister::new(),
             mask_reg: MaskRegister::new(),
             status_reg: StatusRegister::new(),
+            io_pinout: Pinout::Clear,
+            render_pinout: Pinout::Clear,
         }
     }
 
     pub fn read_port(&self) -> u8 {
-        // Reading a write only port returns data on internal data bus which acts as a dynamic latch
         self.io_latch
     }
 
@@ -77,9 +74,10 @@ impl PPU {
         self.oam_addr = data;
     }
 
-    pub fn read_oamdata(&self) -> u8 {
+    pub fn read_oamdata(&mut self) -> u8 {
         // Reads during vertical or forced blanking return the value from OAM at that address but do not increment
-        self.oam_ram[self.oam_addr as usize]
+        self.io_latch = self.oam_ram[self.oam_addr as usize];
+        self.io_latch
     }
 
     pub fn write_oamdata(&mut self, data: u8) {
@@ -111,9 +109,42 @@ impl PPU {
         self.addr_reg.io_write_2006(data);
     }
 
-    pub fn read_ppudata(&self) -> u8 {
-        
-        0
+    pub fn read_ppudata(&mut self) -> u8 {
+        let v = self.addr_reg.vram_address();
+        match v {
+            0x3F00..=0x3FFF => {
+                // Reading palette updates latch with contents of nametable under palette address
+                self.io_pinout = Pinout::ALE_RD;
+                self.palette_ram[(v & 0x00FF) as usize]
+            }
+            0x0000..=0x3EFF => {
+                self.io_pinout = Pinout::ALE_RD;
+                self.io_latch = self.ppudata_rd_latch;
+                self.ppudata_rd_latch
+            }
+            _ => {
+                panic!("PPU 0x2007 address out of range");
+            }
+        }
     }
+
+    pub fn write_ppudata(&mut self, data: u8) {
+        self.io_latch = data;
+        let v = self.addr_reg.vram_address();
+        match v {
+            0x3F00..=0x3FFF => {
+                self.palette_ram[(v & 0x00FF) as usize] = data;
+            }
+            0x0000..=0x3EFF => {
+                self.io_pinout = Pinout::ALE_WR;
+                self.ppudata_wr_latch = data;
+            }
+            _ => {
+                panic!("PPU 0x2007 address out of range");
+            }
+        }
+    }
+
+
 
 }
