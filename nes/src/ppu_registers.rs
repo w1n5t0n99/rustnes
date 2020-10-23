@@ -140,6 +140,20 @@ impl ControlRegister {
         }
     }
 
+    pub fn sprite_table_address(&self) -> u16 {
+        match self.contains(ControlRegister::SPRITE_PATTERN_ADDR) {
+            true => 0x1000,
+            false => 0,
+        }
+    }
+
+    pub fn background_table_address(&self) -> u16 {
+        match self.contains(ControlRegister::BACKROUND_PATTERN_ADDR) {
+            true => 0x1000,
+            false => 0,
+        }
+    }
+
     pub fn io_write(&mut self, data: u8) {
         self.bits = data;
     }
@@ -225,7 +239,7 @@ impl StatusRegister {
 
     pub fn io_read(&mut self, io_latch: u8) -> u8 {
         // Contains least significant bits previously written into a PPU register
-        self.bits | (io_latch & 0xE0)
+        (self.bits & 0xE0) | (io_latch & 0x1F)
     }
 }
 
@@ -235,12 +249,7 @@ mod test {
 
     #[test]
     fn test_addr_reg() {
-        let mut addr_reg = AddrReg {
-            v: 0,
-            t: 0,
-            x: 0,
-            w: false,
-        };
+        let mut addr_reg = AddrReg::new();
 
         addr_reg.io_write_2005(0xFF);
         assert_eq!(addr_reg.t, 31);
@@ -260,4 +269,32 @@ mod test {
         assert_eq!(addr_reg.v, addr_reg.t);
     }
 
+    #[test]
+    fn test_control_reg() {
+        let mut control_reg = ControlRegister::new();
+        control_reg.io_write(0x0F);
+
+        assert_eq!(control_reg.base_nametable_address(), 0x2C00);
+        assert_eq!(control_reg.vram_addr_increment(), 32);
+        assert_eq!(control_reg.sprite_table_address(), 0x1000);
+    }
+
+    #[test]
+    fn test_mask_reg() {
+        let mut mask_reg = MaskRegister::new();
+        mask_reg.io_write(0b10100000);
+        
+        assert_eq!(mask_reg.emphasis_mask(), 0x140);
+
+        mask_reg.io_write(0b10011111);
+        assert_eq!(mask_reg.emphasis_mask(), 0x100);
+    }
+
+    #[test]
+    fn test_status_reg() {
+        let mut status_reg = StatusRegister::new();
+        status_reg.set(StatusRegister::VBLANK_STARTED, true);
+
+        assert_eq!(status_reg.io_read(0b11011001), 0b10011001);
+    }
 }
