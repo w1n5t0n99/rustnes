@@ -237,7 +237,7 @@ impl StatusRegister {
         StatusRegister::from_bits_truncate(0x00)
     }
 
-    pub fn io_read(&mut self, io_latch: u8) -> u8 {
+    pub fn io_read(&self, io_latch: u8) -> u8 {
         // Contains least significant bits previously written into a PPU register
         (self.bits & 0xE0) | (io_latch & 0x1F)
     }
