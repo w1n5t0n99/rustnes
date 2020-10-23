@@ -88,6 +88,18 @@ impl AddrReg {
             self.v = (self.v & !0x03E0) | (y << 5);     // Put coarse Y back into v
         }
     }
+
+    pub fn vram_address(&self) -> u16 {
+        self.v & 0x3FFF
+    }
+
+    pub fn tile_address(&self) -> u16 {
+        0x2000 | (self.v & 0x0FFF)
+    }
+
+    pub fn attribute_address(&self) -> u16 {
+        0x23C0 | (self.v & 0x0C00) | ((self.v >> 4) & 0x38) | ((self.v >> 2) & 0x07)
+    }
 }
 
 bitflags! {
