@@ -1,4 +1,6 @@
 
+
+// Groups PPUSCROLL and PPUADDR to handle VRAM logic
 #[derive(Debug, Clone, Copy)]
 pub struct AddrReg {
     pub v: u16,     // 15 bit current vram address
@@ -143,12 +145,96 @@ impl ControlRegister {
     }
 }
 
+bitflags! {
+    // 7  bit  0
+    // ---- ----
+    // BGRs bMmG
+    // |||| ||||
+    // |||| |||+- Greyscale (0: normal color, 1: produce a greyscale display)
+    // |||| ||+-- 1: Show background in leftmost 8 pixels of screen, 0: Hide
+    // |||| |+--- 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
+    // |||| +---- 1: Show background
+    // |||+------ 1: Show sprites
+    // ||+------- Emphasize red
+    // |+-------- Emphasize green
+    // +--------- Emphasize blue
+    pub struct MaskRegister: u8 {
+        const GREYSCALE               = 0b00000001;
+        const LEFTMOST_8PXL_BACKGROUND  = 0b00000010;
+        const LEFTMOST_8PXL_SPRITE      = 0b00000100;
+        const SHOW_BACKGROUND         = 0b00001000;
+        const SHOW_SPRITES            = 0b00010000;
+        //const EMPHASISE_RED           = 0b00100000;
+        //const EMPHASISE_GREEN         = 0b01000000;
+        //const EMPHASISE_BLUE          = 0b10000000;
+    }
+}
+
+impl MaskRegister {
+    pub fn new() -> Self {
+        MaskRegister::from_bits_truncate(0x00)
+    }
+
+    pub fn emphasis_mask(&self) -> u16 {
+        // emphasis bits make up bits 6,7,8 of PPU color index
+        ((self.bits & 0xE0) as u16) << 1
+    }
+
+    pub fn io_write(&mut self, data: u8) {
+        self.bits = data;
+    }
+}
+
+bitflags! {
+    // 7  bit  0
+    // ---- ----
+    // VSO. ....
+    // |||| ||||
+    // |||+-++++- Least significant bits previously written into a PPU register
+    // |||        (due to register not being updated for this address)
+    // ||+------- Sprite overflow. The intent was for this flag to be set
+    // ||         whenever more than eight sprites appear on a scanline, but a
+    // ||         hardware bug causes the actual behavior to be more complicated
+    // ||         and generate false positives as well as false negatives; see
+    // ||         PPU sprite evaluation. This flag is set during sprite
+    // ||         evaluation and cleared at dot 1 (the second dot) of the
+    // ||         pre-render line.
+    // |+-------- Sprite 0 Hit.  Set when a nonzero pixel of sprite 0 overlaps
+    // |          a nonzero background pixel; cleared at dot 1 of the pre-render
+    // |          line.  Used for raster timing.
+    // +--------- Vertical blank has started (0: not in vblank; 1: in vblank).
+    //            Set at dot 1 of line 241 (the line *after* the post-render
+    //            line); cleared after reading $2002 and at dot 1 of the
+    //            pre-render line.
+    pub struct StatusRegister: u8 {
+        //const NOTUSED          = 0b00000001;
+        //const NOTUSED2         = 0b00000010;
+        //const NOTUSED3         = 0b00000100;
+        //const NOTUSED4         = 0b00001000;
+        //const NOTUSED5         = 0b00010000;
+        const SPRITE_OVERFLOW  = 0b00100000;
+        const SPRITE_ZERO_HIT  = 0b01000000;
+        const VBLANK_STARTED   = 0b10000000;
+    }
+}
+
+impl StatusRegister {
+    pub fn new() -> Self {
+        StatusRegister::from_bits_truncate(0x00)
+    }
+
+    pub fn io_read(&mut self, io_latch: u8) -> u8 {
+        // Contains least significant bits previously written into a PPU register
+        self.bits | (io_latch & 0xE0)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
-    fn test_io_write() {
+    fn test_addr_reg() {
         let mut addr_reg = AddrReg {
             v: 0,
             t: 0,
