@@ -1,12 +1,36 @@
 use super::ppu_registers::{AddrReg, StatusRegister, ControlRegister, MaskRegister};
+use super::mappers::Mapper;
+
+bitflags! {
+    pub struct Ctrl: u8 {
+        const RD =     0b00000001;       // Read pin
+        const WR =     0b00000010;       // Write pin
+        const RDALE =  0b00000100;       // Address latch enable
+        const WRALE =  0b00001000;       // Address latch enable
+    }
+}
+
+impl Ctrl {
+    pub fn new() -> Self {
+        Ctrl::empty()
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Pinout {
-    Clear,
-    ALE_RD,
-    ALE_WR,
-    WR,
-    RD,
+pub struct Pinout {
+    pub address: u16,
+    pub latch: u8,
+    ctrl: Ctrl,
+}
+
+impl Pinout {
+    pub fn new() -> Self {
+        Pinout {
+            address: 0,
+            latch: 0,
+            ctrl: Ctrl::new(),
+        }
+    }
 }
 
 pub struct PPU {
@@ -14,11 +38,9 @@ pub struct PPU {
     pub oam_ram: [u8; 256],
     pub scanline: u16,
     pub scanline_cycle: u16,
-    pub io_pinout: Pinout,
-    pub render_pinout: Pinout,
+    pub pinout: Pinout,
     io_latch: u8,                       // Reading a write only port returns data on internal data bus which acts as a dynamic latch
-    ppudata_rd_latch: u8,               // Buffered data read from PPUDATA
-    ppudata_wr_latch: u8,               // Buffered data written to PPUDATA
+    ppudata_buffer: u8,                 // Buffered data read from PPUDATA
     oam_addr: u8,
     addr_reg: AddrReg,
     control_reg: ControlRegister,
@@ -34,15 +56,13 @@ impl PPU {
             scanline: 261,
             scanline_cycle: 0,
             io_latch: 0,
-            ppudata_rd_latch: 0,
-            ppudata_wr_latch: 0,
+            ppudata_buffer: 0,
             oam_addr: 0,
             addr_reg: AddrReg::new(),
             control_reg: ControlRegister::new(),
             mask_reg: MaskRegister::new(),
             status_reg: StatusRegister::new(),
-            io_pinout: Pinout::Clear,
-            render_pinout: Pinout::Clear,
+            pinout: Pinout::new(),
         }
     }
 
@@ -110,17 +130,17 @@ impl PPU {
     }
 
     pub fn read_ppudata(&mut self) -> u8 {
+        self.pinout.ctrl.set(Ctrl::RDALE, true);
         let v = self.addr_reg.vram_address();
         match v {
             0x3F00..=0x3FFF => {
                 // Reading palette updates latch with contents of nametable under palette address
-                self.io_pinout = Pinout::ALE_RD;
-                self.palette_ram[(v & 0x00FF) as usize]
+                self.io_latch = self.palette_ram[(v & 0x00FF) as usize];
+                self.io_latch
             }
             0x0000..=0x3EFF => {
-                self.io_pinout = Pinout::ALE_RD;
-                self.io_latch = self.ppudata_rd_latch;
-                self.ppudata_rd_latch
+                self.io_latch = self.ppudata_buffer;
+                self.ppudata_buffer
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
@@ -133,11 +153,11 @@ impl PPU {
         let v = self.addr_reg.vram_address();
         match v {
             0x3F00..=0x3FFF => {
+                // TODO not sure if the underlying address is written to like reading does
                 self.palette_ram[(v & 0x00FF) as usize] = data;
             }
             0x0000..=0x3EFF => {
-                self.io_pinout = Pinout::ALE_WR;
-                self.ppudata_wr_latch = data;
+                self.pinout.ctrl.set(Ctrl::WRALE, true);
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
@@ -145,6 +165,8 @@ impl PPU {
         }
     }
 
+    fn read(&mut self, mapper: &mut dyn Mapper) {
 
+    }
 
 }

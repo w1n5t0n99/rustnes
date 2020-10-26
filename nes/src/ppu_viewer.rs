@@ -39,7 +39,7 @@ impl PpuViewer {
         }
     }
 
-    fn extract_tiles_from_rom(&mut self, mapper: & mut dyn Mapper) -> Vec<Tile> {
+    fn extract_tiles_from_rom(&mut self, mapper: &mut dyn Mapper) -> Vec<Tile> {
         let mut tiles: Vec<Tile> = Vec::new();
     
         // get tile data with whatever bank switching currently in effect
