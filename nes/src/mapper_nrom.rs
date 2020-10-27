@@ -1,7 +1,6 @@
 use ::nes_rom::ines;
 use std::ptr;
 use super::mappers::{Mapper, NametableOffset, NametableType, POWER_ON_PALETTE};
-use super::ppu_pinout;
 
 pub struct MapperNrom {
     pub sram: Vec<u8>,
@@ -120,99 +119,91 @@ impl Mapper for MapperNrom {
         pinout
     }
 
-    fn read_pattern_table(&mut self, mut pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { 
+    fn read_pattern_table(&mut self, vaddr: u16, pinout: mos::Pinout) -> (u8, mos::Pinout)  { 
         //0x0000 - 0x1FFF
-        pinout.data = self.chr_rom[pinout.address as usize];
-        pinout
+        (self.chr_rom[vaddr as usize], pinout)
     }
 
-    fn write_pattern_table(&mut self, mut pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { //0x0000 - 0x1FFF
-        pinout.data = self.chr_rom[pinout.address as usize];
+    fn write_pattern_table(&mut self, vaddr: u16, data: u8, pinout: mos::Pinout) -> mos::Pinout { //0x0000 - 0x1FFF
+        //nop
         pinout
     }
     
-    fn read_nametable(&mut self, mut pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout {
+    fn read_nametable(&mut self, vaddr: u16, pinout: mos::Pinout) -> (u8, mos::Pinout) {
         /*
         nametables are mirrored 0x3000 - 0x3EFF for simplicity we mirror 0x3000 - 0x3FFF
         the memory map should check the addresses and call the appropriate read function,
         so it shouldn't matter
         */
-        let addr =  pinout.address & 0xD000;
+        let addr =  vaddr & 0xD000;
          match addr {
              // A
-             0x2000..=0x23FF => { pinout.data = self.vram[(addr - self.nt_offset.nt_a) as usize]; },
+             0x2000..=0x23FF => (self.vram[(addr - self.nt_offset.nt_a) as usize], pinout),
              // B
-             0x2400..=0x27FF => { pinout.data = self.vram[(addr - self.nt_offset.nt_b) as usize]; },
+             0x2400..=0x27FF => (self.vram[(addr - self.nt_offset.nt_b) as usize], pinout),
              // C
-             0x2800..=0x2BFF => { pinout.data = self.vram[(addr - self.nt_offset.nt_c) as usize]; },
+             0x2800..=0x2BFF => (self.vram[(addr - self.nt_offset.nt_c) as usize], pinout),
              // D
-             0x2C00..=0x2FFF => { pinout.data = self.vram[(addr - self.nt_offset.nt_d) as usize]; },
-             _ => panic!("NROM PPU read out of bounds: {}", pinout.address),
+             0x2C00..=0x2FFF => (self.vram[(addr - self.nt_offset.nt_d) as usize], pinout),
+             _ => panic!("NROM PPU read out of bounds: {}", vaddr),
          }
-
-         pinout
     }
 
 
-    fn write_nametable(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout {
+    fn write_nametable(&mut self, vaddr: u16, data: u8, pinout: mos::Pinout) -> mos::Pinout {
         let addr =  pinout.address & 0xD000;
         match addr {
             // A
-            0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = pinout.data; },
+            0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = data; },
             // B
-            0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = pinout.data; },
+            0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = data; },
             // C
-            0x2800..=0x2BFF => {self.vram[(addr - self.nt_offset.nt_c) as usize] = pinout.data; },
+            0x2800..=0x2BFF => {self.vram[(addr - self.nt_offset.nt_c) as usize] = data; },
             // D
-            0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = pinout.data; },
-            _ => panic!("NROM PPU write out of bounds: {}", pinout.address),
+            0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = data; },
+            _ => panic!("NROM PPU write out of bounds: {}", vaddr),
         }
 
         pinout
     }
 
-    fn read_palette(&mut self, mut pinout: ppu_pinout::Pinout, forced_vblank: bool) -> ppu_pinout::Pinout { 
+    fn read_palette(&mut self, vaddr: u16, forced_vblank: bool) -> u8 { 
         /* 
         Addresses $3F04/$3F08/$3F0C can contain unique data, though these values are not used by the PPU when normally rendering
         (since the pattern values that would otherwise select those cells select the backdrop color instead)
         They can still be shown using the background palette hack during forced vblank
         */
-        let addr = pinout.address & 0xFFE0;
-
+        let addr = vaddr & 0xFFE0;        
         if !forced_vblank {
             match addr {
-                0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => { pinout.data = self.palette_ram[0x00] }
-                _ => { pinout.data = self.palette_ram[addr as usize] }
+                0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
+                _ => self.palette_ram[addr as usize],
             }
         }
         else {
             match addr {
-                0x10 => { pinout.data = self.palette_ram[0x00] }
-                0x14 => { pinout.data = self.palette_ram[0x04] }
-                0x18 => { pinout.data = self.palette_ram[0x08] }
-                0x1C => { pinout.data = self.palette_ram[0x0C] }
-                _ => { pinout.data = self.palette_ram[addr as usize] }
+                0x10 => self.palette_ram[0x00],
+                0x14 => self.palette_ram[0x04],
+                0x18 => self.palette_ram[0x08],
+                0x1C => self.palette_ram[0x0C],
+                _ => self.palette_ram[addr as usize]
             }
         }
-        
-        pinout
     }
 
-    fn write_palette(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { 
+    fn write_palette(&mut self, vaddr: u16, data: u8) { 
         /*
         Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C.
         Note that this goes for writing as well as reading
         */
-        let addr = pinout.address & 0xFFE0;
+        let addr = vaddr & 0xFFE0;
         match addr {
-            0x10 => { self.palette_ram[0x00] = pinout.data; }
-            0x14 => { self.palette_ram[0x04] = pinout.data; }
-            0x18 => { self.palette_ram[0x08] = pinout.data; }
-            0x1C => { self.palette_ram[0x0C] = pinout.data; }
-            _ => { self.palette_ram[addr as usize] = pinout.data; }
+            0x10 => { self.palette_ram[0x00] = data; }
+            0x14 => { self.palette_ram[0x04] = data; }
+            0x18 => { self.palette_ram[0x08] = data; }
+            0x1C => { self.palette_ram[0x0C] = data; }
+            _ => { self.palette_ram[addr as usize] = data; }
         }
-
-        pinout
     }
 
     fn poke_prg(&mut self, addr: u16, data: u8) {

@@ -1,6 +1,5 @@
 use super::error::NesError;
 use super::mapper_nrom::MapperNrom;
-use super::ppu_pinout;
 use ::nes_rom::ines;
 
 /*
@@ -69,12 +68,12 @@ pub trait Mapper {
     fn read_prg(&mut self, pinout: mos::Pinout) -> mos::Pinout;
     fn write_prg(&mut self, pinout: mos::Pinout) -> mos::Pinout;
     // PPU
-    fn read_pattern_table(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout;
-    fn write_pattern_table(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout;
-    fn read_nametable(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout;
-    fn write_nametable(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout;
-    fn read_palette(&mut self, pinout: ppu_pinout::Pinout, forced_vblank: bool) -> ppu_pinout::Pinout;
-    fn write_palette(&mut self, pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout;
+    fn read_pattern_table(&mut self, vaddr: u16, pinout: mos::Pinout) -> (u8, mos::Pinout);
+    fn write_pattern_table(&mut self, vaddr: u16, data: u8, pinout: mos::Pinout) -> mos::Pinout;
+    fn read_nametable(&mut self, vaddr: u16, pinout: mos::Pinout) -> (u8, mos::Pinout);
+    fn write_nametable(&mut self, vaddr: u16, data: u8, pinout: mos::Pinout) -> mos::Pinout;
+    fn read_palette(&mut self, vaddr: u16, forced_vblank: bool) -> u8;
+    fn write_palette(&mut self, vaddr: u16, data: u8);
     // no side effects from reading or writing (e.g. mappers with memory mapped regs)
     fn peek_pattern_table(&mut self, addr: u16) -> u8;
     fn peek_nametable(&mut self, addr: u16) -> u8;
@@ -94,12 +93,12 @@ impl Mapper for MapperNull {
     fn read_prg(&mut self, _pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
     fn write_prg(&mut self, _pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
 
-    fn read_pattern_table(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
-    fn write_pattern_table(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
-    fn read_nametable(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
-    fn write_nametable(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
-    fn read_palette(&mut self, _pinout: ppu_pinout::Pinout, _forced_vblank: bool) -> ppu_pinout::Pinout { unimplemented!(); }
-    fn write_palette(&mut self, _pinout: ppu_pinout::Pinout) -> ppu_pinout::Pinout { unimplemented!(); }
+    fn read_pattern_table(&mut self, vaddr: u16, pinout: mos::Pinout) -> (u8, mos::Pinout) { unimplemented!(); }
+    fn write_pattern_table(&mut self, vaddr: u16, data: u8, pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
+    fn read_nametable(&mut self, vaddr: u16, pinout: mos::Pinout) -> (u8, mos::Pinout) { unimplemented!(); }
+    fn write_nametable(&mut self, vaddr: u16, data: u8, pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
+    fn read_palette(&mut self, vaddr: u16, forced_vblank: bool) -> u8 { unimplemented!(); }
+    fn write_palette(&mut self, vaddr: u16, data: u8) { unimplemented!(); }
 
     fn peek_pattern_table(&mut self, _addr: u16) -> u8 { unimplemented!(); }
     fn peek_nametable(&mut self, _addr: u16) -> u8 { unimplemented!(); }
