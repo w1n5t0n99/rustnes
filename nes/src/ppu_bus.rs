@@ -1,3 +1,5 @@
+use super::mappers::Mapper;
+
 
 #[inline]
 const fn to_address(address: u16, latch: u8) -> u16 {
@@ -9,21 +11,23 @@ const fn to_latch(address: u16) -> u8 {
     address as u8
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Ctrl {
-    RD,           // Read pin
-    WR,           // Write pin
-    RDALE,        // Address latch enable
-    WRALE,        // Address latch enable
-    Good,
+bitflags! {
+    struct Ctrl: u8 {
+        const IoRd               = 0b00000001;
+        const IoWr               = 0b00000010;
+        const Rd                 = 0b00000100;
+        const Wr                 = 0b00001000;
+        const Ale                = 0b00010000;
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PpuBus {
     pub addr_bus: u16,
     pub ale_latch: u8,
-    pub io_ctrl: Ctrl,
-    pub ren_ctrl: Ctrl,
+    pub rd_buffer: u8,
+    pub wr_buffer: u8,
+    ctrl: Ctrl,
 }
 
 impl PpuBus {
@@ -31,8 +35,29 @@ impl PpuBus {
         PpuBus {
             addr_bus: 0,
             ale_latch: 0,
-            io_ctrl: Ctrl::Good,
-            ren_ctrl: Ctrl::Good,
+            rd_buffer: 0,
+            wr_buffer: 0,
+            ctrl: Ctrl::empty(),
         }
+    }   
+
+    
+    pub fn io_read(&mut self) -> u8 {
+        self.ctrl.set(Ctrl::Ale, true);
+        
+        self.rd_buffer
     }
+
+    pub fn io_read_palette(&mut self) {
+        s//elf.io_ctrl = Ctrl::RDALE;
+    }
+
+    pub fn io_write(&mut self, data: u8) {
+        //self.io_ctrl = Ctrl::WRALE;
+        //self.wr_buffer = data;
+    }
+
+
+
+
 }
