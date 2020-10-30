@@ -1,5 +1,5 @@
-use super::mappers::Mapper;
-use super::palette::*;
+use super::super::mappers::Mapper;
+use super::super::palette::*;
 
 #[inline]
 const fn ppu_output(color_index: u8, ppu_mask: u8) -> u16 {

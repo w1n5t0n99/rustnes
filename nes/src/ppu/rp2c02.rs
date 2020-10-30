@@ -1,5 +1,5 @@
 use super::ppu_registers::{AddrReg, StatusRegister, ControlRegister, MaskRegister};
-use super::mappers::Mapper;
+use super::super::mappers::Mapper;
 
 bitflags! {
     pub struct Ctrl: u8 {

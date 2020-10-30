@@ -4,15 +4,12 @@ mod mappers;
 mod mapper_nrom;
 mod bus;
 mod ppu;
-mod ppu_bus;
-mod ppu_registers;
-mod ppu_viewer;
 mod palette;
 
 pub use error::NesError;
 use mos::rp2a03::Rp2a03;
 use dma::Dma;
-use ppu_viewer::PpuViewer;
+use ppu::ppu_viewer::PpuViewer;
 
 use std::fs::File;
 use std::path::Path;

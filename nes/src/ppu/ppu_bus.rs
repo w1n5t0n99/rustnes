@@ -1,4 +1,4 @@
-use super::mappers::Mapper;
+use super::super::mappers::Mapper;
 
 #[inline]
 const fn to_address(address: u16, latch: u8) -> u16 {
