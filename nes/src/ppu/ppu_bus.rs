@@ -10,6 +10,11 @@ const fn to_latch(address: u16) -> u8 {
     address as u8
 }
 
+#[inline] 
+const fn to_data(address: u16) -> u8 {
+    address as u8
+}
+
 bitflags! {
     pub struct Ctrl: u8 {
         const RD =   0b00000001;    // Read

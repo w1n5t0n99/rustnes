@@ -6,6 +6,21 @@ mod core;
 
 use std::fmt;
 
+#[inline]
+const fn to_address(address: u16, latch: u8) -> u16 {
+    (address & 0xFF00) | (latch as u16) 
+}
+
+#[inline] 
+const fn to_latch(address: u16) -> u8 {
+    address as u8
+}
+
+#[inline] 
+const fn to_data(address: u16) -> u8 {
+    address as u8
+}
+
 
 bitflags! {
     pub struct Ctrl: u8 {
@@ -31,8 +46,8 @@ pub struct Pinout {
 impl fmt::Display for Pinout {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
-        write!(f, "{:#X} - ALE:{} R: {} W:{} - Latch{:#X}", self.address, self.ctrl.contains(Ctrl::ALE) as u8,
-            self.ctrl.contains(Ctrl::RD) as u8,  self.ctrl.contains(Ctrl::WR) as u8, self.ale_latch)
+        write!(f, "{:#X} - ALE:{}R:{}W:{} - {:#X}", to_address(self.address, self.ale_latch), self.ctrl.contains(Ctrl::ALE) as u8,
+            self.ctrl.contains(Ctrl::RD) as u8,  self.ctrl.contains(Ctrl::WR) as u8, to_data(self.address))
         
     }
 }
