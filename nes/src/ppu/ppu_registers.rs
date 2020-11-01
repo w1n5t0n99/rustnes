@@ -209,6 +209,15 @@ impl MaskRegister {
     pub fn io_write(&mut self, data: u8) {
         self.bits = data;
     }
+
+    pub fn rendering_enabled(&self) -> bool {
+        if self.contains(MaskRegister::SHOW_BACKGROUND) || self.contains(MaskRegister::SHOW_SPRITES) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
 }
 
 bitflags! {
