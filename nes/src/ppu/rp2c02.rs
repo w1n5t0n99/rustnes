@@ -106,7 +106,7 @@ impl Rp2c02 {
         match v {
             0x3F00..=0x3FFF => {
                 // Reading palette updates latch with contents of nametable under palette address
-                self.context.io_db = self.palette_ram[(v & 0x00FF) as usize];
+                self.context.io_db = self.read_palette(v);
                 self.context.io_db
             }
             0x0000..=0x3EFF => {
@@ -125,7 +125,7 @@ impl Rp2c02 {
         match v {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does
-                self.palette_ram[(v & 0x00FF) as usize] = data;
+                self.write_palette(v, data);
             }
             0x0000..=0x3EFF => {
                 self.context.io = IO::WRALE;
@@ -145,6 +145,54 @@ impl Rp2c02 {
         cpu_pinout
     }
 
+    fn read_palette(&mut self, vaddr: u16) -> u8 { 
+        /* 
+        Addresses $3F04/$3F08/$3F0C can contain unique data, though these values are not used by the PPU when normally rendering
+        (since the pattern values that would otherwise select those cells select the backdrop color instead)
+        They can still be shown using the background palette hack during forced vblank
+        */
+        let addr = vaddr & 0xFFE0;        
+        if self.context.status_reg.contains(StatusRegister::VBLANK_STARTED) == false && self.context.mask_reg.rendering_enabled()  == true {
+            match addr {
+                0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
+                _ => self.palette_ram[addr as usize],
+            }
+        }
+        else {
+            match addr {
+                0x10 => self.palette_ram[0x00],
+                0x14 => self.palette_ram[0x04],
+                0x18 => self.palette_ram[0x08],
+                0x1C => self.palette_ram[0x0C],
+                _ => self.palette_ram[addr as usize]
+            }
+        }
+    }
+
+    fn read_palette_rendering(&mut self, vaddr: u16) -> u8 { 
+        // During rendering we don't need to check if rendering
+        let addr = vaddr & 0xFFE0;        
+        match addr {
+            0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
+            _ => self.palette_ram[addr as usize],
+        }
+    }
+
+    fn write_palette(&mut self, vaddr: u16, data: u8) { 
+        /*
+        Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C.
+        Note that this goes for writing as well as reading
+        */
+        let addr = vaddr & 0xFFE0;
+        match addr {
+            0x10 => { self.palette_ram[0x00] = data; }
+            0x14 => { self.palette_ram[0x04] = data; }
+            0x18 => { self.palette_ram[0x08] = data; }
+            0x1C => { self.palette_ram[0x0C] = data; }
+            _ => { self.palette_ram[addr as usize] = data; }
+        }
+    }   
+
     fn open_tile_index(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         self.pinout.set_address(self.context.addr_reg.tile_address());
         self.pinout.latch_address();
@@ -154,15 +202,27 @@ impl Rp2c02 {
             IO::RDALE => { self.context.io = IO::RD; },
             IO::WRALE => { self.context.io = IO::WR },
             IO::RD => {
-                //self.context.rd_buffer = mapper.read_nametable(self.pinout.address_rd(), cpu_pinout);
+                self.pinout.rd();
+                let pinouts = mapper.read_ppu(self.pinout, cpu_pinout);
+                self.pinout = pinouts.0;
+                cpu_pinout = pinouts.1;
+                self.context.rd_buffer = self.pinout.data();
                 self.context.io = IO::Idle;
             },
             IO::WR => {
                 //self.context.wr_buffer = mapper.read_nametable(self.pinout.address_rd(), cpu_pinout);
+                self.pinout.wr();
+                self.pinout.set_data(self.context.wr_buffer);
+                let pinouts = mapper.write_ppu(self.pinout, cpu_pinout);
+                self.pinout = pinouts.0;
+                cpu_pinout = pinouts.1;
+                self.pinout.latch_address();
                 self.context.io = IO::Idle;
             },
         }
 
         cpu_pinout
     }
+
+
 }

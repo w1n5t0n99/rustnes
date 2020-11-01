@@ -45,23 +45,23 @@ impl PpuViewer {
         // get tile data with whatever bank switching currently in effect
         for i in (0..0x2000).step_by(16) {
             let mut tile: Tile = Default::default();
-            tile.left_plane[0] = mapper.peek_pattern_table(i as u16);
-            tile.left_plane[1] = mapper.peek_pattern_table((i+1) as u16);
-            tile.left_plane[2] = mapper.peek_pattern_table((i+2) as u16);
-            tile.left_plane[3] = mapper.peek_pattern_table((i+3) as u16);
-            tile.left_plane[4] = mapper.peek_pattern_table((i+4) as u16);
-            tile.left_plane[5] = mapper.peek_pattern_table((i+5) as u16);
-            tile.left_plane[6] = mapper.peek_pattern_table((i+6) as u16);
-            tile.left_plane[7] = mapper.peek_pattern_table((i+7) as u16);
+            tile.left_plane[0] = mapper.peek_ppu(i as u16);
+            tile.left_plane[1] = mapper.peek_ppu((i+1) as u16);
+            tile.left_plane[2] = mapper.peek_ppu((i+2) as u16);
+            tile.left_plane[3] = mapper.peek_ppu((i+3) as u16);
+            tile.left_plane[4] = mapper.peek_ppu((i+4) as u16);
+            tile.left_plane[5] = mapper.peek_ppu((i+5) as u16);
+            tile.left_plane[6] = mapper.peek_ppu((i+6) as u16);
+            tile.left_plane[7] = mapper.peek_ppu((i+7) as u16);
     
-            tile.right_plane[0] = mapper.peek_pattern_table((i+8) as u16);
-            tile.right_plane[1] = mapper.peek_pattern_table((i+9) as u16);
-            tile.right_plane[2] = mapper.peek_pattern_table((i+10) as u16);
-            tile.right_plane[3] = mapper.peek_pattern_table((i+11) as u16);
-            tile.right_plane[4] = mapper.peek_pattern_table((i+12) as u16);
-            tile.right_plane[5] = mapper.peek_pattern_table((i+13) as u16);
-            tile.right_plane[6] = mapper.peek_pattern_table((i+14) as u16);
-            tile.right_plane[7] = mapper.peek_pattern_table((i+15) as u16);
+            tile.right_plane[0] = mapper.peek_ppu((i+8) as u16);
+            tile.right_plane[1] = mapper.peek_ppu((i+9) as u16);
+            tile.right_plane[2] = mapper.peek_ppu((i+10) as u16);
+            tile.right_plane[3] = mapper.peek_ppu((i+11) as u16);
+            tile.right_plane[4] = mapper.peek_ppu((i+12) as u16);
+            tile.right_plane[5] = mapper.peek_ppu((i+13) as u16);
+            tile.right_plane[6] = mapper.peek_ppu((i+14) as u16);
+            tile.right_plane[7] = mapper.peek_ppu((i+15) as u16);
     
             tiles.push(tile);
         }
@@ -84,42 +84,42 @@ impl PpuViewer {
             // 0
             
             let mut palette_index = ((left &  0x80) >> 7) | ((right & 0x80) >> 6);
-            let mut color_index = mapper.peek_palette(palette_index as u16);      
+            let mut color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 1
             palette_index = ((left &  0x40) >> 6) | ((right & 0x40) >> 5);
-            color_index = mapper.peek_palette(palette_index as u16);      
+            color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 2
             palette_index = ((left &  0x20) >> 5) | ((right & 0x20) >> 4);
-            color_index = mapper.peek_palette(palette_index as u16);      
+            color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 3
             palette_index = ((left &  0x10) >> 4) | ((right & 0x10) >> 3);
-            color_index = mapper.peek_palette(palette_index as u16);      
+            color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 4
             palette_index = ((left &  0x08) >> 3) | ((right & 0x08) >> 2);
-            color_index = mapper.peek_palette(palette_index as u16);      
+            color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 5
             palette_index = ((left &  0x04) >> 2) | ((right & 0x04) >> 1);
-            color_index = mapper.peek_palette(palette_index as u16);      
+            color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 6
             palette_index = ((left &  0x02) >> 1) | (right & 0x02);
-            color_index = mapper.peek_palette(palette_index as u16);
+            color_index = palette_index;
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             // 7
             palette_index = (left &  0x01) | ((right & 0x01) << 1);
-            color_index = mapper.peek_palette(palette_index as u16);      
+            color_index = palette_index;      
             self.ppu_output_buffer.push(ppu_output(color_index, 0));
     
             tile_number += 1;

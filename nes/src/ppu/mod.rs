@@ -59,15 +59,13 @@ impl Pinout {
     }
 
     #[inline]
-    pub fn address_rd(&mut self) -> u16 {
+    pub fn rd(&mut self) {
         self.ctrl.set(Ctrl::RD, false);
-        (self.address & 0xFF00) | (self.ale_latch as u16) 
     }
 
     #[inline]
-    pub fn address_wr(&mut self) -> u16 {
+    pub fn wr(&mut self) {
         self.ctrl.set(Ctrl::WR, false);
-        (self.address & 0xFF00) | (self.ale_latch as u16) 
     }
 
     #[inline]

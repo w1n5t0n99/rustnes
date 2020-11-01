@@ -212,16 +212,16 @@ impl OpState {
 #[derive(Debug, Clone)]
 pub struct Context
 {
-    pub a: u8,
-    pub x: u8,
-    pub y: u8,
-    pub sp: u8,
     pub cycle: u64,
+    pub ops: OpState,
+    pub ints: InterruptState,
     pub ir: InstructionRegister,
     pub p: FlagsRegister,
     pub pc: ProgramCounter,
-    pub ops: OpState,
-    pub ints: InterruptState,
+    pub a: u8,
+    pub x: u8,
+    pub y: u8,
+    pub sp: u8,    
     pub nmi_detected: bool,
     pub first_cycle: bool,
 }

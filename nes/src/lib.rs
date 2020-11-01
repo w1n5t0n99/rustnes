@@ -51,9 +51,7 @@ impl Nes {
     pub fn debug_reset(&mut self, addr: u16) {
         self.cpu.reset();
         self.dma.reset();
-
-        self.mapper.poke_prg(0xFFFD, (addr >> 8) as u8);
-        self.mapper.poke_prg(0xFFFC, addr as u8);
+        self.mapper.set_reset(addr);
     }
 
     pub fn execute_cycle(&mut self) {
