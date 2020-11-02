@@ -89,12 +89,21 @@ impl AddrReg {
         }
     }
 
+    pub fn quirky_increment(&mut self) {
+        self.coarse_x_increment();
+        self.y_increment();
+    }
+
     pub fn vram_address(&self) -> u16 {
         self.v & 0x3FFF
     }
 
     pub fn tile_address(&self) -> u16 {
         0x2000 | (self.v & 0x0FFF)
+    }
+
+    pub fn tile_line(&self) -> u16 {
+        (self.v & 0x7000) >> 12
     }
 
     pub fn attribute_address(&self) -> u16 {

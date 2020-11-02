@@ -2,11 +2,19 @@ use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
 use crate::mappers::Mapper;
 
+const PATTERN0_INDEX: usize = 0;
+const PATTERN0_OFFSET: u16 = 0;
+const PATTERN1_INDEX: usize = 1;
+const PATTERN1_OFFSET: u16 = 8;
+
 pub struct Rp2c02 {
     pub palette_ram: [u8; 32],
     pub oam_ram_primary: [u8; 256],
+    next_pattern: [u8; 2],
     context: Context,
     pinout: Pinout,   
+    next_tile_index: u16,
+    next_attribute: u8,
 }
 
 impl Rp2c02 {
@@ -14,8 +22,11 @@ impl Rp2c02 {
         Rp2c02 {
             palette_ram: [0; 32],
             oam_ram_primary: [0; 256],
+            next_pattern: [0; 2],
             context: Context::new(),
             pinout: Pinout::new(),
+            next_tile_index: 0,
+            next_attribute: 0,
         }
     }
 
@@ -209,6 +220,18 @@ impl Rp2c02 {
     }
 
     #[inline(always)]
+    fn read(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        // assert rd pin, basically only used for debug info
+        self.pinout.rd();
+        // read data
+        let pinouts = mapper.read_ppu(self.pinout, cpu_pinout);
+        self.pinout = pinouts.0;
+        cpu_pinout = pinouts.1;
+
+        cpu_pinout
+    }
+
+    #[inline(always)]
     fn io_write(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         // assert wr pin, basically only used for debug info
         self.pinout.wr();
@@ -229,25 +252,118 @@ impl Rp2c02 {
         match self.context.io {
             IO::Idle => { self.pinout.latch_address(); },
             IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
-            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR },
-            IO::RD => {
-                cpu_pinout = self.io_read(mapper, cpu_pinout);
-                self.pinout.latch_address();
-
-                self.context.addr_reg.coarse_x_increment();
-                self.context.addr_reg.y_increment();
-            },
-            IO::WR => {
-                cpu_pinout = self.io_write(mapper, cpu_pinout);
-                self.pinout.latch_address();
-
-                self.context.addr_reg.coarse_x_increment();
-                self.context.addr_reg.y_increment();
-            },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
         }
 
         cpu_pinout
     }
 
+    fn read_tile_index(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        self.pinout.set_address(self.context.addr_reg.tile_address());
+
+        match self.context.io {
+            IO::Idle => { cpu_pinout = self.read(mapper, cpu_pinout);  },
+            IO::RDALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.next_tile_index = self.pinout.data() as u16;
+        cpu_pinout
+    }
+
+    fn open_background_attribute(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        self.pinout.set_address(self.context.addr_reg.attribute_address());
+
+        match self.context.io {
+            IO::Idle => { self.pinout.latch_address(); },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+        }
+
+        cpu_pinout
+    }
+
+    fn read_background_attribute(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        self.pinout.set_address(self.context.addr_reg.attribute_address());
+
+        match self.context.io {
+            IO::Idle => { cpu_pinout = self.read(mapper, cpu_pinout);  },
+            IO::RDALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.next_attribute = self.pinout.data();
+        cpu_pinout
+    }
+
+    fn open_background_pattern0(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN0_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { self.pinout.latch_address(); },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+        }
+
+        cpu_pinout
+    }
+
+    fn read_background_pattern0(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN0_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { cpu_pinout = self.read(mapper, cpu_pinout);  },
+            IO::RDALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.next_pattern[PATTERN0_INDEX] = self.pinout.data();
+        cpu_pinout
+    }
+
+    fn open_background_pattern1(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { self.pinout.latch_address(); },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+        }
+
+        cpu_pinout
+    }
+
+    fn read_background_pattern1(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { cpu_pinout = self.read(mapper, cpu_pinout); self.context.addr_reg.coarse_x_increment(); },
+            IO::RDALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::RD; self.context.addr_reg.coarse_x_increment(); },
+            IO::WRALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::WR; self.context.addr_reg.coarse_x_increment(); },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.next_pattern[PATTERN1_INDEX] = self.pinout.data();
+        cpu_pinout
+    }
 
 }
