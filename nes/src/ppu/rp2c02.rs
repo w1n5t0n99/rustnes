@@ -191,33 +191,58 @@ impl Rp2c02 {
             0x1C => { self.palette_ram[0x0C] = data; }
             _ => { self.palette_ram[addr as usize] = data; }
         }
-    }   
+    }
+    
+    #[inline(always)]
+    fn io_read(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        // assert rd pin, basically only used for debug info
+        self.pinout.rd();
+        // read data
+        let pinouts = mapper.read_ppu(self.pinout, cpu_pinout);
+        self.pinout = pinouts.0;
+        cpu_pinout = pinouts.1;
+        // set io rd buffer and io state
+        self.context.rd_buffer = self.pinout.data();
+        self.context.io = IO::Idle;
+
+        cpu_pinout
+    }
+
+    #[inline(always)]
+    fn io_write(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        // assert wr pin, basically only used for debug info
+        self.pinout.wr();
+        // write data, must place on address bus
+        self.pinout.set_data(self.context.wr_buffer);
+        let pinouts = mapper.write_ppu(self.pinout, cpu_pinout);
+        self.pinout = pinouts.0;
+        cpu_pinout = pinouts.1;
+        // set io state
+        self.context.io = IO::Idle;
+
+        cpu_pinout
+    }
 
     fn open_tile_index(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         self.pinout.set_address(self.context.addr_reg.tile_address());
-        self.pinout.latch_address();
 
         match self.context.io {
-            IO::Idle => { },
-            IO::RDALE => { self.context.io = IO::RD; },
-            IO::WRALE => { self.context.io = IO::WR },
+            IO::Idle => { self.pinout.latch_address(); },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR },
             IO::RD => {
-                self.pinout.rd();
-                let pinouts = mapper.read_ppu(self.pinout, cpu_pinout);
-                self.pinout = pinouts.0;
-                cpu_pinout = pinouts.1;
-                self.context.rd_buffer = self.pinout.data();
-                self.context.io = IO::Idle;
+                cpu_pinout = self.io_read(mapper, cpu_pinout);
+                self.pinout.latch_address();
+
+                self.context.addr_reg.coarse_x_increment();
+                self.context.addr_reg.y_increment();
             },
             IO::WR => {
-                //self.context.wr_buffer = mapper.read_nametable(self.pinout.address_rd(), cpu_pinout);
-                self.pinout.wr();
-                self.pinout.set_data(self.context.wr_buffer);
-                let pinouts = mapper.write_ppu(self.pinout, cpu_pinout);
-                self.pinout = pinouts.0;
-                cpu_pinout = pinouts.1;
+                cpu_pinout = self.io_write(mapper, cpu_pinout);
                 self.pinout.latch_address();
-                self.context.io = IO::Idle;
+
+                self.context.addr_reg.coarse_x_increment();
+                self.context.addr_reg.y_increment();
             },
         }
 
