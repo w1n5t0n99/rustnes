@@ -30,7 +30,7 @@ impl MapperDebug {
         }
     }
 
-    pub fn init() -> MapperDebug {
+    pub fn with_debug_values() -> MapperDebug {
         let mut nrom = MapperDebug::new();
         nrom.nt_offset = NametableOffset::from_nametable(NametableType::Vertical);
         nrom.prg_mask = 0xBFFF;
@@ -47,15 +47,60 @@ impl MapperDebug {
             pdata += 1;
         }
 
-        for nt in 0..960 {
-            nrom.vram[nt as usize] = nt as u8;
+        let mut index = 0_u8;
+        for n in (nrom.nt_offset.nt_a - 0x2000)..((nrom.nt_offset.nt_a - 0x2000) + 0x400) {
+            nrom.vram[n as usize] = index;
+            index += 1;
         }
 
-        for nt in 0x400..(0x400+960) {
-            nrom.vram[nt as usize] = nt as u8;
+        index = 0;
+        for n in (nrom.nt_offset.nt_b - 0x2000)..((nrom.nt_offset.nt_b - 0x2000) + 0x400) {
+            nrom.vram[n as usize] = index;
+            index += 1;
+        }
+
+        index = 0;
+        for n in (nrom.nt_offset.nt_c - 0x2000)..((nrom.nt_offset.nt_c - 0x2000) + 0x400) {
+            nrom.vram[n as usize] = index;
+            index += 1;
+        }
+
+        index = 0;
+        for n in (nrom.nt_offset.nt_d - 0x2000)..((nrom.nt_offset.nt_d - 0x2000) + 0x400) {
+            nrom.vram[n as usize] = index;
+            index += 1;
         }
 
         nrom
+    }
+
+    pub fn set_nt_mirroring(&mut self, nt_type: NametableType) {
+        self.nt_offset = NametableOffset::from_nametable(nt_type);
+        self.vram = vec![0; 0x1000];
+
+        let mut index = 0_u8;
+        for n in (self.nt_offset.nt_a - 0x2000)..((self.nt_offset.nt_a - 0x2000) + 0x400) {
+            self.vram[n as usize] = index;
+            index += 1;
+        }
+
+        index = 0;
+        for n in (self.nt_offset.nt_b - 0x2000)..((self.nt_offset.nt_b - 0x2000) + 0x400) {
+            self.vram[n as usize] = index;
+            index += 1;
+        }
+
+        index = 0;
+        for n in (self.nt_offset.nt_c - 0x2000)..((self.nt_offset.nt_c - 0x2000) + 0x400) {
+            self.vram[n as usize] = index;
+            index += 1;
+        }
+
+        index = 0;
+        for n in (self.nt_offset.nt_d - 0x2000)..((self.nt_offset.nt_d - 0x2000) + 0x400) {
+            self.vram[n as usize] = index;
+            index += 1;
+        }
     }
 }
 
@@ -181,7 +226,30 @@ mod tests {
 
     #[test]
     fn test_nametable_read() {
-        //assert_eq!(add(1, 2), 3);
+        let mut mapper = MapperDebug::with_debug_values();
+        mapper.set_nt_mirroring(NametableType::Vertical);
+        let mut cpu_pinout = mos::Pinout::new();
+        let mut ppu_pinout = ppu::Pinout::new();
+
+        ppu_pinout.set_address(0x2000);
+        ppu_pinout.latch_address();
+        ppu_pinout.set_address(0x2000);
+
+        let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
+        ppu_pinout = p.0; 
+        cpu_pinout = p.1;
+        let d0 = ppu_pinout.data();
+
+        ppu_pinout.set_address(0x2800);
+        ppu_pinout.latch_address();
+        ppu_pinout.set_address(0x2800);
+
+        let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
+        ppu_pinout = p.0; 
+        cpu_pinout = p.1;
+        let d1 =ppu_pinout.data();
+
+        assert_eq!(d0, d1);
     }
 
 }
