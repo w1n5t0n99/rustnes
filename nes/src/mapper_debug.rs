@@ -4,7 +4,7 @@ use std::ptr;
 use super::mappers::{Mapper, NametableOffset, NametableType, POWER_ON_PALETTE};
 use super::ppu;
 
-pub struct MapperNrom {
+pub struct MapperDebug {
     pub sram: Vec<u8>,
     pub vram: Vec<u8>,
     pub prg_rom: Vec<u8>,
@@ -15,10 +15,10 @@ pub struct MapperNrom {
     pub nt_offset: NametableOffset,
 }
 
-impl MapperNrom {
-    pub fn new() -> MapperNrom {
+impl MapperDebug {
+    pub fn new() -> MapperDebug {
         let v = POWER_ON_PALETTE.to_vec();
-        MapperNrom {
+        MapperDebug {
             sram: vec![0; 0x800],
             vram: vec![0; 0x1000],
             prg_rom: Vec::new(),
@@ -30,52 +30,36 @@ impl MapperNrom {
         }
     }
 
-    pub fn from_ines(rom: &ines::Ines) -> MapperNrom {
-        let mut nrom = MapperNrom::new();
-        nrom.prg_size = rom.prg_rom_size;
-        nrom.prg_rom = vec![0; (rom.prg_rom_size + 1) as usize];
-        // check if rom is 16K or 32K
-        if rom.prg_rom_size == 16384 {
-            nrom.prg_mask = 0xBFFF;
-        }
-        else {
-            nrom.prg_mask = 0xFFFF;
-        }
+    pub fn init() -> MapperDebug {
+        let mut nrom = MapperDebug::new();
+        nrom.nt_offset = NametableOffset::from_nametable(NametableType::Vertical);
+        nrom.prg_mask = 0xBFFF;
 
-        match rom.nametable_mirroring {
-            ines::NametableMirroring::Horizontal => {
-                nrom.nt_offset = NametableOffset::from_nametable(NametableType::Horizontal);
+        nrom.prg_rom = vec![0; 16384];
+        nrom.chr_rom = vec![0; 8192];
+
+        let mut pdata = 0_u8;
+        for pattern in nrom.chr_rom.chunks_exact_mut(16) {
+            for elem in pattern.iter_mut() {
+                *elem += pdata;
             }
-            ines::NametableMirroring::Vertical => {
-                nrom.nt_offset = NametableOffset::from_nametable(NametableType::Vertical);
-            }
-            _ => panic!("Invalid NROM nametable mirroring: {:?}", rom.nametable_mirroring),
+
+            pdata += 1;
         }
 
-        // copy prg data
-        unsafe {
-            let src_len = rom.prg_data.len();
-            let dst_ptr = nrom.prg_rom.as_mut_ptr();
-            let src_ptr = rom.prg_data.as_ptr();
-            ptr::copy_nonoverlapping(src_ptr, dst_ptr, src_len);
+        for nt in 0..960 {
+            nrom.vram[nt as usize] = nt as u8;
         }
 
-        nrom.chr_rom = vec![0; (rom.chr_rom_size + 1) as usize];
-        // nrom chr size must be 8K
-
-        // copy chr data
-        unsafe {
-            let src_len = rom.chr_data.len();
-            let dst_ptr = nrom.chr_rom.as_mut_ptr();
-            let src_ptr = rom.chr_data.as_ptr();
-            ptr::copy_nonoverlapping(src_ptr, dst_ptr, src_len);
+        for nt in 0x400..(0x400+960) {
+            nrom.vram[nt as usize] = nt as u8;
         }
 
         nrom
     }
 }
 
-impl Mapper for MapperNrom {
+impl Mapper for MapperDebug {
 
     fn set_reset(&mut self, addr: u16) {
         let hb = (addr >> 8) as u8;
@@ -189,6 +173,19 @@ impl Mapper for MapperNrom {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_nametable_read() {
+        //assert_eq!(add(1, 2), 3);
+    }
+
+}
+
 
 
 

@@ -2,6 +2,7 @@ pub mod error;
 mod dma;
 mod mappers;
 mod mapper_nrom;
+mod mapper_debug;
 mod bus;
 mod ppu;
 mod palette;
