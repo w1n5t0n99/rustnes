@@ -246,6 +246,34 @@ impl Rp2c02 {
         cpu_pinout
     }
 
+    fn idle_cycle(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        self.pinout.set_address(self.context.addr_reg.vram_address());
+
+        match self.context.io {
+            IO::Idle => { },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        cpu_pinout
+    }
+
+    fn nonrender_cycle(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        self.pinout.set_address(self.context.addr_reg.vram_address());
+
+        match self.context.io {
+            IO::Idle => { },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.increment(self.context.control_reg.vram_addr_increment()); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.increment(self.context.control_reg.vram_addr_increment()); },
+        }
+
+        cpu_pinout
+    }
+
     fn open_tile_index(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         self.pinout.set_address(self.context.addr_reg.tile_address());
 
