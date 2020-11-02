@@ -44,31 +44,31 @@ impl MapperDebug {
                 *elem += pdata;
             }
 
-            pdata += 1;
+            pdata = pdata.wrapping_add(1);
         }
 
         let mut index = 0_u8;
         for n in (nrom.nt_offset.nt_a - 0x2000)..((nrom.nt_offset.nt_a - 0x2000) + 0x400) {
             nrom.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         index = 0;
         for n in (nrom.nt_offset.nt_b - 0x2000)..((nrom.nt_offset.nt_b - 0x2000) + 0x400) {
             nrom.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         index = 0;
         for n in (nrom.nt_offset.nt_c - 0x2000)..((nrom.nt_offset.nt_c - 0x2000) + 0x400) {
             nrom.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         index = 0;
         for n in (nrom.nt_offset.nt_d - 0x2000)..((nrom.nt_offset.nt_d - 0x2000) + 0x400) {
             nrom.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         nrom
@@ -81,25 +81,25 @@ impl MapperDebug {
         let mut index = 0_u8;
         for n in (self.nt_offset.nt_a - 0x2000)..((self.nt_offset.nt_a - 0x2000) + 0x400) {
             self.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         index = 0;
         for n in (self.nt_offset.nt_b - 0x2000)..((self.nt_offset.nt_b - 0x2000) + 0x400) {
             self.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         index = 0;
         for n in (self.nt_offset.nt_c - 0x2000)..((self.nt_offset.nt_c - 0x2000) + 0x400) {
             self.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
 
         index = 0;
         for n in (self.nt_offset.nt_d - 0x2000)..((self.nt_offset.nt_d - 0x2000) + 0x400) {
             self.vram[n as usize] = index;
-            index += 1;
+            index = index.wrapping_add(1);
         }
     }
 }
@@ -225,24 +225,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_nametable_read() {
+    fn test_nametable_vertical() {
         let mut mapper = MapperDebug::with_debug_values();
         mapper.set_nt_mirroring(NametableType::Vertical);
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 
-        ppu_pinout.set_address(0x2000);
+        ppu_pinout.set_address(0x2001);
         ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2000);
+        ppu_pinout.set_address(0x2001);
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
         let d0 = ppu_pinout.data();
 
-        ppu_pinout.set_address(0x2800);
+        ppu_pinout.set_address(0x2801);
         ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2800);
+        ppu_pinout.set_address(0x2801);
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
@@ -250,6 +250,56 @@ mod tests {
         let d1 =ppu_pinout.data();
 
         assert_eq!(d0, d1);
+
+        ppu_pinout.set_address(0x2401);
+        ppu_pinout.latch_address();
+        ppu_pinout.set_address(0x2401);
+
+        let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
+        ppu_pinout = p.0; 
+        cpu_pinout = p.1;
+        let d2 =ppu_pinout.data();
+        assert_ne!(d1, d2);
+
+    }
+
+    #[test]
+    fn test_nametable_horizontal() {
+        let mut mapper = MapperDebug::with_debug_values();
+        mapper.set_nt_mirroring(NametableType::Horizontal);
+        let mut cpu_pinout = mos::Pinout::new();
+        let mut ppu_pinout = ppu::Pinout::new();
+
+        ppu_pinout.set_address(0x2001);
+        ppu_pinout.latch_address();
+        ppu_pinout.set_address(0x2001);
+
+        let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
+        ppu_pinout = p.0; 
+        cpu_pinout = p.1;
+        let d0 = ppu_pinout.data();
+
+        ppu_pinout.set_address(0x2401);
+        ppu_pinout.latch_address();
+        ppu_pinout.set_address(0x2401);
+
+        let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
+        ppu_pinout = p.0; 
+        cpu_pinout = p.1;
+        let d1 =ppu_pinout.data();
+
+        assert_eq!(d0, d1);
+
+        ppu_pinout.set_address(0x2801);
+        ppu_pinout.latch_address();
+        ppu_pinout.set_address(0x2801);
+
+        let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
+        ppu_pinout = p.0; 
+        cpu_pinout = p.1;
+        let d2 =ppu_pinout.data();
+        assert_ne!(d1, d2);
+
     }
 
 }

@@ -136,6 +136,7 @@ mod test {
         let mut pinout = Pinout::new();
         pinout.set_address(0xFF00);
         pinout.latch_address();
+        pinout.set_address(0xFF00);
 
         assert_eq!(pinout.address(), 0xFF00);
 
