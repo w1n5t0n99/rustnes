@@ -30,9 +30,9 @@ impl MapperDebug {
         }
     }
 
-    pub fn with_debug_values() -> MapperDebug {
+    pub fn with_debug_values(nt_type: NametableType) -> MapperDebug {
         let mut nrom = MapperDebug::new();
-        nrom.nt_offset = NametableOffset::from_nametable(NametableType::Vertical);
+        nrom.nt_offset = NametableOffset::from_nametable(nt_type);
         nrom.prg_mask = 0xBFFF;
 
         nrom.prg_rom = vec![0; 16384];
@@ -41,35 +41,13 @@ impl MapperDebug {
         let mut pdata = 0_u8;
         for pattern in nrom.chr_rom.chunks_exact_mut(16) {
             for elem in pattern.iter_mut() {
-                *elem += pdata;
+                *elem = pdata;
             }
 
             pdata = pdata.wrapping_add(1);
         }
 
-        let mut index = 0_u8;
-        for n in (nrom.nt_offset.nt_a - 0x2000)..((nrom.nt_offset.nt_a - 0x2000) + 0x400) {
-            nrom.vram[n as usize] = index;
-            index = index.wrapping_add(1);
-        }
-
-        index = 0;
-        for n in (nrom.nt_offset.nt_b - 0x2000)..((nrom.nt_offset.nt_b - 0x2000) + 0x400) {
-            nrom.vram[n as usize] = index;
-            index = index.wrapping_add(1);
-        }
-
-        index = 0;
-        for n in (nrom.nt_offset.nt_c - 0x2000)..((nrom.nt_offset.nt_c - 0x2000) + 0x400) {
-            nrom.vram[n as usize] = index;
-            index = index.wrapping_add(1);
-        }
-
-        index = 0;
-        for n in (nrom.nt_offset.nt_d - 0x2000)..((nrom.nt_offset.nt_d - 0x2000) + 0x400) {
-            nrom.vram[n as usize] = index;
-            index = index.wrapping_add(1);
-        }
+       nrom.set_nt_mirroring(nt_type);
 
         nrom
     }
@@ -226,8 +204,8 @@ mod tests {
 
     #[test]
     fn test_nametable_vertical() {
-        let mut mapper = MapperDebug::with_debug_values();
-        mapper.set_nt_mirroring(NametableType::Vertical);
+        let mut mapper = MapperDebug::with_debug_values(NametableType::Vertical);
+        //mapper.set_nt_mirroring(NametableType::Vertical);
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 
@@ -265,8 +243,8 @@ mod tests {
 
     #[test]
     fn test_nametable_horizontal() {
-        let mut mapper = MapperDebug::with_debug_values();
-        mapper.set_nt_mirroring(NametableType::Horizontal);
+        let mut mapper = MapperDebug::with_debug_values(NametableType::Horizontal);
+        //mapper.set_nt_mirroring(NametableType::Horizontal);
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 

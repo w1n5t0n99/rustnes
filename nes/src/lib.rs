@@ -10,10 +10,12 @@ mod palette;
 pub use error::NesError;
 use mos::rp2a03::Rp2a03;
 use dma::Dma;
+use ppu::rp2c02::Rp2c02;
 use ppu::ppu_viewer::PpuViewer;
 
 use std::fs::File;
 use std::path::Path;
+use std::io::Write;
 use ::nes_rom::ines;
 use std::fmt;
 
@@ -25,6 +27,7 @@ pub struct Nes {
     cpu_pinout: mos::Pinout,
     dma: Dma,
     mapper: Box<dyn mappers::Mapper>,
+    ppu: Rp2c02,
     ppu_viewer: PpuViewer,
 }
 
@@ -36,6 +39,7 @@ impl Nes {
             cpu_pinout: cpu_pinout,
             dma: Dma::from_power_on(),
             mapper: Box::new(mappers::MapperNull),
+            ppu: Rp2c02::from_power_on(),
             ppu_viewer: PpuViewer::new(),
         }
     }
@@ -46,6 +50,11 @@ impl Nes {
         let ines = ines::Ines::from_rom(ines_file)?;
         self.mapper = mappers::create_mapper(&ines)?;
         Ok(())
+    }
+
+    pub fn load_debug_rom(&mut self) {
+        self.mapper = Box::new(mapper_debug::MapperDebug::with_debug_values(mappers::NametableType::Vertical));
+        self.ppu = ppu::rp2c02::Rp2c02::from_debug_values();
     }
 
     // place the starting address in the reset vector
@@ -72,6 +81,20 @@ impl Nes {
         {
             let mut bus = bus::DmaBus::new(&mut *self.mapper);
             self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
+        }
+    }
+
+    pub fn execute_debug_frame<P: AsRef<Path>>(mut self, log_path: P) {
+        let mut log_file = File::create(log_path).expect("Unable to open log file");
+        
+        self.ppu.write_ppuaddr(0x20);
+        self.ppu.write_ppuaddr(0x00);
+
+        log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
+
+        for n in 0..340 {
+            self.cpu_pinout =self.ppu.tick(&mut *self.mapper, self.cpu_pinout);
+            log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
         }
     }
 
