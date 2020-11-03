@@ -394,4 +394,272 @@ impl Rp2c02 {
         cpu_pinout
     }
 
+    fn read_garbage_pattern(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { cpu_pinout = self.read(mapper, cpu_pinout); },
+            IO::RDALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.next_pattern[PATTERN1_INDEX] = self.pinout.data();
+        cpu_pinout
+    }
+
+    fn scanline_prerender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        if self.context.scanline_dot == 0 {
+            self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
+            self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
+        }
+
+        if self.context.scanline_dot == 1 {
+            self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
+        }
+
+        if self.context.mask_reg.rendering_enabled() == true {
+            match self.context.scanline_dot {
+                0 => {
+                     cpu_pinout = self.idle_cycle(mapper, cpu_pinout) 
+                },
+                1..=256 => {
+                    match self.context.scanline_dot & 0x07 {
+                        1 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        2 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        3 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+                        }
+                        4 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+                        }
+                        5 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                        }
+                        6 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
+                        }
+                        7 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                        }
+                        0 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+                        }
+                        _ => {
+                            panic!("ppu 1-256 out of bounds");
+                        }
+                    }
+
+                    if self.context.scanline_dot == 256 {
+                        self.context.addr_reg.y_increment();
+                    }
+                },
+                257..=279 => {
+                    if self.context.scanline_dot == 257 {
+                        self.context.addr_reg.update_x_scroll();
+                    }
+
+                    match self.context.scanline_dot & 0x07 {
+                        1 => {
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        2 => {
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        3 => {
+                            cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+                        }
+                        4 => {
+                            cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+                        }
+                        5 => {
+                            // open sprite pattern
+                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                        }
+                        6 => {
+                            // read sprite pattern
+                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                        }
+                        7 => {
+                            // open sprite pattern
+                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                        }
+                        0 => {
+                            // read sprite pattern
+                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                        }
+                        _ => {
+                            panic!("ppu 257-279 out of bounds");
+                        }
+                    }
+                },
+                280..=304 => {
+                    self.context.addr_reg.update_vertical();
+                    // update sprite registers
+
+                    match self.context.scanline_dot & 0x07 {
+                        1 => {
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        2 => {
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        3 => {
+                            cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+                        }
+                        4 => {
+                            cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+                        }
+                        5 => {
+                            // open sprite pattern
+                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                        }
+                        6 => {
+                            // read sprite pattern
+                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                        }
+                        7 => {
+                            // open sprite pattern
+                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                        }
+                        0 => {
+                            // read sprite pattern
+                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                        }
+                        _ => {
+                            panic!("ppu 280-304 out of bounds");
+                        }
+                    }
+                }
+                305..=320 => {
+                    // update sprite registers
+
+                    match self.context.scanline_dot & 0x07 {
+                        1 => {
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        2 => {
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        3 => {
+                            cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+                        }
+                        4 => {
+                            cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+                        }
+                        5 => {
+                            // open sprite pattern
+                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                        }
+                        6 => {
+                            // read sprite pattern
+                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                        }
+                        7 => {
+                            // open sprite pattern
+                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                        }
+                        0 => {
+                            // read sprite pattern
+                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                        }
+                        _ => {
+                            panic!("ppu 305-321 out of bounds");
+                        }
+                    }
+                }
+                321..=336 => {
+                    // two tiles for next scanline fetched
+                    match self.context.scanline_dot & 0x07 {
+                        1 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        2 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        3 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+                        }
+                        4 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+                        }
+                        5 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                        }
+                        6 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
+                        }
+                        7 => {
+                            // eval sprites odd
+                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                        }
+                        0 => {
+                            // eval sprites even
+                            cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+                        }
+                        _ => {
+                            panic!("ppu 321-336 out of bounds");
+                        }
+                    }
+                }
+                337..=340 => {
+                    // garbage nametable fetchs
+                    match self.context.scanline_dot {
+                        337 => {
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        338 => {
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        339 => {
+                            cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+                        }
+                        340 => {
+                            cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+                        }
+                        _ => {
+                            panic!("ppu 337-340 out of bounds");
+                        }
+                    }
+                }
+                _ => {
+                    panic!("ppu 0-340 out of bounds");
+                }
+            }
+        }
+        else {
+            cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
+        }
+
+        if self.context.scanline_dot == 340 {
+            self.context.scanline_dot = 0;
+            self.context.scanline_index = 0;
+        }
+        else {
+            self.context.scanline_dot += 1;
+        }
+
+        cpu_pinout
+    }
+
 }

@@ -89,6 +89,20 @@ impl AddrReg {
         }
     }
 
+    pub fn update_x_scroll(&mut self) {
+        let edcba = self.t & 0x1F;
+        let f = self.t & 0x400;
+        self.v = (self.v & 0xFBFF) | f;
+        self.v = (self.v & 0xFFE0) | edcba;
+    }
+
+    pub fn update_vertical(&mut self) {
+        let edcba = self.t & 0x3E0;
+        let ihgf = self.t & 0x7800;
+        self.v = (self.v & 0x87FF) | ihgf;
+        self.v = (self.v & 0xFC1F) | edcba;
+    }
+
     pub fn quirky_increment(&mut self) {
         self.coarse_x_increment();
         self.y_increment();

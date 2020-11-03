@@ -106,6 +106,7 @@ pub struct Context {
     pub rd_buffer: u8,
     pub wr_buffer: u8,
     pub io: IO,
+    pub odd_frame: bool,
 }
 
 impl Context {
@@ -123,6 +124,7 @@ impl Context {
             rd_buffer: 0,
             wr_buffer: 0,
             io: IO::Idle,
+            odd_frame: false,
         }
     }
 }
