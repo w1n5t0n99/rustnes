@@ -70,9 +70,17 @@ pub fn display_rom_chr<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
     Ok(())
 }
 
+pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
+    let mut nes = Nes::from_power_on();
+    nes.load_debug_rom();
+
+    nes.execute_debug_frame(file_path);
+}
+
 fn main() -> Result<(), NesError> {
     //execute_nestest_cpu_only("test_roms\\nestest.nes")?;
     display_rom_chr("test_roms\\nestest.nes")?;
+    ppu_debug("ppu_log.txt");
 
     Ok(())
 }
