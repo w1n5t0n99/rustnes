@@ -874,6 +874,102 @@ impl Rp2c02 {
         cpu_pinout
     }
 
+    fn scanline_preprerender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+
+        match self.context.scanline_dot {
+            0 => {
+                self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
+                self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
+                 cpu_pinout = self.idle_cycle(mapper, cpu_pinout); 
+            },
+            1 => {
+                self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
+                // eval sprites odd
+                cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+            }
+            2 => {
+                // eval sprites even
+                cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+            }
+            3 => {
+                // eval sprites odd
+                cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+            }
+            4 => {
+                // eval sprites even
+                cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+            }
+            5 => {
+                // eval sprites odd
+                cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+            }
+            6 => {
+                // eval sprites even
+                cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
+            }
+            7 => {
+                // eval sprites odd
+                cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+            }
+            8 => {
+                // eval sprites even
+                cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+            }
+            9 => {
+                cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+            }
+            10 => {
+                cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+            }
+            11 => {
+                cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+            }
+            12 => {
+                cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+            }
+            13 => {
+                cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+            }
+            14 => {
+                cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
+            }
+            15 => {
+                cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+            }
+            16 => {
+                cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+            }
+            17 => {
+                cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+            }
+            18 => {
+                cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
+            }
+            19 => {
+                cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
+            }
+            20 => {
+                cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
+            }
+            21 => {
+                cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+            }
+            22 => {
+                cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
+            }
+            23 => {
+                cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+            }
+            24 => {
+                cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+            }
+            _ => {
+                panic!("PPU prerender 0-340 out of bounds");
+            }
+        }
+
+        cpu_pinout
+    }
 }
 
 impl fmt::Display for Rp2c02 {
