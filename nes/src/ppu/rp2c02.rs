@@ -265,18 +265,26 @@ impl Rp2c02 {
 
     // only call if rendering enbabled
     fn select_background_pixel(&mut self) -> u8 {
+        let mut pixel: u8 = 0;
         if (self.context.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_BACKGROUND) | (self.context.scanline_dot >= 8)) && self.context.mask_reg.contains(MaskRegister::SHOW_BACKGROUND) {
             let mask: u16 = 0x8000 >> self.context.addr_reg.x;
 
-            (((self.pattern_queue[0] & mask) >> (15 - self.context.addr_reg.x)) |
+            pixel = (((self.pattern_queue[0] & mask) >> (15 - self.context.addr_reg.x)) |
             ((self.pattern_queue[1] & mask) >> (14 - self.context.addr_reg.x)) |
             ((self.attribute_queue[0] & mask) >> (13 - self.context.addr_reg.x)) |
             ((self.attribute_queue[1] & mask) >> (12 - self.context.addr_reg.x)) &
-            0xFF) as u8
+            0xFF) as u8;
         }
         else {
-            0x0
+            pixel = 0x0;
         }
+
+        self.pattern_queue[0] <<= 1;
+	    self.pattern_queue[1] <<= 1;
+	    self.attribute_queue[0] <<= 1;
+        self.attribute_queue[1] <<= 1;
+        
+        pixel
     }
 
     // only call if rendering enbabled
@@ -769,7 +777,7 @@ impl Rp2c02 {
                     }
                 }
                 _ => {
-                    panic!("ppu 0-340 out of bounds");
+                    panic!("PPU prerender 0-340 out of bounds");
                 }
             }
         }
@@ -800,7 +808,7 @@ impl Rp2c02 {
                 1..=256 => {
                     // render pixel
                     let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
-                    fb[index] = self.select_pixel();
+                    fb[index] = 0x1F;
 
                     match self.context.scanline_dot & 0x07 {
                         1 => {
@@ -947,7 +955,7 @@ impl Rp2c02 {
                     }
                 }
                 _ => {
-                    panic!("ppu 0-340 out of bounds");
+                    panic!("PPU render 0-340 out of bounds");
                 }
             }
         }
@@ -983,7 +991,7 @@ impl Rp2c02 {
                 self.context.scanline_dot = 0;
             }
             _ => {
-                panic!("ppu 0-340 out of bounds");
+                panic!("PPU postrender 0-340 out of bounds");
             }
         }
 
@@ -1006,13 +1014,17 @@ impl Rp2c02 {
                 cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
                 self.context.scanline_dot += 1;
             }
+            2..=339 => {
+                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                self.context.scanline_dot += 1;
+            }
             340 => {
                 cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
             }
             _ => {
-                panic!("ppu 0-340 out of bounds");
+                panic!("PPU vblank 0-340 out of bounds - index:{} dot:{}", self.context.scanline_index, self.context.scanline_dot);
             }
         }
 
@@ -1022,7 +1034,7 @@ impl Rp2c02 {
 
 impl fmt::Display for Rp2c02 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {}",
-        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.scanline_index, self.context.scanline_dot, self.pinout)
+        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} Pattern Shift {:#06X}",
+        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.scanline_index, self.context.scanline_dot, self.pinout, self.pattern_queue[0])
     }
 }

@@ -1,11 +1,11 @@
 pub mod error;
+pub mod palette;
 mod dma;
 mod mappers;
 mod mapper_nrom;
 mod mapper_debug;
 mod bus;
 mod ppu;
-mod palette;
 
 pub use error::NesError;
 use mos::rp2a03::Rp2a03;
@@ -92,7 +92,7 @@ impl Nes {
 
         log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
 
-        for n in 0..(340*3) {
+        for n in 0..(89341) {
             self.cpu_pinout =self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
             log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
         }

@@ -38,13 +38,14 @@ impl MapperDebug {
         nrom.prg_rom = vec![0; 16384];
         nrom.chr_rom = vec![0; 8192];
 
+
         let mut pdata = 0_u8;
         for pattern in nrom.chr_rom.chunks_exact_mut(16) {
             for elem in pattern.iter_mut() {
                 *elem = pdata;
             }
 
-            pdata = pdata.wrapping_add(1);
+            if pdata == 0 { pdata = 0xFF; } else { pdata = 0; }
         }
 
        nrom.set_nt_mirroring(nt_type);
