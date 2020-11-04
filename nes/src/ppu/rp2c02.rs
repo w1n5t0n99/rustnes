@@ -54,6 +54,9 @@ impl Rp2c02 {
 
         ppu.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
         ppu.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
+        // paletet ram power up values
+        ppu.palette_ram = [0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
+            0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08];
 
         ppu
     }
@@ -253,13 +256,13 @@ impl Rp2c02 {
         }
     }
 
-    pub fn select_blank_pixel(&self) -> u16 {
+    pub fn select_blank_pixel(&self) -> u8 {
         let v = self.context.addr_reg.vram_address();
         if (v & 0x3F00) == 0x3F00 {
-            (self.palette_ram[(v & 0x1F) as usize] & self.monochrome_mask) as u16  & self.context.mask_reg.emphasis_mask()
+            self.palette_ram[(v & 0x1F) as usize] & self.monochrome_mask
         }
         else {
-            (self.palette_ram[0] & self.monochrome_mask) as u16  & self.context.mask_reg.emphasis_mask()
+            self.palette_ram[0] & self.monochrome_mask
         }
     }
 
@@ -288,13 +291,12 @@ impl Rp2c02 {
     }
 
     // only call if rendering enbabled
-    fn select_pixel(&mut self) -> u16 {
+    fn select_pixel(&mut self) -> u8 {
         // background pixel is default
         let mut pixel = self.select_background_pixel();
         // TODO see if sprite pixel overlaps
 
-        // append color attenuation bits
-        (pixel as u16) & self.context.mask_reg.emphasis_mask()
+        pixel
     }
 
     fn update_shift_registers_render(&mut self) {
@@ -588,9 +590,9 @@ impl Rp2c02 {
                             cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
-                            self.update_shift_registers_idle();
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+                            self.update_shift_registers_idle();
                         }
                         _ => {
                             panic!("ppu 1-256 out of bounds");
@@ -747,9 +749,9 @@ impl Rp2c02 {
                             cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
-                            self.update_shift_registers_idle();
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+                            self.update_shift_registers_idle();
                         }
                         _ => {
                             panic!("ppu 321-336 out of bounds");
@@ -808,7 +810,10 @@ impl Rp2c02 {
                 1..=256 => {
                     // render pixel
                     let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
-                    fb[index] = 0x1F;
+                    let pixel = self.select_pixel();
+                    fb[index] = self.read_palette_rendering(pixel as u16) as u16 | self.context.mask_reg.emphasis_mask();
+
+                    //println!("pixel {} - {}", index, fb[index]);
 
                     match self.context.scanline_dot & 0x07 {
                         1 => {
@@ -925,9 +930,9 @@ impl Rp2c02 {
                             cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
-                            self.update_shift_registers_idle();
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+                            self.update_shift_registers_idle();
                         }
                         _ => {
                             panic!("ppu 321-336 out of bounds");
@@ -962,7 +967,7 @@ impl Rp2c02 {
         else {
             // render blank pixel
             let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
-            fb[index] = self.select_blank_pixel();
+            fb[index] = self.read_palette( self.select_blank_pixel() as u16) as u16 | self.context.mask_reg.emphasis_mask();
             
             cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
         }
@@ -982,11 +987,11 @@ impl Rp2c02 {
     fn scanline_postrender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         match self.context.scanline_dot {
             0..=339 => {
-                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_dot += 1;
             }
             340 => {
-                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
             }
@@ -1002,7 +1007,7 @@ impl Rp2c02 {
         // TODO add support for multipe NMIs
         match self.context.scanline_dot {
             0 => {
-                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_dot += 1;
             }
             1 => {
@@ -1011,15 +1016,15 @@ impl Rp2c02 {
                     cpu_pinout.ctrl.set(mos::Ctrl::NMI, false);
                 }
 
-                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_dot += 1;
             }
             2..=339 => {
-                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_dot += 1;
             }
             340 => {
-                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
             }
@@ -1034,7 +1039,7 @@ impl Rp2c02 {
 
 impl fmt::Display for Rp2c02 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} Pattern Shift {:#06X}",
+        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} Pattern Shift {:#0b}",
         self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.scanline_index, self.context.scanline_dot, self.pinout, self.pattern_queue[0])
     }
 }

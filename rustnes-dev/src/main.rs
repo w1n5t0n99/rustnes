@@ -85,7 +85,11 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
     nes.execute_debug_frame(&mut fb, file_path);
 
     for i in 0..=255 {
-        println!("pixel: {:#06X}", fb[i as usize]);
+        print!("p: {:#06X} ", fb[i as usize]);
+    }
+    println!(" ");
+    for i in 256..=511 {
+        print!("p: {:#06X} ", fb[i as usize]);
     }
 
     let window_options = WindowOptions {
@@ -113,6 +117,8 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         let rgb_buffer: Vec<u32> = fb.iter().map(|pixel| palette[*pixel as usize]).collect();
+
+
         window
             .update_with_buffer(&rgb_buffer, 256, 240)
             .unwrap();

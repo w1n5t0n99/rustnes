@@ -139,13 +139,8 @@ impl PpuViewer {
         let scanlines = self.ppu_output_buffer.len() / 256;
         let mut ntsc_pixel_buffer: Vec<u32> = vec![0; 256*scanlines];
         
+        self.ppu_output_buffer.iter().map(|p| self.palette[*p as usize]).collect()
         
-        for (i, p) in self.ppu_output_buffer.iter().enumerate() {
-            ntsc_pixel_buffer[i] = self.palette[*p as usize];
-        }
-        
-        
-        ntsc_pixel_buffer
     }
 }  
 
