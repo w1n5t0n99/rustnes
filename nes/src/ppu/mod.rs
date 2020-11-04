@@ -95,6 +95,7 @@ impl fmt::Display for Pinout {
 #[derive(Debug, Clone, Copy)]
 pub struct Context {
     pub cycle: u64,
+    pub read_2002_cycle: u64,
     pub addr_reg: ppu_registers::AddrReg,
     pub control_reg: ppu_registers::ControlRegister,
     pub mask_reg: ppu_registers::MaskRegister,
@@ -113,6 +114,7 @@ impl Context {
     pub fn new() -> Self {
         Context {
             cycle: 0,
+            read_2002_cycle: 0,
             addr_reg: ppu_registers::AddrReg::new(),
             control_reg: ppu_registers::ControlRegister::new(),
             mask_reg: ppu_registers::MaskRegister::new(),

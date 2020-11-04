@@ -12,11 +12,14 @@ const PATTERN1_OFFSET: u16 = 8;
 pub struct Rp2c02 {
     pub palette_ram: [u8; 32],
     pub oam_ram_primary: [u8; 256],
+    pattern_queue: [u16; 2],
+    attribute_queue: [u16; 2],
     next_pattern: [u8; 2],
     context: Context,
     pinout: Pinout,   
     next_tile_index: u16,
     next_attribute: u8,
+    monochrome_mask: u8,
 }
 
 impl Rp2c02 {
@@ -24,11 +27,14 @@ impl Rp2c02 {
         Rp2c02 {
             palette_ram: [0; 32],
             oam_ram_primary: [0; 256],
+            pattern_queue: [0; 2],
+            attribute_queue: [0; 2],
             next_pattern: [0; 2],
             context: Context::new(),
             pinout: Pinout::new(),
             next_tile_index: 0,
             next_attribute: 0,
+            monochrome_mask: 0xFF,
         }
     }
 
@@ -36,11 +42,14 @@ impl Rp2c02 {
         let mut ppu = Rp2c02 {
             palette_ram: [0; 32],
             oam_ram_primary: [0; 256],
+            pattern_queue: [0; 2],
+            attribute_queue: [0; 2],
             next_pattern: [0; 2],
             context: Context::new(),
             pinout: Pinout::new(),
             next_tile_index: 0,
             next_attribute: 0,
+            monochrome_mask: 0xFF
         };
 
         ppu.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
@@ -61,9 +70,12 @@ impl Rp2c02 {
     pub fn write_ppumask(&mut self, data: u8) {
         self.context.io_db = data;
         self.context.mask_reg.io_write(data);
+
+        self.monochrome_mask = if self.context.mask_reg.contains(MaskRegister::GREYSCALE) { 0x30 } else { 0xFF };
     }
 
-    pub fn read_ppustatus(&self) -> u8 {
+    pub fn read_ppustatus(&mut self) -> u8 {
+        self.context.read_2002_cycle = self.context.cycle;
         self.context.status_reg.io_read(self.context.io_db)
     }
 
@@ -166,7 +178,8 @@ impl Rp2c02 {
         }
     }
 
-    pub fn tick(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    pub fn tick(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        // TODO add power on write block
         self.pinout.clear_ctrl();
 
         match self.context.scanline_index {
@@ -174,13 +187,13 @@ impl Rp2c02 {
                 cpu_pinout = self.scanline_prerender(mapper, cpu_pinout);
             }
             0..=239 => {
-                cpu_pinout = self.scanline_render(mapper, cpu_pinout);
+                cpu_pinout = self.scanline_render(fb, mapper, cpu_pinout);
             }
             240 => {
-                unimplemented!("scanline_postrender");
+                cpu_pinout = self.scanline_postrender(mapper, cpu_pinout);
             }
             241..=260 => {
-                unimplemented!("scanline_vblank");
+                cpu_pinout = self.scanline_vblank(mapper, cpu_pinout);
             }
             _ => {
                 panic!("Scanline index out of bounds");
@@ -198,7 +211,7 @@ impl Rp2c02 {
         (since the pattern values that would otherwise select those cells select the backdrop color instead)
         They can still be shown using the background palette hack during forced vblank
         */
-        let addr = vaddr & 0xFFE0;        
+        let addr = vaddr & 0x1F;        
         if self.context.status_reg.contains(StatusRegister::VBLANK_STARTED) == false && self.context.mask_reg.rendering_enabled()  == true {
             match addr {
                 0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
@@ -218,7 +231,7 @@ impl Rp2c02 {
 
     fn read_palette_rendering(&mut self, vaddr: u16) -> u8 { 
         // During rendering we don't need to check if rendering
-        let addr = vaddr & 0xFFE0;        
+        let addr = vaddr & 0x1F;        
         match addr {
             0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
             _ => self.palette_ram[addr as usize],
@@ -230,7 +243,7 @@ impl Rp2c02 {
         Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C.
         Note that this goes for writing as well as reading
         */
-        let addr = vaddr & 0xFFE0;
+        let addr = vaddr & 0x1F;
         match addr {
             0x10 => { self.palette_ram[0x00] = data; }
             0x14 => { self.palette_ram[0x04] = data; }
@@ -238,6 +251,58 @@ impl Rp2c02 {
             0x1C => { self.palette_ram[0x0C] = data; }
             _ => { self.palette_ram[addr as usize] = data; }
         }
+    }
+
+    pub fn select_blank_pixel(&self) -> u16 {
+        let v = self.context.addr_reg.vram_address();
+        if (v & 0x3F00) == 0x3F00 {
+            (self.palette_ram[(v & 0x1F) as usize] & self.monochrome_mask) as u16  & self.context.mask_reg.emphasis_mask()
+        }
+        else {
+            (self.palette_ram[0] & self.monochrome_mask) as u16  & self.context.mask_reg.emphasis_mask()
+        }
+    }
+
+    // only call if rendering enbabled
+    fn select_background_pixel(&mut self) -> u8 {
+        if (self.context.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_BACKGROUND) | (self.context.scanline_dot >= 8)) && self.context.mask_reg.contains(MaskRegister::SHOW_BACKGROUND) {
+            let mask: u16 = 0x8000 >> self.context.addr_reg.x;
+
+            (((self.pattern_queue[0] & mask) >> (15 - self.context.addr_reg.x)) |
+            ((self.pattern_queue[1] & mask) >> (14 - self.context.addr_reg.x)) |
+            ((self.attribute_queue[0] & mask) >> (13 - self.context.addr_reg.x)) |
+            ((self.attribute_queue[1] & mask) >> (12 - self.context.addr_reg.x)) &
+            0xFF) as u8
+        }
+        else {
+            0x0
+        }
+    }
+
+    // only call if rendering enbabled
+    fn select_pixel(&mut self) -> u16 {
+        // background pixel is default
+        let mut pixel = self.select_background_pixel();
+        // TODO see if sprite pixel overlaps
+
+        // append color attenuation bits
+        (pixel as u16) & self.context.mask_reg.emphasis_mask()
+    }
+
+    fn update_shift_registers_render(&mut self) {
+        self.pattern_queue[0] |= (self.next_pattern[0] as u16);
+	    self.pattern_queue[1] |= (self.next_pattern[1] as u16);
+	    self.attribute_queue[0] |= (((self.next_attribute >> 0) & 0x01) * 0xff) as u16; // we multiply here to "replicate" this bit 8 times (it is used for a whole tile)
+	    self.attribute_queue[1] |= (((self.next_attribute >> 1) & 0x01) * 0xff) as u16; // we multiply here to "replicate" this bit 8 times (it is used for a whole tile)
+    }
+
+    fn update_shift_registers_idle(&mut self) {
+        self.pattern_queue[0] <<= 8;
+        self.pattern_queue[1] <<= 8;
+        self.attribute_queue[0] <<= 8;
+        self.attribute_queue[1] <<= 8;
+    
+        self.update_shift_registers_render();
     }
     
     #[inline(always)]
@@ -430,6 +495,21 @@ impl Rp2c02 {
         cpu_pinout
     }
 
+    fn open_garbage_pattern(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { self.pinout.latch_address(); },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+        }
+
+        cpu_pinout
+    }
+
     fn read_garbage_pattern(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
         self.pinout.set_address(next_addr);
@@ -444,6 +524,14 @@ impl Rp2c02 {
 
         self.next_pattern[PATTERN1_INDEX] = self.pinout.data();
         cpu_pinout
+    }
+
+    fn enter_vblank(&mut self) {
+        // Reading one PPU clock before reads it as clear and never sets the flag
+        // or generates NMI for that frame.
+        if self.context.cycle != self.context.read_2002_cycle {
+            self.context.status_reg.set(StatusRegister::VBLANK_STARTED, true);
+        }
     }
 
     fn scanline_prerender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
@@ -492,6 +580,7 @@ impl Rp2c02 {
                             cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
+                            self.update_shift_registers_idle();
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
                         }
@@ -524,7 +613,7 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
@@ -532,7 +621,7 @@ impl Rp2c02 {
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
@@ -562,7 +651,7 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
@@ -570,7 +659,7 @@ impl Rp2c02 {
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
@@ -599,7 +688,7 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
@@ -607,7 +696,7 @@ impl Rp2c02 {
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
@@ -650,6 +739,7 @@ impl Rp2c02 {
                             cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
+                            self.update_shift_registers_idle();
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
                         }
@@ -699,7 +789,7 @@ impl Rp2c02 {
         cpu_pinout
     }
 
-    fn scanline_render(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn scanline_render(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
 
         if self.context.mask_reg.rendering_enabled() == true {
             match self.context.scanline_dot {
@@ -709,6 +799,8 @@ impl Rp2c02 {
                 }
                 1..=256 => {
                     // render pixel
+                    let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
+                    fb[index] = self.select_pixel();
 
                     match self.context.scanline_dot & 0x07 {
                         1 => {
@@ -742,6 +834,7 @@ impl Rp2c02 {
                         0 => {
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+                            self.update_shift_registers_render();
                         }
                         _ => {
                             panic!("ppu 1-256 out of bounds");
@@ -773,7 +866,7 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
@@ -781,7 +874,7 @@ impl Rp2c02 {
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
+                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
@@ -824,6 +917,7 @@ impl Rp2c02 {
                             cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
+                            self.update_shift_registers_idle();
                             // eval sprites even
                             cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
                         }
@@ -859,6 +953,9 @@ impl Rp2c02 {
         }
         else {
             // render blank pixel
+            let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
+            fb[index] = self.select_blank_pixel();
+            
             cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
         }
 
@@ -874,97 +971,48 @@ impl Rp2c02 {
         cpu_pinout
     }
 
-    fn scanline_preprerender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
-
+    fn scanline_postrender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         match self.context.scanline_dot {
-            0 => {
-                self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
-                self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
-                 cpu_pinout = self.idle_cycle(mapper, cpu_pinout); 
-            },
-            1 => {
-                self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
-                // eval sprites odd
-                cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
+            0..=339 => {
+                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                self.context.scanline_dot += 1;
             }
-            2 => {
-                // eval sprites even
-                cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
-            }
-            3 => {
-                // eval sprites odd
-                cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
-            }
-            4 => {
-                // eval sprites even
-                cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
-            }
-            5 => {
-                // eval sprites odd
-                cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
-            }
-            6 => {
-                // eval sprites even
-                cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
-            }
-            7 => {
-                // eval sprites odd
-                cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
-            }
-            8 => {
-                // eval sprites even
-                cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
-            }
-            9 => {
-                cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
-            }
-            10 => {
-                cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
-            }
-            11 => {
-                cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
-            }
-            12 => {
-                cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
-            }
-            13 => {
-                cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
-            }
-            14 => {
-                cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
-            }
-            15 => {
-                cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
-            }
-            16 => {
-                cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
-            }
-            17 => {
-                cpu_pinout = self.open_tile_index(mapper, cpu_pinout);
-            }
-            18 => {
-                cpu_pinout = self.read_tile_index(mapper, cpu_pinout);
-            }
-            19 => {
-                cpu_pinout = self.open_background_attribute(mapper, cpu_pinout);
-            }
-            20 => {
-                cpu_pinout = self.read_background_attribute(mapper, cpu_pinout);
-            }
-            21 => {
-                cpu_pinout = self.open_background_pattern0(mapper, cpu_pinout);
-            }
-            22 => {
-                cpu_pinout = self.read_background_pattern0(mapper, cpu_pinout);
-            }
-            23 => {
-                cpu_pinout = self.open_background_pattern1(mapper, cpu_pinout);
-            }
-            24 => {
-                cpu_pinout = self.read_background_pattern1(mapper, cpu_pinout);
+            340 => {
+                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                self.context.scanline_index += 1;
+                self.context.scanline_dot = 0;
             }
             _ => {
-                panic!("PPU prerender 0-340 out of bounds");
+                panic!("ppu 0-340 out of bounds");
+            }
+        }
+
+        cpu_pinout
+    }
+
+    fn scanline_vblank(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        // TODO add support for multipe NMIs
+        match self.context.scanline_dot {
+            0 => {
+                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                self.context.scanline_dot += 1;
+            }
+            1 => {
+                self.enter_vblank();
+                if self.context.status_reg.contains(StatusRegister::VBLANK_STARTED) && self.context.control_reg.contains(ControlRegister::GENERATE_NMI) {
+                    cpu_pinout.ctrl.set(mos::Ctrl::NMI, false);
+                }
+
+                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                self.context.scanline_dot += 1;
+            }
+            340 => {
+                cpu_pinout = self.idle_cycle(mapper, cpu_pinout);
+                self.context.scanline_index += 1;
+                self.context.scanline_dot = 0;
+            }
+            _ => {
+                panic!("ppu 0-340 out of bounds");
             }
         }
 

@@ -74,7 +74,9 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
     let mut nes = Nes::from_power_on();
     nes.load_debug_rom();
 
-    nes.execute_debug_frame(file_path);
+    let mut fb: Vec<u16> = Vec::with_capacity(256*240);
+
+    nes.execute_debug_frame(&mut fb, file_path);
 }
 
 fn main() -> Result<(), NesError> {

@@ -84,7 +84,7 @@ impl Nes {
         }
     }
 
-    pub fn execute_debug_frame<P: AsRef<Path>>(mut self, log_path: P) {
+    pub fn execute_debug_frame<P: AsRef<Path>>(mut self, fb: &mut[u16], log_path: P) {
         let mut log_file = File::create(log_path).expect("Unable to open log file");
         
         self.ppu.write_ppuaddr(0x20);
@@ -92,8 +92,8 @@ impl Nes {
 
         log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
 
-        for n in 0..340 {
-            self.cpu_pinout =self.ppu.tick(&mut *self.mapper, self.cpu_pinout);
+        for n in 0..(340*3) {
+            self.cpu_pinout =self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
             log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
         }
     }
