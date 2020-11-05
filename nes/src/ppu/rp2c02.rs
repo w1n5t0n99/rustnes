@@ -9,6 +9,19 @@ const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_INDEX: usize = 1;
 const PATTERN1_OFFSET: u16 = 8;
 
+enum PpuStatus {
+    OpenTileIndex,
+    ReadTileIndex,
+    OpenAttribute,
+    ReadAttribute,
+    OpenBackgroundPattern,
+    ReadBackgroundPattern,
+    OpenSpritePattern,
+    ReadSpritePattern,
+    Idle,
+    NonRender,
+}
+
 pub struct Rp2c02 {
     pub palette_ram: [u8; 32],
     pub oam_ram_primary: [u8; 256],
@@ -20,6 +33,7 @@ pub struct Rp2c02 {
     next_tile_index: u16,
     next_attribute: u8,
     monochrome_mask: u8,
+    status: PpuStatus,
 }
 
 impl Rp2c02 {
@@ -35,6 +49,7 @@ impl Rp2c02 {
             next_tile_index: 0,
             next_attribute: 0,
             monochrome_mask: 0xFF,
+            status: PpuStatus::Idle,
         }
     }
 
@@ -49,7 +64,8 @@ impl Rp2c02 {
             pinout: Pinout::new(),
             next_tile_index: 0,
             next_attribute: 0,
-            monochrome_mask: 0xFF
+            monochrome_mask: 0xFF,
+            status: PpuStatus::Idle,
         };
 
         ppu.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
@@ -300,8 +316,8 @@ impl Rp2c02 {
     }
 
     fn update_shift_registers_render(&mut self) {
-        self.pattern_queue[0] |= (self.next_pattern[0] as u16);
-	    self.pattern_queue[1] |= (self.next_pattern[1] as u16);
+        self.pattern_queue[0] |= self.next_pattern[0] as u16;
+	    self.pattern_queue[1] |= self.next_pattern[1] as u16;
 	    self.attribute_queue[0] |= (((self.next_attribute >> 0) & 0x01) * 0xff) as u16; // we multiply here to "replicate" this bit 8 times (it is used for a whole tile)
 	    self.attribute_queue[1] |= (((self.next_attribute >> 1) & 0x01) * 0xff) as u16; // we multiply here to "replicate" this bit 8 times (it is used for a whole tile)
     }
@@ -368,6 +384,7 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
         }
 
+        self.status = PpuStatus::Idle;
         cpu_pinout
     }
 
@@ -382,6 +399,7 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.increment(self.context.control_reg.vram_addr_increment()); },
         }
 
+        self.status = PpuStatus::NonRender;
         cpu_pinout
     }
 
@@ -396,6 +414,7 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
         }
 
+        self.status = PpuStatus::OpenTileIndex;
         cpu_pinout
     }
 
@@ -411,6 +430,7 @@ impl Rp2c02 {
         }
 
         self.next_tile_index = self.pinout.data() as u16;
+        self.status = PpuStatus::ReadTileIndex;
         cpu_pinout
     }
 
@@ -425,6 +445,7 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
         }
 
+        self.status = PpuStatus::OpenAttribute;
         cpu_pinout
     }
 
@@ -440,6 +461,7 @@ impl Rp2c02 {
         }
 
         self.next_attribute = self.pinout.data();
+        self.status = PpuStatus::ReadAttribute;
         cpu_pinout
     }
 
@@ -455,6 +477,7 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
         }
 
+        self.status = PpuStatus::OpenBackgroundPattern;
         cpu_pinout
     }
 
@@ -486,6 +509,7 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
         }
 
+        self.status = PpuStatus::OpenBackgroundPattern;
         cpu_pinout
     }
 
@@ -502,10 +526,11 @@ impl Rp2c02 {
         }
 
         self.next_pattern[PATTERN1_INDEX] = self.pinout.data();
+        self.status = PpuStatus::ReadBackgroundPattern;
         cpu_pinout
     }
 
-    fn open_garbage_pattern(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn open_sprite_pattern0(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
         self.pinout.set_address(next_addr);
 
@@ -517,10 +542,11 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
         }
 
+        self.status = PpuStatus::OpenSpritePattern;
         cpu_pinout
     }
 
-    fn read_garbage_pattern(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn read_sprite_pattern0(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
         self.pinout.set_address(next_addr);
 
@@ -532,7 +558,39 @@ impl Rp2c02 {
             IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
         }
 
-        self.next_pattern[PATTERN1_INDEX] = self.pinout.data();
+        self.status = PpuStatus::ReadSpritePattern;
+        cpu_pinout
+    }
+
+    fn open_sprite_pattern1(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { self.pinout.latch_address(); },
+            IO::RDALE => { self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.pinout.latch_address(); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.status = PpuStatus::OpenSpritePattern;
+        cpu_pinout
+    }
+
+    fn read_sprite_pattern1(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        let next_addr = (self.context.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | self.context.addr_reg.tile_line()) & 0xFFFF;
+        self.pinout.set_address(next_addr);
+
+        match self.context.io {
+            IO::Idle => { cpu_pinout = self.read(mapper, cpu_pinout); },
+            IO::RDALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::RD; },
+            IO::WRALE => { cpu_pinout = self.read(mapper, cpu_pinout); self.pinout.latch_address(); self.context.io = IO::WR; },
+            IO::RD => { cpu_pinout = self.io_read(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+            IO::WR => { cpu_pinout = self.io_write(mapper, cpu_pinout); self.context.addr_reg.quirky_increment(); },
+        }
+
+        self.status = PpuStatus::ReadSpritePattern;
         cpu_pinout
     }
 
@@ -623,19 +681,19 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern0(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern0(mapper, cpu_pinout);
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern1(mapper, cpu_pinout);
                         }
                         _ => {
                             panic!("ppu 257-279 out of bounds");
@@ -661,19 +719,19 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern0(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern0(mapper, cpu_pinout);
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern1(mapper, cpu_pinout);
                         }
                         _ => {
                             panic!("ppu 280-304 out of bounds");
@@ -698,19 +756,19 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern0(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern0(mapper, cpu_pinout);
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern1(mapper, cpu_pinout);
                         }
                         _ => {
                             panic!("ppu 305-321 out of bounds");
@@ -879,19 +937,19 @@ impl Rp2c02 {
                         }
                         5 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern0(mapper, cpu_pinout);
                         }
                         6 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern0(mapper, cpu_pinout);
                         }
                         7 => {
                             // open sprite pattern
-                            cpu_pinout = self.open_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.open_sprite_pattern1(mapper, cpu_pinout);
                         }
                         0 => {
                             // read sprite pattern
-                            cpu_pinout = self.read_garbage_pattern(mapper, cpu_pinout);
+                            cpu_pinout = self.read_sprite_pattern1(mapper, cpu_pinout);
                         }
                         _ => {
                             panic!("ppu 305-321 out of bounds");
