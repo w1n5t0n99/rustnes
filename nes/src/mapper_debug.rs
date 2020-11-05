@@ -49,6 +49,7 @@ impl MapperDebug {
         }
 
        nrom.set_nt_mirroring(nt_type);
+       nrom.set_nt_attribute(0x00);
 
         nrom
     }
@@ -80,6 +81,25 @@ impl MapperDebug {
             self.vram[n as usize] = index;
             index = index.wrapping_add(1);
         }
+    }
+
+    pub fn set_nt_attribute(&mut self, value: u8) {
+        for n in ((self.nt_offset.nt_a - 0x2000) + 0x3C0)..((self.nt_offset.nt_a - 0x2000) + 0x400) {
+            self.vram[n as usize] = value;
+        }
+
+        for n in ((self.nt_offset.nt_b - 0x2000) + 0x3C0)..((self.nt_offset.nt_b - 0x2000) + 0x400) {
+            self.vram[n as usize] = value;
+        }
+
+        for n in ((self.nt_offset.nt_c - 0x2000) + 0x3C0)..((self.nt_offset.nt_c - 0x2000) + 0x400) {
+            self.vram[n as usize] = value;
+        }
+
+        for n in ((self.nt_offset.nt_d - 0x2000) + 0x3C0)..((self.nt_offset.nt_d - 0x2000) + 0x400) {
+            self.vram[n as usize] = value;
+        }
+        
     }
 }
 

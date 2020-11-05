@@ -82,7 +82,9 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
 
     let mut fb: Vec<u16> = vec![0; 256*240];
 
+    let now = Instant::now();
     nes.execute_debug_frame(&mut fb, file_path);
+    println!("FUNCTION TIME: {}", now.elapsed().as_millis());
 
     for i in 0..=255 {
         //print!("p: {:#06X} ", fb[i as usize]);
@@ -129,6 +131,7 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
 fn main() -> Result<(), NesError> {
     //execute_nestest_cpu_only("test_roms\\nestest.nes")?;
     //display_rom_chr("test_roms\\nestest.nes")?;
+
     ppu_debug("ppu_log.txt");
 
     Ok(())

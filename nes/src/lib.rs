@@ -90,11 +90,11 @@ impl Nes {
         self.ppu.write_ppuaddr(0x20);
         self.ppu.write_ppuaddr(0x00);
 
-        log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
+       // log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
 
         for n in 0..(89341) {
             self.cpu_pinout =self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
-            log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
+            //log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
         }
     }
 

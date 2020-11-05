@@ -28,10 +28,10 @@ pub struct Rp2c02 {
     pattern_queue: [u16; 2],
     attribute_queue: [u16; 2],
     next_pattern: [u8; 2],
+    next_attribute: u8,
+    next_tile_index: u16,
     context: Context,
     pinout: Pinout,   
-    next_tile_index: u16,
-    next_attribute: u8,
     monochrome_mask: u8,
     status: PpuStatus,
 }
@@ -44,10 +44,10 @@ impl Rp2c02 {
             pattern_queue: [0; 2],
             attribute_queue: [0; 2],
             next_pattern: [0; 2],
+            next_attribute: 0,
+            next_tile_index: 0,
             context: Context::new(),
             pinout: Pinout::new(),
-            next_tile_index: 0,
-            next_attribute: 0,
             monochrome_mask: 0xFF,
             status: PpuStatus::Idle,
         }
@@ -70,6 +70,8 @@ impl Rp2c02 {
 
         ppu.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
         ppu.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
+        ppu.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
+        ppu.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
         // paletet ram power up values
         ppu.palette_ram = [0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
             0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08];
@@ -200,6 +202,8 @@ impl Rp2c02 {
     pub fn tick(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         // TODO add power on write block
         self.pinout.clear_ctrl();
+        self.context.prev_scanline_index = self.context.scanline_index;
+        self.context.prev_scanline_dot = self.context.scanline_dot;
 
         match self.context.scanline_index {
             261 => {
@@ -230,8 +234,9 @@ impl Rp2c02 {
         (since the pattern values that would otherwise select those cells select the backdrop color instead)
         They can still be shown using the background palette hack during forced vblank
         */
-        let addr = vaddr & 0x1F;        
-        if self.context.status_reg.contains(StatusRegister::VBLANK_STARTED) == false && self.context.mask_reg.rendering_enabled()  == true {
+        let addr = vaddr & 0x1F;
+        // the post render-scanline behaves like vblank although flag is not set yet        
+        if (self.context.scanline_index < 240 || self.context.scanline_index == 261) && self.context.mask_reg.rendering_enabled()  == true {
             match addr {
                 0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
                 _ => self.palette_ram[addr as usize],
@@ -248,8 +253,19 @@ impl Rp2c02 {
         }
     }
 
+    fn read_palette_nonrender(&mut self, vaddr: u16) -> u8 { 
+        let addr = vaddr & 0x1F;
+        match addr {
+            0x10 => self.palette_ram[0x00],
+            0x14 => self.palette_ram[0x04],
+            0x18 => self.palette_ram[0x08],
+            0x1C => self.palette_ram[0x0C],
+            _ => self.palette_ram[addr as usize]
+        }
+    }
+
+    // only call if rendering enbabled
     fn read_palette_rendering(&mut self, vaddr: u16) -> u8 { 
-        // During rendering we don't need to check if rendering
         let addr = vaddr & 0x1F;        
         match addr {
             0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.palette_ram[0x00],
@@ -272,13 +288,13 @@ impl Rp2c02 {
         }
     }
 
-    pub fn select_blank_pixel(&self) -> u8 {
+    pub fn select_blank_pixel(&mut self) -> u8 {
         let v = self.context.addr_reg.vram_address();
         if (v & 0x3F00) == 0x3F00 {
-            self.palette_ram[(v & 0x1F) as usize] & self.monochrome_mask
+            self.read_palette_nonrender(v) & self.monochrome_mask
         }
         else {
-            self.palette_ram[0] & self.monochrome_mask
+            self.read_palette_nonrender(0x00) & self.monochrome_mask
         }
     }
 
@@ -494,6 +510,7 @@ impl Rp2c02 {
         }
 
         self.next_pattern[PATTERN0_INDEX] = self.pinout.data();
+        self.status = PpuStatus::ReadBackgroundPattern;
         cpu_pinout
     }
 
@@ -867,7 +884,7 @@ impl Rp2c02 {
                 }
                 1..=256 => {
                     // render pixel
-                    let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
+                    let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
                     let pixel = self.select_pixel();
                     fb[index] = self.read_palette_rendering(pixel as u16) as u16 | self.context.mask_reg.emphasis_mask();
 
@@ -1024,8 +1041,9 @@ impl Rp2c02 {
         }
         else {
             // render blank pixel
-            let index = ((self.context.scanline_dot - 1) * self.context.scanline_index) as usize;
-            fb[index] = self.read_palette( self.select_blank_pixel() as u16) as u16 | self.context.mask_reg.emphasis_mask();
+            let index = ((self.context.scanline_dot - 1) * (self.context.scanline_index * 256)) as usize;
+            let pixel = self.select_blank_pixel() as u16;
+            fb[index] = self.read_palette(pixel ) as u16 | self.context.mask_reg.emphasis_mask();
             
             cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
         }
@@ -1085,6 +1103,8 @@ impl Rp2c02 {
                 cpu_pinout = self.nonrender_cycle(mapper, cpu_pinout);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
+
+                if self.context.scanline_index == 260 { self.context.odd_frame = !self.context.odd_frame; }
             }
             _ => {
                 panic!("PPU vblank 0-340 out of bounds - index:{} dot:{}", self.context.scanline_index, self.context.scanline_dot);
@@ -1097,7 +1117,22 @@ impl Rp2c02 {
 
 impl fmt::Display for Rp2c02 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} Pattern Shift {:#0b}",
-        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.scanline_index, self.context.scanline_dot, self.pinout, self.pattern_queue[0])
+
+        let status_str = match self.status {
+            PpuStatus::Idle => " Idle",
+            PpuStatus::NonRender => "NonReneder",
+            PpuStatus::OpenAttribute => "Open Attribute",
+            PpuStatus::OpenBackgroundPattern => "Open Background Pattern",
+            PpuStatus::OpenSpritePattern => "Open Sprite Pattern",
+            PpuStatus::OpenTileIndex => "Open Tile Index",
+            PpuStatus::ReadAttribute => "Read Attribute",
+            PpuStatus::ReadBackgroundPattern => "Read background pattern",
+            PpuStatus::ReadTileIndex => "Read Tile Index",
+            PpuStatus::ReadSpritePattern => "Read Sprite Pattern",
+        };
+
+        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - {} Pinout {} Pattern Shift {:#0b}",
+        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.prev_scanline_index,
+        self.context.prev_scanline_dot, status_str, self.pinout, self.pattern_queue[0])
     }
 }

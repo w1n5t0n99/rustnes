@@ -1,6 +1,7 @@
 pub mod ppu_viewer;
 pub mod rp2c02;
 mod ppu_registers;
+mod ppu_renderer;
 
 use std::fmt;
 
@@ -102,6 +103,8 @@ pub struct Context {
     pub status_reg: ppu_registers::StatusRegister,
     pub scanline_index: u16,
     pub scanline_dot: u16, 
+    pub prev_scanline_index: u16,
+    pub prev_scanline_dot: u16, 
     pub oam_addr_reg: u8,
     pub io_db: u8,                                      // simulate latch created by long traces of data bus
     pub rd_buffer: u8,
@@ -121,6 +124,8 @@ impl Context {
             status_reg: ppu_registers::StatusRegister::new(),
             scanline_index: 261,
             scanline_dot: 0,
+            prev_scanline_index: 261,
+            prev_scanline_dot: 0,
             oam_addr_reg: 0,
             io_db: 0,
             rd_buffer: 0,
