@@ -85,11 +85,11 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
     nes.execute_debug_frame(&mut fb, file_path);
 
     for i in 0..=255 {
-        print!("p: {:#06X} ", fb[i as usize]);
+        //print!("p: {:#06X} ", fb[i as usize]);
     }
     println!(" ");
     for i in 256..=511 {
-        print!("p: {:#06X} ", fb[i as usize]);
+        //print!("p: {:#06X} ", fb[i as usize]);
     }
 
     let window_options = WindowOptions {
