@@ -88,7 +88,7 @@ pub enum IO {
 impl fmt::Display for Pinout {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
-        write!(f, "AB:{:#06X} - ALE:{}R:{}W:{} - Data:{:#06X} [{}]", self.address(), self.ctrl.contains(Ctrl::ALE) as u8,
+        write!(f, "AB:{:#06X} - ALE:{}R:{}W:{} - Data:{:#04X} [{}]", self.address(), self.ctrl.contains(Ctrl::ALE) as u8,
             self.ctrl.contains(Ctrl::RD) as u8,  self.ctrl.contains(Ctrl::WR) as u8, self.data(), self.data())
         
     }

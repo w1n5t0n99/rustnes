@@ -1,6 +1,8 @@
 use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
 
+use std::fmt;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Background {
     pattern_queue: [u16; 2],
@@ -58,6 +60,14 @@ impl Background {
         self.attribute_queue[1] <<= 8;
     
         self.update_shift_registers_render();
+    }
+}
+
+impl fmt::Display for Background {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        write!(f, "Shift 0:{:#06X}  Shift 1:{:#06X} Attribute 0:{:#04X} Attribute 1:{:#04X}",
+        self.pattern_queue[0], self.pattern_queue[1], self.attribute_queue[0], self.attribute_queue[1])
     }
 }
 
