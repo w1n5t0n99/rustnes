@@ -112,6 +112,7 @@ pub struct Context {
     pub io_db: u8,                                      // Simulate latch created by long traces of data bus
     pub rd_buffer: u8,
     pub wr_buffer: u8,
+    pub monochrome_mask: u8,
     pub io: IO,
     pub odd_frame: bool,
 }
@@ -135,6 +136,7 @@ impl Context {
             io_db: 0,
             rd_buffer: 0,
             wr_buffer: 0,
+            monochrome_mask: 0xFF,
             io: IO::Idle,
             odd_frame: false,
         }

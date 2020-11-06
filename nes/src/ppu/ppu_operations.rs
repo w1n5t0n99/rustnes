@@ -1,7 +1,12 @@
 use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
-use super::ppu_renderer::{Background};
+use super::ppu_renderer::{Background, Sprites};
 use crate::mappers::Mapper;
+
+const PATTERN0_INDEX: usize = 0;
+const PATTERN0_OFFSET: u16 = 0;
+const PATTERN1_INDEX: usize = 1;
+const PATTERN1_OFFSET: u16 = 8;
 
 #[inline(always)]
 fn io_read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
@@ -52,7 +57,7 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts
     pinouts
 }
 
-fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     pinouts.0.set_address(ppu.addr_reg.vram_address());
 
     match ppu.io {
@@ -66,7 +71,7 @@ fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pin
     pinouts
 }
 
-fn open_tile_index(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+pub fn open_tile_index(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     pinouts.0.set_address(ppu.addr_reg.tile_address());
 
     match ppu.io {
@@ -80,7 +85,7 @@ fn open_tile_index(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pin
     pinouts
 }
 
-fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+pub fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     pinouts.0.set_address(ppu.addr_reg.tile_address());
 
     match ppu.io {
@@ -95,3 +100,153 @@ fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapp
     pinouts
 }
 
+pub fn open_background_attribute(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    pinouts.0.set_address(ppu.addr_reg.attribute_address());
+
+    match ppu.io {
+        IO::Idle => { pinouts.0.latch_address(); },
+        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}
+
+pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    pinouts.0.set_address(ppu.addr_reg.attribute_address());
+
+    match ppu.io {
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts);  },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+    }
+
+    bg.next_attribute = pinouts.0.data();
+    pinouts
+}
+
+pub fn open_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN0_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts.0.latch_address(); },
+        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}
+
+pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN0_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts);  },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+    }
+
+    bg.next_pattern[PATTERN0_INDEX] = pinouts.0.data();
+    pinouts
+}
+
+pub fn open_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN1_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts.0.latch_address(); },
+        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}
+
+pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN1_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.coarse_x_increment(); },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; ppu.addr_reg.coarse_x_increment(); },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; ppu.addr_reg.coarse_x_increment(); },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+    }
+
+    bg.next_pattern[PATTERN1_INDEX] = pinouts.0.data();
+    pinouts
+}
+
+pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = 0;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts.0.latch_address(); },
+        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}
+
+pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = 0;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.coarse_x_increment(); },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; ppu.addr_reg.coarse_x_increment(); },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; ppu.addr_reg.coarse_x_increment(); },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}
+
+pub fn open_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = 0;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts.0.latch_address(); },
+        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}
+
+pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
+    let next_addr = 0;
+    pinouts.0.set_address(next_addr);
+
+    match ppu.io {
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.coarse_x_increment(); },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; ppu.addr_reg.coarse_x_increment(); },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; ppu.addr_reg.coarse_x_increment(); },
+        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
+    }
+
+    pinouts
+}

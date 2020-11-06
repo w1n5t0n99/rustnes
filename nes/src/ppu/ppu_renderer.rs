@@ -1,6 +1,7 @@
 use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
 
+#[derive(Debug, Clone, Copy)]
 pub struct Background {
     pattern_queue: [u16; 2],
     attribute_queue: [u16; 2],
@@ -60,6 +61,17 @@ impl Background {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Sprites {
+
+}
+
+impl Sprites {
+    pub fn new() -> Self {
+        // TODO implemet sprites
+        Sprites { }
+    }
+}
 
 #[cfg(test)]
 mod test {
