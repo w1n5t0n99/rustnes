@@ -2,6 +2,7 @@ pub mod ppu_viewer;
 pub mod rp2c02;
 mod ppu_registers;
 mod ppu_renderer;
+mod ppu_operations;
 
 use std::fmt;
 
@@ -93,10 +94,12 @@ impl fmt::Display for Pinout {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Context {
+    pub oam_ram_primary: [u8; 256],
+    pub palette_ram: [u8; 32],
     pub cycle: u64,
-    pub read_2002_cycle: u64,
+    pub read_2002_cycle: u64,                           // Used to track NMI race condition
     pub addr_reg: ppu_registers::AddrReg,
     pub control_reg: ppu_registers::ControlRegister,
     pub mask_reg: ppu_registers::MaskRegister,
@@ -106,7 +109,7 @@ pub struct Context {
     pub prev_scanline_index: u16,
     pub prev_scanline_dot: u16, 
     pub oam_addr_reg: u8,
-    pub io_db: u8,                                      // simulate latch created by long traces of data bus
+    pub io_db: u8,                                      // Simulate latch created by long traces of data bus
     pub rd_buffer: u8,
     pub wr_buffer: u8,
     pub io: IO,
@@ -116,6 +119,8 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         Context {
+            palette_ram: [0; 32],
+            oam_ram_primary: [0; 256],
             cycle: 0,
             read_2002_cycle: 0,
             addr_reg: ppu_registers::AddrReg::new(),

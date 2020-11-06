@@ -2,9 +2,10 @@ use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
 
 pub struct Background {
-    pub pattern_queue: [u16; 2],
-    pub attribute_queue: [u16; 2],
+    pattern_queue: [u16; 2],
+    attribute_queue: [u16; 2],
     pub next_pattern: [u8; 2],
+    pub next_tile_index: u16,
     pub next_attribute: u8,
 }
 
@@ -15,6 +16,7 @@ impl Background {
             attribute_queue: [0; 2],
             next_pattern: [0; 2],
             next_attribute: 0,
+            next_tile_index: 0,
         }
     }
 
