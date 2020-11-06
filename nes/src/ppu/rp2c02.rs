@@ -599,8 +599,6 @@ impl Rp2c02 {
                     let pixel = self.select_pixel();
                     fb[index] = self.read_palette_rendering(pixel as u16) as u16 | self.context.mask_reg.emphasis_mask();
 
-                    //println!("pixel {} - {}", index, fb[index]);
-
                     match self.context.scanline_dot & 0x07 {
                         1 => {
                             // eval sprites odd

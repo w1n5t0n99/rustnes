@@ -12,13 +12,16 @@ pub fn execute_nestest_cpu_only<P: AsRef<Path>>(file_path: P) -> Result<(), NesE
     let mut nes = Nes::from_power_on();
     nes.load_rom(file_path)?;
     nes.debug_reset(0xC000);
+    let mut fb: Vec<u16> = vec![0; 256*240];
+    let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
+
     
     let mut cpu_ofile = File::create("nestest_rustnes_log.txt").expect("unable to create file");
     let now = Instant::now();
     let cycles = 27000;
     for _i in 0..cycles {
         cpu_ofile.write_all(format!("{}\n", nes).as_bytes()).unwrap();
-        nes.execute_cycle();
+        nes.execute_cycle(&mut fb, &mut log_file);
     }
 
     println!("new nes {:?} cpu cycles in {:?}", cycles, now.elapsed());
@@ -65,6 +68,64 @@ pub fn display_rom_chr<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
             .unwrap();
         
             chr_buffer = nes.chr_framebuffer();
+    }
+
+    Ok(())
+}
+
+pub fn run<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
+
+    let palette = nes::palette::generate_palette(nes::palette::DEFAULT_SATURATION,
+        nes::palette::DEFAULT_HUE,
+        nes::palette::DEFAULT_CONTRAST,
+        nes::palette::DEFAULT_BRIGHTNESS,
+        nes::palette::DEFAULT_GAMMA);
+
+    let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
+    let mut nes = Nes::from_power_on();
+    nes.load_rom(file_path)?;
+    //nes.debug_reset(0xC000);
+    let mut fb: Vec<u16> = vec![0; 256*240];
+    
+    let window_options = WindowOptions {
+        borderless: false,
+        title: true,
+        resize: false,
+        scale: Scale::X2,
+        scale_mode: ScaleMode::AspectRatioStretch,
+        topmost: true,
+        transparency: false,
+    };
+
+    let mut window = Window::new(
+        "Test - ESC to exit",
+        256,
+        240,
+        window_options,
+    ).unwrap_or_else(|e| {
+        panic!("{}", e);
+    });
+
+    // Limit to max ~60 fps update rate
+    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+
+    let mut rgb_buffer: Vec<u32> = vec![0; 256*240];
+
+    let mut cycle_count = 0;
+    let mut prev_cycle_count = 0;
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        nes.execute_cycle(&mut fb, &mut log_file);
+        cycle_count += 1;
+
+        // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
+        if (cycle_count - prev_cycle_count) >= 29781 {
+            rgb_buffer = fb.iter().map(|pixel| palette[*pixel as usize]).collect();
+            prev_cycle_count = cycle_count;
+        }
+
+        window
+            .update_with_buffer(&rgb_buffer, 256, 240)
+            .unwrap();            
     }
 
     Ok(())
@@ -132,7 +193,8 @@ fn main() -> Result<(), NesError> {
     //execute_nestest_cpu_only("test_roms\\nestest.nes")?;
     //display_rom_chr("test_roms\\nestest.nes")?;
 
-    ppu_debug("ppu_log.txt");
+   // ppu_debug("ppu_log.txt");
+   run("test_roms\\donkey_kong.nes")?;
 
     Ok(())
 }

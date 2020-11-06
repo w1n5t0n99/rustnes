@@ -211,9 +211,9 @@ pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
     pinouts.0.set_address(next_addr);
 
     match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.coarse_x_increment(); },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; ppu.addr_reg.coarse_x_increment(); },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; ppu.addr_reg.coarse_x_increment(); },
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts); },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
         IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
         IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
     }
@@ -241,9 +241,9 @@ pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
     pinouts.0.set_address(next_addr);
 
     match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.coarse_x_increment(); },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; ppu.addr_reg.coarse_x_increment(); },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; ppu.addr_reg.coarse_x_increment(); },
+        IO::Idle => { pinouts = read(ppu, mapper, pinouts); },
+        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
+        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
         IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
         IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
     }

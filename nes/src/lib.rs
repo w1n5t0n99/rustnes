@@ -64,7 +64,7 @@ impl Nes {
         self.mapper.set_reset(addr);
     }
 
-    pub fn execute_cycle(&mut self) {
+    pub fn execute_cycle(&mut self, fb: &mut[u16], log_file: &mut File) {
         /*
         The NES's master clock frequency is 21.477272 Mhz.
         The CPU divides it by 12, hence runs at 1.7897727 Mhz.
@@ -82,6 +82,14 @@ impl Nes {
             let mut bus = bus::DmaBus::new(&mut *self.mapper);
             self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
         }
+
+        {
+            self.cpu_pinout = self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
+            self.cpu_pinout = self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
+            self.cpu_pinout = self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
+        }
+
+        log_file.write_all(format!("[ {} ] [ {} ] [ {} ] [ {} ]\n",self.cpu, self.dma, self.cpu_pinout,  self.ppu).as_bytes()).unwrap();
     }
 
     pub fn execute_debug_frame<P: AsRef<Path>>(mut self, fb: &mut[u16], log_path: P) {
@@ -90,11 +98,11 @@ impl Nes {
         self.ppu.write_ppuaddr(0x20);
         self.ppu.write_ppuaddr(0x00);
 
-       log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
+       //log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
 
         for n in 0..(89341) {
             self.cpu_pinout =self.ppu.tick(fb, &mut *self.mapper, self.cpu_pinout);
-            log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
+            //log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
         }
     }
 

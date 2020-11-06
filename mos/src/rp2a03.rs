@@ -12,7 +12,16 @@ pub struct Rp2a03 {
 
 impl Rp2a03 {
     pub fn from_power_on() -> (Rp2a03, Pinout) {
-        (Rp2a03 {cpu: Context::new(),}, Pinout::new())
+        let mut cpu_context = Context::new();
+        cpu_context.ir.opcode = 0x00;
+        cpu_context.ir.tm = 0x10;
+
+        let cpu = Rp2a03 { cpu: cpu_context };
+        let cpu_pinout = Pinout::new();
+
+        
+
+        (cpu, cpu_pinout)
     }
 
     pub fn tick<B: Bus>(&mut self, bus: &mut B, mut pinout: Pinout) -> Pinout {
