@@ -224,6 +224,10 @@ impl Rp2c02 {
         cpu_pinout
     }
 
+    pub fn is_odd_frame(&self) -> bool {
+        self.context.odd_frame
+    }
+
     fn read_palette(&mut self, vaddr: u16) -> u8 { 
         /* 
         Addresses $3F04/$3F08/$3F0C can contain unique data, though these values are not used by the PPU when normally rendering

@@ -64,7 +64,7 @@ pub enum NametableType {
 }
 
 pub trait Mapper {
-    fn set_reset(&mut self, addr: u16);
+    fn rst_vector(&mut self, addr: u16);
     // CPU
     fn read_internal_ram(&mut self, pinout: mos::Pinout) -> mos::Pinout;
     fn write_internal_ram(&mut self, pinout: mos::Pinout) -> mos::Pinout;

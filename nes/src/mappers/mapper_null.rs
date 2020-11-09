@@ -3,7 +3,7 @@ use super::*;
 pub struct MapperNull;
 
 impl Mapper for MapperNull {
-    fn set_reset(&mut self, addr: u16)  { unimplemented!(); }
+    fn rst_vector(&mut self, addr: u16)  { unimplemented!(); }
     fn read_internal_ram(&mut self, _pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
     fn write_internal_ram(&mut self, _pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
     fn read_expansion_rom(&mut self, _pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }

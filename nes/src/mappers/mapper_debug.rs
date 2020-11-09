@@ -90,7 +90,7 @@ impl MapperDebug {
 
 impl Mapper for MapperDebug {
 
-    fn set_reset(&mut self, addr: u16) {
+    fn rst_vector(&mut self, addr: u16) {
         let hb = (addr >> 8) as u8;
         let lb = addr as u8;
 

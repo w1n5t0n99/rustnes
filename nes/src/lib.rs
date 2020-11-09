@@ -1,5 +1,7 @@
 pub mod error;
 pub mod palette;
+pub mod consoles;
+
 mod dma;
 mod mappers;
 mod bus;
@@ -59,7 +61,7 @@ impl Nes {
     pub fn debug_reset(&mut self, addr: u16) {
         self.cpu.reset();
         self.dma.reset();
-        self.mapper.set_reset(addr);
+        self.mapper.rst_vector(addr);
     }
 
     pub fn execute_cycle(&mut self, fb: &mut[u16], log_file: &mut File) {
