@@ -2,8 +2,6 @@ pub mod error;
 pub mod palette;
 mod dma;
 mod mappers;
-mod mapper_nrom;
-mod mapper_debug;
 mod bus;
 mod ppu;
 
@@ -38,7 +36,7 @@ impl Nes {
             cpu: cpu,
             cpu_pinout: cpu_pinout,
             dma: Dma::from_power_on(),
-            mapper: Box::new(mappers::MapperNull),
+            mapper: mappers::create_mapper_null(),
             ppu: Rp2c02::from_power_on(),
             ppu_viewer: PpuViewer::new(),
         }
@@ -48,12 +46,12 @@ impl Nes {
         // only accepting ines for now
         let ines_file = File::open(rom_path)?;
         let ines = ines::Ines::from_rom(ines_file)?;
-        self.mapper = mappers::create_mapper(&ines)?;
+        self.mapper = mappers::create_mapper(&ines);
         Ok(())
     }
 
     pub fn load_debug_rom(&mut self) {
-        self.mapper = Box::new(mapper_debug::MapperDebug::with_debug_values(mappers::NametableType::Vertical));
+        self.mapper = Box::new(mappers::mapper_debug::MapperDebug::new());
         self.ppu = ppu::rp2c02::Rp2c02::from_debug_values();
     }
 
@@ -74,12 +72,12 @@ impl Nes {
         Since 89490 / 12 = 7457.5 there are 7457.5 CPU clocks per 1 APU clock.
         */
         {
-            let mut bus = bus::CpuBus::new(&mut *self.mapper, &mut self.dma);
+            let mut bus = bus::CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu);
             self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
         }
 
         {
-            let mut bus = bus::DmaBus::new(&mut *self.mapper);
+            let mut bus = bus::DmaBus::new(&mut *self.mapper, &mut self.ppu);
             self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
         }
 
@@ -94,9 +92,11 @@ impl Nes {
 
     pub fn execute_debug_frame<P: AsRef<Path>>(mut self, fb: &mut[u16], log_path: P) {
         let mut log_file = File::create(log_path).expect("Unable to open log file");
+        let mut cpu_pinout = mos::Pinout::new();
+        cpu_pinout.address = 0x2000;
         
-        self.ppu.write_ppuaddr(0x20);
-        self.ppu.write_ppuaddr(0x00);
+        self.ppu.write_ppuaddr(cpu_pinout);
+        self.ppu.write_ppuaddr(cpu_pinout);
 
        //log_file.write_all(format!("{}\n", self.ppu).as_bytes()).unwrap();
 

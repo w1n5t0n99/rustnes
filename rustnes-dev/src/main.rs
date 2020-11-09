@@ -85,7 +85,7 @@ pub fn run<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
     let mut nes = Nes::from_power_on();
     nes.load_rom(file_path)?;
     //nes.debug_reset(0xC000);
-    let mut fb: Vec<u16> = vec![0; 256*240];
+    let mut fb: Vec<u16> = vec![0; (256*240)+1];
     
     let window_options = WindowOptions {
         borderless: false,
@@ -113,15 +113,17 @@ pub fn run<P: AsRef<Path>>(file_path: P) -> Result<(), NesError> {
 
     let mut cycle_count = 0;
     let mut prev_cycle_count = 0;
-    while window.is_open() && !window.is_key_down(Key::Escape) {
+
+    for cycle in (0..(29781 * 20)) {
         nes.execute_cycle(&mut fb, &mut log_file);
+    }
+
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        
         cycle_count += 1;
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        if (cycle_count - prev_cycle_count) >= 29781 {
-            rgb_buffer = fb.iter().map(|pixel| palette[*pixel as usize]).collect();
-            prev_cycle_count = cycle_count;
-        }
+        rgb_buffer = fb.iter().map(|pixel| palette[*pixel as usize]).collect();
 
         window
             .update_with_buffer(&rgb_buffer, 256, 240)
@@ -193,8 +195,8 @@ fn main() -> Result<(), NesError> {
     //execute_nestest_cpu_only("test_roms\\nestest.nes")?;
     //display_rom_chr("test_roms\\nestest.nes")?;
 
-   // ppu_debug("ppu_log.txt");
-   run("test_roms\\donkey_kong.nes")?;
+   ppu_debug("ppu_log.txt");
+   //run("test_roms\\donkey_kong.nes")?;
 
     Ok(())
 }

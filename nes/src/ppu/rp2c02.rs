@@ -58,116 +58,131 @@ impl Rp2c02 {
         ppu
     }
 
-    pub fn read_port(&self) -> u8 {
-        self.context.io_db
+    pub fn read_port(&self, mut pinout: mos::Pinout) -> mos::Pinout {
+        pinout.data =  self.context.io_db;
+        pinout
     }
 
-    pub fn write_ppuctrl(&mut self, data: u8) {
-        self.context.io_db = data;
-        self.context.control_reg.io_write(data);
+    pub fn write_ppuctrl(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        self.context.io_db = pinout.data;
+        self.context.control_reg.io_write(pinout.data);
+        pinout
     }
 
-    pub fn write_ppumask(&mut self, data: u8) {
-        self.context.io_db = data;
-        self.context.mask_reg.io_write(data);
+    pub fn write_ppumask(&mut self, mut pinout: mos::Pinout) -> mos::Pinout{
+        self.context.io_db = pinout.data;
+        self.context.mask_reg.io_write(pinout.data);
 
         self.context.monochrome_mask = if self.context.mask_reg.contains(MaskRegister::GREYSCALE) { 0x30 } else { 0xFF };
+        pinout
     }
 
-    pub fn read_ppustatus(&mut self) -> u8 {
+    pub fn read_ppustatus(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         self.context.read_2002_cycle = self.context.cycle;
-        self.context.status_reg.io_read(self.context.io_db)
+        self.context.addr_reg.w = false;
+        pinout.data = self.context.status_reg.io_read(self.context.io_db);
+        pinout
     }
 
-    pub fn write_ppustatus(&mut self, data: u8) {
+    pub fn write_ppustatus(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         // Writing to a read only port fills the io latch
-        self.context.io_db = data;
+        self.context.io_db = pinout.data;
+        pinout
     }
 
-    pub fn write_oamaddr(&mut self, data: u8) {
-        self.context.io_db = data;
-        self.context.oam_addr_reg = data;
+    pub fn write_oamaddr(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        self.context.io_db = pinout.data;
+        self.context.oam_addr_reg = pinout.data;
+        pinout
     }
 
-    pub fn read_oamdata(&mut self) -> u8 {
+    pub fn read_oamdata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         match self.context.scanline_index {
             0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
                 // TODO Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
-                0
+                pinout.data = 0;
             }
             0..=239 | 261 => {
                 // rendering disabled
                 self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
-                self.context.io_db
+                pinout.data = self.context.io_db;
             }
             240..=260 => {
                 // Reads during vertical or forced blanking return the value from OAM at that address but do not increment
                 self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
-                self.context.io_db
+                pinout.data = self.context.io_db;
             }
             _ => {
                 panic!("PPU Scanline out of range");
            }
         }
+
+        pinout
     }
 
-    pub fn write_oamdata(&mut self, data: u8) {
-        self.context.io_db = data;
+    pub fn write_oamdata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        self.context.io_db = pinout.data;
         match self.context.scanline_index {
             0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
                 // No oam write, but performs glitchy increment, only increments the high 6 bits
                 // TODO possible implement glitchy increment
             }
             0..=239 | 261 => {
-                self.context.oam_ram_primary[self.context.oam_addr_reg as usize] = data;
+                self.context.oam_ram_primary[self.context.oam_addr_reg as usize] = pinout.data;
                 self.context.oam_addr_reg = self.context.oam_addr_reg.wrapping_add(1);
             }
             240..=260 => {
-                self.context.oam_ram_primary[self.context.oam_addr_reg as usize] = data;
+                self.context.oam_ram_primary[self.context.oam_addr_reg as usize] = pinout.data;
                 self.context.oam_addr_reg = self.context.oam_addr_reg.wrapping_add(1);
             }
             _ => {
                  panic!("PPU Scanline out of range");
             }
         }
+
+        pinout
     }
 
-    pub fn write_ppuscroll(&mut self, data: u8) {
-        self.context.io_db = data;
-        self.context.addr_reg.io_write_2005(data);
+    pub fn write_ppuscroll(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        self.context.io_db = pinout.data;
+        self.context.addr_reg.io_write_2005(pinout.data);
+        pinout
     }
 
-    pub fn write_ppuaddr(&mut self, data: u8) {
-        self.context.io_db = data;
-        self.context.addr_reg.io_write_2006(data);
+    pub fn write_ppuaddr(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        self.context.io_db = pinout.data;
+        self.context.addr_reg.io_write_2006(pinout.data);
+        pinout
     }
 
-    pub fn read_ppudata(&mut self) -> u8 {
+    pub fn read_ppudata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         self.context.io = IO::RDALE;
         let v = self.context.addr_reg.vram_address();
         match v {
             0x3F00..=0x3FFF => {
                 // Reading palette updates latch with contents of nametable under palette address
                 self.context.io_db = self.read_palette(v);
-                self.context.io_db
+                pinout.data = self.context.io_db;
             }
             0x0000..=0x3EFF => {
                 self.context.io_db = self.context.rd_buffer;
-                self.context.rd_buffer
+                pinout.data = self.context.rd_buffer;
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
             }
         }
+
+        pinout
     }
 
-    pub fn write_ppudata(&mut self, data: u8) {
-        self.context.io_db = data;
+    pub fn write_ppudata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        self.context.io_db = pinout.data;
         let v = self.context.addr_reg.vram_address();
         match v {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does
-                self.write_palette(v, data);
+                self.write_palette(v, pinout.data);
             }
             0x0000..=0x3EFF => {
                 self.context.io = IO::WRALE;
@@ -176,6 +191,8 @@ impl Rp2c02 {
                 panic!("PPU 0x2007 address out of range");
             }
         }
+
+        pinout
     }
 
     pub fn tick(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
@@ -568,6 +585,7 @@ impl Rp2c02 {
         }
         else {
             pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+            self.status = PpuStatus::NonRender;
         }
 
         if self.context.scanline_dot == 340 {
@@ -773,12 +791,28 @@ impl Rp2c02 {
             }
         }
         else {
-            // render blank pixel
-            let index = ((self.context.scanline_dot - 1) * (self.context.scanline_index * 256)) as usize;
-            let pixel = self.select_blank_pixel() as u16;
-            fb[index] = self.read_palette(pixel ) as u16 | self.context.mask_reg.emphasis_mask();
-            
-            pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+            match self.context.scanline_dot {
+                0 => {
+                    pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                    self.status = PpuStatus::NonRender;
+                }
+                1..=256 => {
+                    // render blank pixel
+                    let index = ((self.context.scanline_dot) + (self.context.scanline_index * 256)) as usize;
+                    let pixel = self.select_blank_pixel() as u16;
+                    fb[index] = self.read_palette(pixel ) as u16 | self.context.mask_reg.emphasis_mask();
+
+                    pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                    self.status = PpuStatus::NonRender;
+                }
+                257..=340 => {
+                    pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                    self.status = PpuStatus::NonRender;
+                }
+                _ => {
+                    panic!("PPU nonrender 0-340 out of bounds");
+                }
+            }
         }
 
 
@@ -800,10 +834,12 @@ impl Rp2c02 {
         match self.context.scanline_dot {
             0..=339 => {
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                self.status = PpuStatus::NonRender;
                 self.context.scanline_dot += 1;
             }
             340 => {
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                self.status = PpuStatus::NonRender;
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
             }
@@ -823,6 +859,7 @@ impl Rp2c02 {
         match self.context.scanline_dot {
             0 => {
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                self.status = PpuStatus::NonRender;
                 self.context.scanline_dot += 1;
             }
             1 => {
@@ -832,14 +869,17 @@ impl Rp2c02 {
                 }
 
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                self.status = PpuStatus::NonRender;
                 self.context.scanline_dot += 1;
             }
             2..=339 => {
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                self.status = PpuStatus::NonRender;
                 self.context.scanline_dot += 1;
             }
             340 => {
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
+                self.status = PpuStatus::NonRender;
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
 
