@@ -8,14 +8,6 @@ use mapper_nrom::MapperNrom;
 use mapper_null::MapperNull;
 use ::nes_rom::ines;
 
-/*
-The contents of the palette are unspecified at power on and unchanged at reset. 
-During the warmup state, the PPU outputs a solid color screen based on the value at $3F00.ppu_viewer
-This just gives and initial value for testing.
-*/
-pub static POWER_ON_PALETTE: [u8; 32] = [0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
-0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08];
-
 // Nametable A, B, C, D are masked indiviually depending on rom mirroring type, NES only had 2 but use 4 here for simplicity
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct NametableOffset {
@@ -93,4 +85,8 @@ pub fn create_mapper(rom: &ines::Ines) -> Box<dyn Mapper> {
 
 pub fn create_mapper_null() -> Box<dyn Mapper> {
     Box::new(MapperNull {})
+}
+
+pub fn create_mapper_debug() -> Box<dyn Mapper> {
+    Box::new(MapperDebug::new())
 }

@@ -11,6 +11,7 @@ pub trait Console {
     fn power_on(&mut self);
     fn restart(& mut self);
     fn execute_frame(&mut self, frame_buffer: &mut [u32]);
+    fn execute_cycle(&mut self);
     // TODO handle inputs, handle audio
     // TODO implement error handling on load rom
 }

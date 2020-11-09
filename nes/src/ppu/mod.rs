@@ -6,6 +6,13 @@ mod ppu_operations;
 
 use std::fmt;
 
+/*
+The contents of the palette are unspecified at power on and unchanged at reset. 
+During the warmup state, the PPU outputs a solid color screen based on the value at $3F00.ppu_viewer
+This just gives and initial value for testing.
+*/
+pub static POWER_ON_PALETTE: [u8; 32] = [0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
+0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08];
 
 bitflags! {
     pub struct Ctrl: u8 {
@@ -120,7 +127,7 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         Context {
-            palette_ram: [0; 32],
+            palette_ram: POWER_ON_PALETTE,
             oam_ram_primary: [0; 256],
             cycle: 0,
             read_2002_cycle: 0,

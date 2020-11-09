@@ -1,4 +1,4 @@
-use super::{Mapper, NametableOffset, NametableType, POWER_ON_PALETTE};
+use super::{Mapper, NametableOffset, NametableType};
 use super::ppu;
 
 pub struct MapperDebug {
@@ -6,7 +6,6 @@ pub struct MapperDebug {
     pub vram: Vec<u8>,
     pub prg_rom: Vec<u8>,
     pub chr_rom: Vec<u8>,
-    pub palette_ram: Vec<u8>,
     pub prg_size: u32,
     pub prg_mask: u16,
     pub nt_offset: NametableOffset,
@@ -14,13 +13,11 @@ pub struct MapperDebug {
 
 impl MapperDebug {
     pub fn new() -> MapperDebug {
-        let v = POWER_ON_PALETTE.to_vec();
         let mut mapper = MapperDebug {
             sram: vec![0; 0x800],
             vram: vec![0; 0x1000],
             prg_rom: vec![0; 0x8000],
             chr_rom: vec![0; 0x2000],
-            palette_ram: v,
             prg_size: 0,
             prg_mask: 0,
             nt_offset: NametableOffset::new(0, 0, 0, 0),

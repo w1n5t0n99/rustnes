@@ -9,7 +9,6 @@ use mos::{Pinout, rp2a03::Rp2a03};
 
 use std::fs::File;
 use std::path::Path;
-use std::io::Write;
 use ::nes_rom::ines;
 use std::fmt;
 
@@ -35,6 +34,44 @@ impl NesNtsc {
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
             palette: generate_palette(DEFAULT_SATURATION, DEFAULT_HUE, DEFAULT_CONTRAST, DEFAULT_BRIGHTNESS, DEFAULT_GAMMA),
         }
+    }
+
+    pub fn set_entry(&mut self, addr: u16) {
+        self.mapper.rst_vector(addr);
+    }
+
+    pub fn load_debug_rom(&mut self) {
+        self.mapper = mappers::create_mapper_debug();
+
+        self.power_on();
+    }
+
+    pub fn nametable_framebuffer(&mut self, frame_buffer: &mut [u32]) {
+        let cpu_cycles = if self.ppu.is_odd_frame() { 29780 } else { 29781 };
+        let old_ppu = self.ppu;
+
+        self.ppu.enable_rendering();
+        let mut cpu_pinout = Pinout::new();
+        cpu_pinout.address = 0x2000;
+        
+        self.ppu.write_ppuaddr(cpu_pinout);
+        self.ppu.write_ppuaddr(cpu_pinout);
+
+
+        for _cycle in 0..=cpu_cycles {
+            {
+                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+            }
+        }
+
+        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
+            let (fi, pi) = it;
+            *fi = self.palette[(*pi) as usize];
+        }
+        
+        self.ppu = old_ppu;
     }
 }
 
@@ -63,11 +100,10 @@ impl Console for NesNtsc {
         // TODO implement restart
     }
 
-    // Retur raw PPU pixels to apply custom NTSC filtering to
     fn execute_frame(&mut self, frame_buffer: &mut [u32]) {
         let cpu_cycles = if self.ppu.is_odd_frame() { 29780 } else { 29781 };
 
-        for cycle in (0..=cpu_cycles) {
+        for _cycle in 0..=cpu_cycles {
             {
                 let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu);
                 self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
@@ -83,12 +119,35 @@ impl Console for NesNtsc {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
             }
-
-            for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
-                let (fi, pi) = it;
-                *fi = self.palette[(*pi) as usize];
-            }
         }
-        
+
+        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
+            let (fi, pi) = it;
+            *fi = self.palette[(*pi) as usize];
+        }
+    }
+
+    fn execute_cycle(&mut self) {
+        {
+            let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu);
+            self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
+        }
+
+        {
+            let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu);
+            self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
+        }
+
+        {
+            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+        }
+    }
+}
+
+impl fmt::Display for NesNtsc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {  
+        write!(f, "[ {} ] [ {} ] [ {} ] [ {} ]\n",self.cpu, self.dma, self.cpu_pinout, self.ppu)
     }
 }

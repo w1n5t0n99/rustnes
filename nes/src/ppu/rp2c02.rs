@@ -6,6 +6,7 @@ use crate::mappers::Mapper;
 
 use std::fmt;
 
+#[derive(Clone, Copy)]
 enum PpuStatus {
     OpenTileIndex,
     ReadTileIndex,
@@ -19,6 +20,7 @@ enum PpuStatus {
     NonRender,
 }
 
+#[derive(Clone, Copy)]
 pub struct Rp2c02 {
     context: Context,
     bg: Background,
@@ -38,24 +40,12 @@ impl Rp2c02 {
         }
     }
 
-    pub fn from_debug_values() -> Rp2c02 {
-        let mut ppu = Rp2c02 {
-            bg: Background::new(),
-            sp: Sprites::new(),
-            context: Context::new(),
-            pinout: Pinout::new(),
-            status: PpuStatus::Idle,
-        };
+    pub fn enable_rendering(&mut self) {
 
-        ppu.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
-        ppu.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
-        ppu.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
-        ppu.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
-        // paletet ram power up values
-        ppu.context.palette_ram = [0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
-            0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08];
-
-        ppu
+        self.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
+        self.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
+        self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
+        self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
     }
 
     pub fn read_port(&self, mut pinout: mos::Pinout) -> mos::Pinout {
@@ -802,7 +792,7 @@ impl Rp2c02 {
                 }
                 1..=256 => {
                     // render blank pixel
-                    let index = ((self.context.scanline_dot) + (self.context.scanline_index * 256)) as usize;
+                    let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
                     let pixel = self.select_blank_pixel() as u16;
                     fb[index] = self.read_palette(pixel ) as u16 | self.context.mask_reg.emphasis_mask();
 

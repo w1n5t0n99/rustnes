@@ -1,7 +1,7 @@
 use ::nes_rom::ines;
 use std::ptr;
 
-use super::{Mapper, NametableOffset, NametableType, POWER_ON_PALETTE};
+use super::{Mapper, NametableOffset, NametableType};
 use super::ppu;
 
 pub struct MapperNrom {
@@ -9,7 +9,6 @@ pub struct MapperNrom {
     pub vram: Vec<u8>,
     pub prg_rom: Vec<u8>,
     pub chr_rom: Vec<u8>,
-    pub palette_ram: Vec<u8>,
     pub prg_size: u32,
     pub prg_mask: u16,
     pub nt_offset: NametableOffset,
@@ -17,13 +16,11 @@ pub struct MapperNrom {
 
 impl MapperNrom {
     pub fn new() -> MapperNrom {
-        let v = POWER_ON_PALETTE.to_vec();
         MapperNrom {
             sram: vec![0; 0x800],
             vram: vec![0; 0x1000],
             prg_rom: Vec::new(),
             chr_rom: Vec::new(),
-            palette_ram: v,
             prg_size: 0,
             prg_mask: 0,
             nt_offset: NametableOffset::new(0, 0, 0, 0),
