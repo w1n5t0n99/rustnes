@@ -169,7 +169,7 @@ pub fn brk_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 
 pub fn brk_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     // write pch to stack
-    write_cycle!(cpu, bus, pinout, to_address(0, cpu.sp), cpu.pc.pch);
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.pc.pch);
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
     pinout
@@ -177,7 +177,7 @@ pub fn brk_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 
 pub fn brk_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     // write pcl  to stack
-    write_cycle!(cpu, bus, pinout, to_address(0, cpu.sp), cpu.pc.pcl);
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.pc.pcl);
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
     // check for hijack
@@ -204,7 +204,7 @@ pub fn brk_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
         InterruptState::Nmi => cpu.p.push_with_b_clear(),
     };
 
-    write_cycle!(cpu, bus, pinout, to_address(0, cpu.sp), status_reg);
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), status_reg);
 
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
