@@ -857,9 +857,11 @@ impl Rp2c02 {
                 self.context.scanline_dot += 1;
             }
             1 => {
-                self.enter_vblank();
-                if self.context.status_reg.contains(StatusRegister::VBLANK_STARTED) && self.context.control_reg.contains(ControlRegister::GENERATE_NMI) {
-                    cpu_pinout.ctrl.set(mos::Ctrl::NMI, false);
+                if self.context.scanline_index == 241 {
+                    self.enter_vblank();
+                    if self.context.status_reg.contains(StatusRegister::VBLANK_STARTED) && self.context.control_reg.contains(ControlRegister::GENERATE_NMI) {
+                        pinouts.1.ctrl.set(mos::Ctrl::NMI, false);
+                    }
                 }
 
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);

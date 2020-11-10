@@ -19,14 +19,16 @@ impl Rp2a03 {
         let cpu = Rp2a03 { cpu: cpu_context };
         let cpu_pinout = Pinout::new();
 
-        
-
         (cpu, cpu_pinout)
     }
 
     pub fn tick<B: Bus>(&mut self, bus: &mut B, mut pinout: Pinout) -> Pinout {
 		//default RW pin to 1
-		pinout.ctrl.set(Ctrl::RW, true);
+        pinout.ctrl.set(Ctrl::RW, true);
+        
+        if pinout.ctrl.contains(Ctrl::NMI) == false {
+            self.cpu.nmi_detected = true;
+        }
 		
         match u16::from(self.cpu.ir) {
             // reset
@@ -1411,10 +1413,6 @@ impl Rp2a03 {
             0x9B03 => pinout = absolute_y_store_c3::<B, Xas>(&mut self.cpu, bus, pinout),
             0x9B04 =>  pinout = absolute_y_store_c4(&mut self.cpu, bus, pinout),
             _ => panic!("{}: is an invalid opcode", u16::from(self.cpu.ir)),
-        }
-
-        if pinout.ctrl.contains(Ctrl::NMI) == false {
-            self.cpu.nmi_detected = true;
         }
 
         // "pull up" input pins. these must be asserted every cycle they wish to remain active

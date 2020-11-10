@@ -187,6 +187,7 @@ pub fn brk_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
         _ => cpu.ints,
     };
 
+    // if nmi hijack occurred during it should be ok to clear flag 
     cpu.nmi_detected = false;
 
     pinout
@@ -228,7 +229,6 @@ pub fn brk_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 
 pub fn brk_c5<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
-    cpu.ints = InterruptState::None;
     // set to_address to fetch pch
     let addr = match cpu.ints {
         InterruptState::None => to_address(0xFF, 0xFF),
@@ -236,6 +236,7 @@ pub fn brk_c5<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
         InterruptState::Nmi | InterruptState::BrkHijack | InterruptState::IrqHijack => to_address(0xFF, 0xFB),
     };
 
+    cpu.ints = InterruptState::None;
     read_cycle!(cpu, bus, pinout, addr);
     cpu.pc.pch = cpu.ops.dl;
     pinout

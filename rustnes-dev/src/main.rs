@@ -13,18 +13,14 @@ pub fn execute_nestest_cpu_only<P: AsRef<Path>>(file_path: P) {
     nes.load_rom(file_path);
     nes.set_entry(0xC000);
     let mut fb: Vec<u16> = vec![0; 256*240];
-    let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
+    let mut log_file = File::create("nestest_log.txt").expect("Unable to open log file");
 
-    
-    let mut cpu_ofile = File::create("nestest_rustnes_log.txt").expect("unable to create file");
     let now = Instant::now();
     let cycles = 27000;
     for _i in 0..cycles {
-        cpu_ofile.write_all(format!("{}\n", nes).as_bytes()).unwrap();
-        //nes.execute_cycle(&mut fb, &mut log_file);
+        log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
+        nes.execute_cycle();
     }
-
-    println!("new nes {:?} cpu cycles in {:?}", cycles, now.elapsed());
 }
 
 pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
@@ -94,7 +90,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     });
 
     let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
-    for _i in 0..(29781*10) {
+    for i in (0)..(29781*8) {
         nes.execute_cycle();
         log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
     }
@@ -108,7 +104,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 }
 
 fn main() {
-    //execute_nestest_cpu_only("test_roms\\nestest.nes")?;
+    //execute_nestest_cpu_only("test_roms\\nestest.nes");
     //ppu_debug("test_roms\\donkey_kong.nes");
     debug_run("test_roms\\donkey_kong.nes");
 }
