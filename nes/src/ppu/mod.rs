@@ -127,7 +127,7 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         Context {
-            palette_ram: POWER_ON_PALETTE,
+            palette_ram: [0; 32],
             oam_ram_primary: [0; 256],
             cycle: 0,
             read_2002_cycle: 0,

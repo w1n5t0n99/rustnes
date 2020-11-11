@@ -241,20 +241,29 @@ impl Rp2c02 {
         They can still be shown using the background palette hack during forced vblank
         */
         let addr = vaddr & 0x1F;
+       // println!("Read Palette {:#X} - {:#X}", addr, vaddr);
         // the post render-scanline behaves like vblank although flag is not set yet        
-        if (self.context.scanline_index < 240 || self.context.scanline_index == 261) && self.context.mask_reg.rendering_enabled()  == true {
-            match addr {
-                0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.context.palette_ram[0x00],
-                _ => self.context.palette_ram[addr as usize],
+        match self.context.scanline_index {
+            0..=240 if self.context.mask_reg.rendering_enabled() => {
+                match addr {
+                    0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.context.palette_ram[0x00],
+                    _ => self.context.palette_ram[addr as usize],
+                }
             }
-        }
-        else {
-            match addr {
-                0x10 => self.context.palette_ram[0x00],
-                0x14 => self.context.palette_ram[0x04],
-                0x18 => self.context.palette_ram[0x08],
-                0x1C => self.context.palette_ram[0x0C],
-                _ => self.context.palette_ram[addr as usize]
+            261 if self.context.mask_reg.rendering_enabled() => {
+                match addr {
+                    0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => self.context.palette_ram[0x00],
+                    _ => self.context.palette_ram[addr as usize],
+                }
+            }
+            _ => {
+                match addr {
+                    0x10 => self.context.palette_ram[0x00],
+                    0x14 => self.context.palette_ram[0x04],
+                    0x18 => self.context.palette_ram[0x08],
+                    0x1C => self.context.palette_ram[0x0C],
+                    _ => self.context.palette_ram[addr as usize]
+                }
             }
         }
     }
@@ -285,6 +294,7 @@ impl Rp2c02 {
         Note that this goes for writing as well as reading
         */
         let addr = vaddr & 0x1F;
+        //println!("Write Palette {:#X} - {:#X}", addr, vaddr);
         match addr {
             0x10 => { self.context.palette_ram[0x00] = data; }
             0x14 => { self.context.palette_ram[0x04] = data; }
@@ -963,4 +973,22 @@ mod tests {
 
         assert_eq!(0x01, mapper.peek_ppu(0x23C0));
     }
+
+    #[test]
+    fn test_palette_readwrite() {
+        let mut ppu = Rp2c02::from_power_on();
+        let mut cpu_pinout = Pinout::new();
+
+        ppu.write_palette(0x3F00, 0xFF);
+        let mut data = ppu.read_palette(0x3F00);
+
+        assert_eq!(0xFF, data);
+
+
+        ppu.write_palette(0x3F10, 0x00);
+        data = ppu.read_palette(0x3F00);
+
+        assert_eq!(0x00, data);
+    }
+
 }
