@@ -65,13 +65,13 @@ impl Rp2c02 {
         pinout
     }
 
-    pub fn write_ppuctrl(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_ppuctrl(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         self.context.control_reg.io_write(pinout.data);
         pinout
     }
 
-    pub fn write_ppumask(&mut self, mut pinout: mos::Pinout) -> mos::Pinout{
+    pub fn write_ppumask(&mut self, pinout: mos::Pinout) -> mos::Pinout{
         self.context.io_db = pinout.data;
         self.context.mask_reg.io_write(pinout.data);
 
@@ -86,13 +86,13 @@ impl Rp2c02 {
         pinout
     }
 
-    pub fn write_ppustatus(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_ppustatus(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         // Writing to a read only port fills the io latch
         self.context.io_db = pinout.data;
         pinout
     }
 
-    pub fn write_oamaddr(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_oamaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         self.context.oam_addr_reg = pinout.data;
         pinout
@@ -122,7 +122,7 @@ impl Rp2c02 {
         pinout
     }
 
-    pub fn write_oamdata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_oamdata(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         match self.context.scanline_index {
             0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
@@ -145,15 +145,17 @@ impl Rp2c02 {
         pinout
     }
 
-    pub fn write_ppuscroll(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_ppuscroll(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         self.context.addr_reg.io_write_2005(pinout.data);
         pinout
     }
 
-    pub fn write_ppuaddr(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_ppuaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         self.context.addr_reg.io_write_2006(pinout.data);
+        println!("WRITE PPUADDR: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
+
         pinout
     }
 
@@ -178,7 +180,7 @@ impl Rp2c02 {
         pinout
     }
 
-    pub fn write_ppudata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    pub fn write_ppudata(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         let v = self.context.addr_reg.vram_address();
         match v {
@@ -187,7 +189,9 @@ impl Rp2c02 {
                 self.write_palette(v, pinout.data);
             }
             0x0000..=0x3EFF => {
+                println!("WRITE PPUDATA: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
                 self.context.io = IO::WRALE;
+                self.context.wr_buffer = self.context.io_db;
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
@@ -922,5 +926,41 @@ impl fmt::Display for Rp2c02 {
         write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - {} Pinout {} BG: {}",
         self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.prev_scanline_index,
         self.context.prev_scanline_dot, status_str, self.pinout, self.bg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    use crate::mappers::*;
+    use crate::mappers::mapper_debug::MapperDebug;
+    use mos::Pinout;
+
+    #[test]
+    fn test_ppudata_port() {
+        let mut fb: Vec<u16> = vec![0; 256*240];
+        let mut ppu = Rp2c02::from_power_on();
+        let mut cpu_pinout = Pinout::new();
+        let mut mapper = MapperDebug::new();
+
+        mapper.set_nt_mirroring(NametableType::Horizontal);
+        cpu_pinout.data = 0x23;
+        cpu_pinout = ppu.write_ppuaddr(cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        cpu_pinout.data = 0xC0;
+        cpu_pinout = ppu.write_ppuaddr(cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        cpu_pinout.data = 0x01;
+        cpu_pinout = ppu.write_ppudata(cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+        ppu.tick(&mut fb, &mut mapper, cpu_pinout);
+
+        assert_eq!(0x01, mapper.peek_ppu(0x23C0));
     }
 }

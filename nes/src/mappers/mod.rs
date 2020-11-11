@@ -71,6 +71,7 @@ pub trait Mapper {
     fn write_ppu(&mut self, ppu_pinout: ppu::Pinout, cpu_pinout: mos::Pinout) -> (ppu::Pinout, mos::Pinout);
     // no side effects from reading or writing (e.g. mappers with memory mapped regs)
     fn peek_ppu(&mut self, addr: u16) -> u8;
+    fn poke_ppu(&mut self, addr: u16, data: u8);
 }
 
 pub fn create_mapper(rom: &ines::Ines) -> Box<dyn Mapper> {

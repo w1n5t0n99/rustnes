@@ -44,7 +44,7 @@ fn io_write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mo
 
 
 pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x1FFF);
+    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x2FFF);
 
     match ppu.io {
         IO::Idle => { },
@@ -58,14 +58,13 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts
 }
 
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x1FFF);
-
+    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x2FFF);
     match ppu.io {
         IO::Idle => { },
         IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
         IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
         IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
+        IO::WR => { println!("WRITE PPU: {:#X} - {:#X}",pinouts.0.address, ppu.wr_buffer); pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
     }
 
     pinouts

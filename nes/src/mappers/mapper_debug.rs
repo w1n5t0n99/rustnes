@@ -34,6 +34,7 @@ impl MapperDebug {
 
     pub fn set_nt_mirroring(&mut self, nt_type: NametableType) {
         self.nt_offset = NametableOffset::from_nametable(nt_type);
+        self.load_tile_indices();
     }
 
     pub fn set_nt_attribute(&mut self, value: u8) {
@@ -52,7 +53,6 @@ impl MapperDebug {
         for n in ((self.nt_offset.nt_d - 0x2000) + 0x3C0)..((self.nt_offset.nt_d - 0x2000) + 0x400) {
             self.vram[n as usize] = value;
         }
-        
     }
 
     fn load_tile_checkerboard(&mut self) {
@@ -77,11 +77,35 @@ impl MapperDebug {
     }
 
     fn load_tile_indices(&mut self) {
-        let mut value = 0_u8;
+        // clear vram
         for t in self.vram.iter_mut() {
-            *t = value;
+            *t = 0;
+        }
+
+        let mut value = 0_u8;
+        for n in (self.nt_offset.nt_a - 0x2000)..((self.nt_offset.nt_a - 0x2000) + 0x3C0) {
+            self.vram[n as usize] = value;
             value = value.wrapping_add(1);
         }
+        value = 0;
+
+        for n in (self.nt_offset.nt_b - 0x2000)..((self.nt_offset.nt_b - 0x2000) + 0x3C0) {
+            self.vram[n as usize] = value;
+            value = value.wrapping_add(1);
+        }
+        value = 0;
+
+        for n in (self.nt_offset.nt_c - 0x2000)..((self.nt_offset.nt_c - 0x2000) + 0x3C0) {
+            self.vram[n as usize] = value;
+            value = value.wrapping_add(1);
+        }
+        value = 0;
+
+        for n in (self.nt_offset.nt_d - 0x2000)..((self.nt_offset.nt_d - 0x2000) + 0x3C0) {
+            self.vram[n as usize] = value;
+            value = value.wrapping_add(1);
+        }
+        value = 0;
     }
 }
 
@@ -155,7 +179,7 @@ impl Mapper for MapperDebug {
              0x2800..=0x2BFF => { ppu_pinout.set_data(self.vram[(addr - self.nt_offset.nt_c) as usize]); },
              // NT D
              0x2C00..=0x2FFF => { ppu_pinout.set_data(self.vram[(addr - self.nt_offset.nt_d) as usize]); },
-             _ => panic!("NROM PPU read out of bounds: {}", addr),
+             _ => panic!("DebugMapper PPU read out of bounds: {}", addr),
 
         }
 
@@ -176,7 +200,7 @@ impl Mapper for MapperDebug {
              0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = ppu_pinout.data(); },
              // NT D
              0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = ppu_pinout.data(); },
-             _ => panic!("NROM PPU write out of bounds: {}", addr),
+             _ => panic!("DebugMapper PPU write out of bounds: {}", addr),
 
         }
 
@@ -195,7 +219,24 @@ impl Mapper for MapperDebug {
             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] },
             // D
             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] },
-            _ => panic!("NROM PPU read out of bounds: {}", addr),
+            _ => panic!("DebugMapper PPU read out of bounds: {}", addr),
+        }
+    }
+
+    fn poke_ppu(&mut self, addr: u16, data: u8) {
+        match addr {
+            // CHR ROM
+            0x000..=0x1FFF => { /* returns whatevers on the bus already */ },
+             // NT A
+             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = data; },
+             // NT B
+             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = data; },
+             // NT C
+             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = data; },
+             // NT D
+             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = data; },
+             _ => panic!("DebugMapper PPU write out of bounds: {}", addr),
+
         }
     }
 }
@@ -240,7 +281,7 @@ mod tests {
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
         let d2 =ppu_pinout.data();
-        //assert_ne!(d1, d2);
+        assert_ne!(d1, d2);
 
     }
 
@@ -279,7 +320,7 @@ mod tests {
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
         let d2 =ppu_pinout.data();
-        //assert_ne!(d1, d2);
+        assert_ne!(d1, d2);
 
     }
 

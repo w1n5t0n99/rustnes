@@ -63,7 +63,7 @@ impl NesNtsc {
         for n in 0x23C0..0x23FF {
             cpu_pinout.data = self.nt_index;
             cpu_pinout = self.ppu.write_ppudata(cpu_pinout);
-            self.nt_index ^= 0xFF;
+            //self.nt_index ^= 0xFF;
 
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);

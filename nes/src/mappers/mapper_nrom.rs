@@ -185,6 +185,23 @@ impl Mapper for MapperNrom {
             _ => panic!("NROM PPU read out of bounds: {}", addr),
         }
     }
+
+    fn poke_ppu(&mut self, addr: u16, data: u8) {
+        match addr {
+            // CHR ROM
+            0x000..=0x1FFF => { /* returns whatevers on the bus already */ },
+             // NT A
+             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = data; },
+             // NT B
+             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = data; },
+             // NT C
+             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = data; },
+             // NT D
+             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = data; },
+             _ => panic!("NROM PPU write out of bounds: {}", addr),
+
+        }
+    }
 }
 
 

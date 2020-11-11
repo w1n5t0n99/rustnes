@@ -17,5 +17,6 @@ impl Mapper for MapperNull {
     fn write_ppu(&mut self, ppu_pinout: ppu::Pinout, cpu_pinout: mos::Pinout) -> (ppu::Pinout, mos::Pinout) { unimplemented!(); }
 
     fn peek_ppu(&mut self, _addr: u16) -> u8 { unimplemented!(); }
+    fn poke_ppu(&mut self, _addr: u16, data: u8) { unimplemented!(); }
 
 }
