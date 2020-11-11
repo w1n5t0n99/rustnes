@@ -145,7 +145,7 @@ impl Context {
             wr_buffer: 0,
             monochrome_mask: 0xFF,
             io: IO::Idle,
-            odd_frame: false,
+            odd_frame: true,
         }
     }
 }

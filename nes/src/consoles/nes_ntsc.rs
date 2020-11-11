@@ -50,13 +50,15 @@ impl NesNtsc {
         let cpu_cycles = if self.ppu.is_odd_frame() { 29780 } else { 29781 };
         let old_ppu = self.ppu;
 
-        self.ppu.enable_rendering();
+        self.ppu.enable_rendering(false);
+        self.ppu.reset_renderer();
         let mut cpu_pinout = Pinout::new();
         cpu_pinout.address = 0x2000;
         
         self.ppu.write_ppuaddr(cpu_pinout);
         self.ppu.write_ppuaddr(cpu_pinout);
 
+        self.ppu.enable_rendering(true);
 
         for _cycle in 0..=cpu_cycles {
             {

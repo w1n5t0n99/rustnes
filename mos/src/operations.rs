@@ -151,7 +151,7 @@ pub fn rst_c8<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     cpu.pc.pcl = cpu.ops.adl;
     cpu.pc.pch = cpu.ops.adh;
     // kludge to match nestest.log cycle timing after reset
-    cpu.cycle = 6;
+    cpu.cycle = 7;
     first_cycle!(cpu, bus, pinout);
 
     pinout
@@ -1340,7 +1340,7 @@ pub fn rti_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 
 pub fn rti_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
-    read_cycle!(cpu, bus, pinout, to_address(1, cpu.sp));
+    read_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp));
     cpu.pc.pcl = cpu.ops.dl;
     cpu.sp = cpu.sp.wrapping_add(1);
     
@@ -1349,7 +1349,7 @@ pub fn rti_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 
 pub fn rti_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
-    read_cycle!(cpu, bus, pinout, to_address(1, cpu.sp));
+    read_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp));
     cpu.pc.pch = cpu.ops.dl;
 
     last_cycle!(cpu, pinout);

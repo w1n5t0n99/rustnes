@@ -40,12 +40,24 @@ impl Rp2c02 {
         }
     }
 
-    pub fn enable_rendering(&mut self) {
+    pub fn enable_rendering(&mut self, enable_flag: bool) {
+        if enable_flag == true {
+            self.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
+            self.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
+            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
+            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
+        }
+        else {
+            self.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, false);
+            self.context.mask_reg.set(MaskRegister::SHOW_SPRITES, false);
+            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, false);
+            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, false);    
+        }
+    }
 
-        self.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
-        self.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
-        self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
-        self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
+    pub fn reset_renderer(&mut self) {
+        self.context.scanline_index = 261;
+        self.context.scanline_dot = 0;
     }
 
     pub fn read_port(&self, mut pinout: mos::Pinout) -> mos::Pinout {

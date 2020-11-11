@@ -44,7 +44,7 @@ fn io_write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mo
 
 
 pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.vram_address());
+    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x1FFF);
 
     match ppu.io {
         IO::Idle => { },
@@ -58,7 +58,7 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts
 }
 
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.vram_address());
+    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x1FFF);
 
     match ppu.io {
         IO::Idle => { },

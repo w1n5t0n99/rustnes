@@ -90,10 +90,12 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     });
 
     let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
-    for i in (0)..(29781*8) {
+    for i in (0)..(29781*10) {
         nes.execute_cycle();
         log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
     }
+
+    nes.nametable_framebuffer(&mut fb);
 
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
