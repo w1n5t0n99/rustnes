@@ -60,6 +60,14 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
                     _ => { panic!("Cpu Bus - PPU address out of bounds"); }
                 }
             }
+            0x4000..=0x4017 => {
+                //APU + IO
+                //TODO implement
+                pinout.data = 0;
+            }
+            0x4018..=0x401F => {
+                // The range $4018-$401F does nothing on a retail NES. It was intended for 2A03 functionality that never made it to production
+            }
             _ => { /* open bus */ }
         }
 
@@ -85,6 +93,13 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
                     7 => { pinout = self.ppu.write_ppudata(pinout); }
                     _ => { panic!("Cpu Bus - PPU address out of bounds"); }
                 }
+            }
+            0x4000..=0x4017 => {
+                //APU + IO
+                //TODO implement
+            }
+            0x4018..=0x401F => {
+                // The range $4018-$401F does nothing on a retail NES. It was intended for 2A03 functionality that never made it to production
             }
             _ => { /* open bus */ }
         }
