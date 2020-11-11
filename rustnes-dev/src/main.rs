@@ -67,7 +67,6 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     let mut fb: Vec<u32> = vec![0; 256*240];
     let mut nes = NesNtsc::new();
     nes.load_rom(file_path);
-    let now = Instant::now();
 
     //nes.nametable_framebuffer(&mut fb);
 
@@ -92,12 +91,17 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
     let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
     for i in (0)..(29781*10) {
-        nes.execute_cycle();
-        log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
+        //nes.execute_cycle();
+        //log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
     }
 
     //nes.nametable_framebuffer(&mut fb);
 
+    let now = Instant::now();
+    nes.execute_frame(&mut fb);
+    let duration = now.elapsed().as_millis();
+
+    println!("Frame Execution ms: {}", duration);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
@@ -108,6 +112,6 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
 fn main() {
     //execute_nestest_cpu_only("test_roms\\nestest.nes");
-    ppu_debug("test_roms\\donkey_kong.nes");
-    //debug_run("test_roms\\donkey_kong.nes");
+    //ppu_debug("test_roms\\donkey_kong.nes");
+    debug_run("test_roms\\donkey_kong.nes");
 }

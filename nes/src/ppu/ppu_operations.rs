@@ -64,7 +64,7 @@ pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: 
         IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
         IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
         IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
-        IO::WR => { println!("WRITE PPU: {:#X} - {:#X}",pinouts.0.address, ppu.wr_buffer); pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
+        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
     }
 
     pinouts

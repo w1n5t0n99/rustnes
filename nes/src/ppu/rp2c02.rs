@@ -154,7 +154,7 @@ impl Rp2c02 {
     pub fn write_ppuaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
         self.context.addr_reg.io_write_2006(pinout.data);
-        println!("WRITE PPUADDR: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
+        //println!("WRITE PPUADDR: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
 
         pinout
     }
@@ -189,7 +189,7 @@ impl Rp2c02 {
                 self.write_palette(v, pinout.data);
             }
             0x0000..=0x3EFF => {
-                println!("WRITE PPUDATA: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
+                //println!("WRITE PPUDATA: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
                 self.context.io = IO::WRALE;
                 self.context.wr_buffer = self.context.io_db;
             }
