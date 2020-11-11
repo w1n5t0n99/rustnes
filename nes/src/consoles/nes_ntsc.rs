@@ -20,6 +20,7 @@ pub struct NesNtsc {
     mapper: Box<dyn Mapper>,
     pbuffer: Vec<u16>,
     palette: Vec<u32>,
+    nt_index: u8,
 }
 
 impl NesNtsc {
@@ -33,6 +34,7 @@ impl NesNtsc {
             mapper: mappers::create_mapper_null(),
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
             palette: generate_palette(DEFAULT_SATURATION, DEFAULT_HUE, DEFAULT_CONTRAST, DEFAULT_BRIGHTNESS, DEFAULT_GAMMA),
+            nt_index: 0,
         }
     }
 
@@ -53,11 +55,28 @@ impl NesNtsc {
         self.ppu.enable_rendering(false);
         self.ppu.reset_renderer();
         let mut cpu_pinout = Pinout::new();
+        cpu_pinout.address = 0x23C0;
+        
+        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
+        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
+
+        for n in 0x23C0..0x23FF {
+            cpu_pinout.data = self.nt_index;
+            cpu_pinout = self.ppu.write_ppudata(cpu_pinout);
+            self.nt_index ^= 0xFF;
+
+            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+        }
+
         cpu_pinout.address = 0x2000;
         
-        self.ppu.write_ppuaddr(cpu_pinout);
-        self.ppu.write_ppuaddr(cpu_pinout);
+        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
+        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
 
+
+        self.ppu.reset_renderer();
         self.ppu.enable_rendering(true);
 
         for _cycle in 0..=cpu_cycles {

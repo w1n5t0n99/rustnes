@@ -58,6 +58,7 @@ pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         //let rgb_buffer: Vec<u32> = fb.iter().map(|pixel| palette[*pixel as usize]).collect();
+        nes.nametable_framebuffer(&mut fb);
         window.update_with_buffer(&fb, 256, 240).unwrap();
     }
 }
@@ -68,7 +69,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     nes.load_rom(file_path);
     let now = Instant::now();
 
-    nes.nametable_framebuffer(&mut fb);
+    //nes.nametable_framebuffer(&mut fb);
 
     let window_options = WindowOptions {
         borderless: false,
@@ -95,18 +96,18 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
         log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
     }
 
-    nes.nametable_framebuffer(&mut fb);
+    //nes.nametable_framebuffer(&mut fb);
 
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        //nes.execute_frame(&mut fb);
+        nes.execute_frame(&mut fb);
         window.update_with_buffer(&fb, 256, 240).unwrap();
     }
 }
 
 fn main() {
     //execute_nestest_cpu_only("test_roms\\nestest.nes");
-    //ppu_debug("test_roms\\donkey_kong.nes");
-    debug_run("test_roms\\donkey_kong.nes");
+    ppu_debug("test_roms\\donkey_kong.nes");
+    //debug_run("test_roms\\donkey_kong.nes");
 }
