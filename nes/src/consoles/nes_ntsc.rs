@@ -89,7 +89,7 @@ impl NesNtsc {
 
         for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
             let (fi, pi) = it;
-            *fi = self.palette[(*pi) as usize];
+            *fi = PALETTE[(*pi) as usize];
         }
         
         self.ppu = old_ppu;
@@ -144,7 +144,7 @@ impl Console for NesNtsc {
 
         for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
             let (fi, pi) = it;
-            *fi = self.palette[(*pi) as usize];
+            *fi = PALETTE[(*pi) as usize];
         }
     }
 

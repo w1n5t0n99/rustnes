@@ -187,6 +187,7 @@ impl Rp2c02 {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does
                 self.write_palette(v, pinout.data);
+                self.context.addr_reg.increment(self.context.control_reg.vram_addr_increment())
             }
             0x0000..=0x3EFF => {
                 //println!("WRITE PPUDATA: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
@@ -294,7 +295,6 @@ impl Rp2c02 {
         Note that this goes for writing as well as reading
         */
         let addr = vaddr & 0x1F;
-        //println!("Write Palette {:#X} - {:#X}", addr, vaddr);
         match addr {
             0x10 => { self.context.palette_ram[0x00] = data; }
             0x14 => { self.context.palette_ram[0x04] = data; }
