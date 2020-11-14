@@ -9,6 +9,7 @@ use mos::{Pinout, rp2a03::Rp2a03};
 
 use std::fs::File;
 use std::path::Path;
+use std::io::Write;
 use ::nes_rom::ines;
 use std::fmt;
 

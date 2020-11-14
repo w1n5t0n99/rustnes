@@ -52,7 +52,7 @@ impl AddrReg {
         // Second write
         else {
             let cba = ((data & 0x07) as u16) << 12;
-            let hgfed = ((data >> 3) as u16) << 5;
+            let hgfed = (data as u16) << 2;
 
             self.t = (self.t & 0x8FFF) | cba;
             self.t = (self.t & 0xFC1F) | hgfed;

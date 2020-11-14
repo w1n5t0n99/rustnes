@@ -89,7 +89,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
         panic!("{}", e);
     });
 
-    //let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
+    let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
     //for i in (0)..(29781*10) {
         //nes.execute_cycle();
         //log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
@@ -105,6 +105,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         nes.execute_frame(&mut fb);
+        //nes.execute_debug_frame(&mut fb, &mut log_file);
         window.update_with_buffer(&fb, 256, 240).unwrap();
     }
 }

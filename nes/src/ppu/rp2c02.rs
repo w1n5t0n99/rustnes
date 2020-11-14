@@ -246,8 +246,8 @@ impl Rp2c02 {
         // background pixel is default
         let mut pixel = self.bg.select_background_pixel(&mut self.context);
         // TODO see if sprite pixel overlaps
-
-        pixel
+        
+        read_palette_rendering(&mut self.context, pixel as u16) & self.context.monochrome_mask
     }
 
     fn scanline_prerender(&mut self, mapper: &mut dyn Mapper, cpu_pinout: mos::Pinout) -> mos::Pinout {
@@ -563,8 +563,7 @@ impl Rp2c02 {
             1..=256 => {
                 // render pixel
                 let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
-                let pixel = self.select_pixel();
-                fb[index] = read_palette_rendering(&mut self.context, pixel as u16) as u16 | self.context.mask_reg.emphasis_mask();
+                fb[index] = self.select_pixel() as u16 | self.context.mask_reg.emphasis_mask();
 
                 match self.context.scanline_dot & 0x07 {
                     1 => {
@@ -762,8 +761,7 @@ impl Rp2c02 {
             1..=256 => {
                 // render blank pixel
                 let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
-                let pixel = self.select_blank_pixel();
-                fb[index] = read_palette_nonrender(&mut self.context, pixel as u16 ) as u16 | self.context.mask_reg.emphasis_mask();
+                fb[index] = self.select_blank_pixel() as u16 | self.context.mask_reg.emphasis_mask();
 
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
                 self.status = PpuStatus::NonRender;

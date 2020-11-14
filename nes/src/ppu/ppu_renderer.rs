@@ -3,6 +3,9 @@ use super::ppu_registers::*;
 
 use std::fmt;
 
+//===============================================
+// Background
+//===============================================
 #[derive(Debug, Clone, Copy)]
 pub struct Background {
     pattern_queue: [u16; 2],
@@ -71,6 +74,9 @@ impl fmt::Display for Background {
     }
 }
 
+//===============================================
+// Sprites
+//===============================================
 #[derive(Debug, Clone, Copy)]
 pub struct SpritePatternData {
     x: u8,
