@@ -21,6 +21,7 @@ pub struct NesNtsc {
     pbuffer: Vec<u16>,
     palette: Vec<u32>,
     nt_index: u8,
+    odd_frame: bool,
 }
 
 impl NesNtsc {
@@ -35,6 +36,7 @@ impl NesNtsc {
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
             palette: generate_palette(DEFAULT_SATURATION, DEFAULT_HUE, DEFAULT_CONTRAST, DEFAULT_BRIGHTNESS, DEFAULT_GAMMA),
             nt_index: 0,
+            odd_frame: true,
         }
     }
 
@@ -49,7 +51,7 @@ impl NesNtsc {
     }
 
     pub fn nametable_framebuffer(&mut self, frame_buffer: &mut [u32]) {
-        let cpu_cycles = if self.ppu.is_odd_frame() { 29780 } else { 29781 };
+        let cpu_cycles = if self.odd_frame { 29780 } else { 29781 };
         let old_ppu = self.ppu;
 
         self.ppu.enable_rendering(false);
@@ -93,6 +95,7 @@ impl NesNtsc {
         }
         
         self.ppu = old_ppu;
+        self.odd_frame = !self.odd_frame;
     }
 }
 
@@ -122,7 +125,7 @@ impl Console for NesNtsc {
     }
 
     fn execute_frame(&mut self, frame_buffer: &mut [u32]) {
-        let cpu_cycles = if self.ppu.is_odd_frame() { 29780 } else { 29781 };
+        let cpu_cycles = if self.odd_frame { 29780 } else { 29781 };
 
         for _cycle in 0..=cpu_cycles {
             {
@@ -146,6 +149,8 @@ impl Console for NesNtsc {
             let (fi, pi) = it;
             *fi = PALETTE[(*pi) as usize];
         }
+
+        self.odd_frame = !self.odd_frame;
     }
 
     fn execute_cycle(&mut self) {

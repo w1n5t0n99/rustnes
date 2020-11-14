@@ -19,6 +19,14 @@ impl AddrReg {
         }
     }
 
+    pub fn io_write_2000(&mut self, data: u8) {
+        self.t = (self.t & 0xF3FF) | (((data & 0x3) as u16) << 8);
+    }
+
+    pub fn io_read_2002(&mut self) {
+        self.w = false;
+    }
+
     pub fn io_write_2006(&mut self, data: u8) {
         // First write
         if self.w == false {
@@ -122,6 +130,10 @@ impl AddrReg {
 
     pub fn attribute_address(&self) -> u16 {
         0x23C0 | (self.v & 0x0C00) | ((self.v >> 4) & 0x38) | ((self.v >> 2) & 0x07)
+    }
+
+    pub fn attribute_bits(&self, attribute_byte: u8) -> u8 {
+        (attribute_byte >> (((self.v & 0x40) >> 4) | (self.v & 0x02))) & 0x03
     }
 }
 

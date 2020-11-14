@@ -97,10 +97,9 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
     //nes.nametable_framebuffer(&mut fb);
 
-    let now = Instant::now();
+    let mut now = Instant::now();
     nes.execute_frame(&mut fb);
-    let duration = now.elapsed().as_millis();
-
+    let mut duration = now.elapsed().as_millis();
     println!("Frame Execution ms: {}", duration);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {

@@ -29,7 +29,8 @@ impl NametableOffset {
 
     pub fn from_nametable(nt_type: NametableType) -> NametableOffset {
         match nt_type {
-            NametableType::Horizontal => return NametableOffset::new(0x2000, 0x2400, 0x2000, 0x2400),
+            // TODO fix offsets
+            NametableType::Horizontal => return NametableOffset::new(0x2000, 0x2400, 0x2400, 0x2800),
             NametableType::Vertical => return NametableOffset::new(0x2000, 0x2000, 0x2800, 0x2800),
             NametableType::SingleScreen => return NametableOffset::new(0x2000, 0x2400, 0x2800, 0x2C00),
             NametableType::FourScreen => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2000),

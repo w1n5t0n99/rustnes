@@ -72,14 +72,39 @@ impl fmt::Display for Background {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Sprites {
+pub struct SpritePatternData {
+    x: u8,
+    y: u8,
+    index: u8,
+    attribute: u8,
+    pattern: [u8; 2],
+}
 
+impl SpritePatternData {
+    pub fn new() -> Self {
+        SpritePatternData {
+            x: 0,
+            y: 0,
+            index: 0,
+            attribute: 0,
+            pattern: [0; 2],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Sprites {
+    sprites: [SpritePatternData; 8],
+    current_sprite_index: u8,
 }
 
 impl Sprites {
     pub fn new() -> Self {
         // TODO implemet sprites
-        Sprites { }
+        Sprites { 
+            sprites: [SpritePatternData::new(); 8],
+            current_sprite_index: 0,
+        }
     }
 }
 
