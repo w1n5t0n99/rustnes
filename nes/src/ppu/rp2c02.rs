@@ -102,8 +102,9 @@ impl Rp2c02 {
     pub fn read_oamdata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         match self.context.scanline_index {
             0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
-                // TODO Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
-                pinout.data = 0;
+                // Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
+                self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
+                pinout.data = self.context.io_db;
             }
             0..=239 | 261 => {
                 // rendering disabled
