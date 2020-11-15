@@ -255,7 +255,8 @@ impl Rp2c02 {
 
         match self.context.scanline_dot {
             0 => {
-                 pinouts = render_idle_cycle(&mut self.context, mapper, pinouts);
+                // Read first bytes of secondary OAM
+                pinouts = render_idle_cycle(&mut self.context, mapper, pinouts);
                  self.status = PpuStatus::Idle;
             },
             1..=256 => {
@@ -441,42 +442,42 @@ impl Rp2c02 {
                 // two tiles for next scanline fetched
                 match self.context.scanline_dot & 0x07 {
                     1 => {
-                        // eval sprites odd
+                        // Read first bytes of secondary OAM
                         pinouts = open_tile_index(&mut self.context, mapper, pinouts);
                         self.status = PpuStatus::OpenTileIndex;
                     }
                     2 => {
-                        // eval sprites even
+                        // Read first bytes of secondary OAM
                         pinouts = read_tile_index(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadTileIndex;
                     }
                     3 => {
-                        // eval sprites odd
+                        // Read first bytes of secondary OAM
                         pinouts = open_background_attribute(&mut self.context, mapper, pinouts);
                         self.status = PpuStatus::OpenAttribute;
                     }
                     4 => {
-                        // eval sprites even
+                        // Read first bytes of secondary OAM
                         pinouts = read_background_attribute(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadAttribute;
                     }
                     5 => {
-                        // eval sprites odd
+                        // Read first bytes of secondary OAM
                         pinouts = open_background_pattern0(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::OpenBackgroundPattern;
                     }
                     6 => {
-                        // eval sprites even
+                        // Read first bytes of secondary OAM
                         pinouts = read_background_pattern0(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadBackgroundPattern;
                     }
                     7 => {
-                        // eval sprites odd
+                        // Read first bytes of secondary OAM
                         pinouts = open_background_pattern1(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::OpenBackgroundPattern;
                     }
                     0 => {
-                        // eval sprites even
+                        // Read first bytes of secondary OAM
                         pinouts = read_background_pattern1(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadBackgroundPattern;
                         self.bg.update_shift_registers_idle();
@@ -490,18 +491,22 @@ impl Rp2c02 {
                 // garbage nametable fetchs
                 match self.context.scanline_dot {
                     337 => {
+                        // Read first bytes of secondary OAM
                         pinouts = open_tile_index(&mut self.context, mapper, pinouts);
                         self.status = PpuStatus::OpenTileIndex;
                     }
                     338 => {
+                        // Read first bytes of secondary OAM
                         pinouts = read_tile_index(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadTileIndex;
                     }
                     339 => {
+                        // Read first bytes of secondary OAM
                         pinouts = open_tile_index(&mut self.context, mapper, pinouts);
                         self.status = PpuStatus::OpenTileIndex;
                     }
                     340 => {
+                        // Read first bytes of secondary OAM
                         pinouts = read_tile_index(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadTileIndex;
                     }

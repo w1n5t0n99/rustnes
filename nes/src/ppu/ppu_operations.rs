@@ -8,11 +8,6 @@ const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_INDEX: usize = 1;
 const PATTERN1_OFFSET: u16 = 8;
 
-const SPRITE_8X_VALUE: u16 = 8;
-const SPRITE_16X_VALUE: u16 = 16;
-const SPRITE_8X_FLIPMASK: u16 = 0b00000111;
-const SPRITE_16X_FLIPMASK: u16 = 0b00001111;
-
 #[inline(always)]
 fn io_read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     // assert rd pin, basically only used for debug info

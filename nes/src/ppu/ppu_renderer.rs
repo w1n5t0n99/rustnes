@@ -3,6 +3,11 @@ use super::ppu_registers::*;
 
 use std::fmt;
 
+pub const SPRITE_8X_VALUE: u16 = 8;
+pub const SPRITE_16X_VALUE: u16 = 16;
+const SPRITE_8X_FLIPMASK: u16 = 0b00000111;
+const SPRITE_16X_FLIPMASK: u16 = 0b00001111;
+
 //===============================================
 // Background
 //===============================================
@@ -78,38 +83,137 @@ impl fmt::Display for Background {
 // Sprites
 //===============================================
 #[derive(Debug, Clone, Copy)]
-pub struct SpritePatternData {
-    x: u8,
-    y: u8,
-    index: u8,
-    attribute: u8,
-    pattern: [u8; 2],
+enum EvalState {
+    YRead,
+    YWrite,
+    IndexRead,
+    IndexWrite,
+    AttributeRead,
+    AttributeWrite,
+    XRead,
+    XWrite,
+    POAMOverflow,
+    SOAMOverflow0,
+    SOAMOverflow1,
+    SOAMOverflow2,
+    SOAMOverflow3,
 }
 
-impl SpritePatternData {
+#[derive(Debug, Clone, Copy)]
+pub struct SpriteEval {
+    soam_index: usize,
+    poam_index: usize,
+    counter: u8,
+    oam_data: u8,
+    left_most_x: u8,
+    eval_state: EvalState,
+}
+
+impl SpriteEval {
     pub fn new() -> Self {
-        SpritePatternData {
-            x: 0,
-            y: 0,
-            index: 0,
-            attribute: 0,
-            pattern: [0; 2],
+        SpriteEval {
+            soam_index: 0,
+            poam_index: 0,
+            counter: 0,
+            oam_data: 0,
+            left_most_x: 0,
+            eval_state: EvalState::YRead,
+        }
+    }
+
+    fn sprite_in_range(&mut self, ppu: &mut Context, size: u16) -> bool {
+        // Y was read into oam data in the previous cycle
+        let sprite_line = ppu.scanline_index.saturating_sub(self.oam_data as u16);
+        sprite_line < size
+    }
+
+    fn increment_poam(&mut self, ppu: &mut Context) {
+        self.poam_index = self.poam_index.wrapping_add(4);
+        ppu.oam_addr_reg = self.poam_index as u8;
+        if self.poam_index == 0 {
+            // poam index overflowed
+            self.eval_state = EvalState::POAMOverflow;
+        }
+    }
+
+    fn increment_soam(&mut self) {
+        self.soam_index = self.soam_index.wrapping_add(4);
+        if self.soam_index == 32 {
+            self.soam_index = 0;
+            // soam index overflowed
+            self.eval_state = EvalState::SOAMOverflow0;
+        }
+    }
+
+    pub fn reset_for_scanline(&mut self, ppu: &mut Context) {
+        ppu.oam_addr_reg = 0;
+        self.counter = 0;
+        self.soam_index = 0;
+        self.poam_index = 0;
+        self.left_most_x = 0;
+        self.eval_state = EvalState::YRead;
+    }
+
+    pub fn evaluate(&mut self, ppu: &mut Context, size: u16) {
+        match self.eval_state {
+            EvalState::YRead => {
+                self.oam_data = ppu.oam_ram_primary[self.poam_index];
+                self.eval_state = EvalState::YWrite;
+            }
+            EvalState::YWrite => {
+                ppu.oam_ram_secondary[self.soam_index] = self.oam_data;
+                if self.sprite_in_range(ppu, size) {
+                    self.eval_state = EvalState::IndexRead;
+                }
+                else {
+                    self.increment_poam(ppu);
+                }
+            }
+            EvalState::IndexRead => {
+                self.oam_data = ppu.oam_ram_primary[self.poam_index + 1];
+                self.eval_state = EvalState::IndexWrite;
+            }
+            EvalState::IndexWrite => {
+                ppu.oam_ram_secondary[self.soam_index + 1] = self.oam_data;
+                self.eval_state = EvalState::AttributeRead;
+            }
+            EvalState::AttributeRead => {
+                self.oam_data = ppu.oam_ram_primary[self.poam_index + 2];
+                self.eval_state = EvalState::AttributeWrite;
+            }
+            EvalState::AttributeWrite => {
+                ppu.oam_ram_secondary[self.soam_index + 2] = self.oam_data;
+                self.eval_state = EvalState::XRead;
+            }
+            EvalState::XRead => {
+                self.oam_data = ppu.oam_ram_primary[self.poam_index + 3];
+                self.eval_state = EvalState::XRead;
+            }
+            EvalState::XWrite => {
+                ppu.oam_ram_secondary[self.soam_index + 3] = self.oam_data;
+                // increment secondary check if overflows
+                self.increment_soam();
+                //increment primary checking if overflow
+                self.increment_poam(ppu);
+            }
+            EvalState::SOAMOverflow0 => {
+                // we already found 8 sprites check if we need to set sprite overlow flag
+                
+            }
+            _ => {}
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
-    sprites: [SpritePatternData; 8],
-    current_sprite_index: u8,
+   
 }
 
 impl Sprites {
     pub fn new() -> Self {
         // TODO implemet sprites
         Sprites { 
-            sprites: [SpritePatternData::new(); 8],
-            current_sprite_index: 0,
         }
     }
 }
