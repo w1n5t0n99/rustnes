@@ -2,7 +2,7 @@ use nes::consoles::{Console, nes_ntsc::NesNtsc};
 use std::fs::File;
 use std::path::Path;
 use std::io::Write;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use ::minifb::{Key, Window, WindowOptions, Scale, ScaleMode};
 
 const WIDTH: usize = 256;
@@ -95,11 +95,14 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
         //log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
     //}
 
-    //nes.nametable_framebuffer(&mut fb);
-
+    let ten_millis = Duration::from_millis(10);
     let mut now = Instant::now();
+
+    //std::thread::sleep(ten_millis);
     nes.execute_frame(&mut fb);
+
     let mut duration = now.elapsed().as_millis();
+
     println!("Frame Execution ms: {}", duration);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {

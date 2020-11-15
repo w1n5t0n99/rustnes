@@ -93,14 +93,11 @@ enum EvalState {
     XRead,
     XWrite,
     POAMOverflow,
-    SOAMOverflow0,
-    SOAMOverflow1,
-    SOAMOverflow2,
-    SOAMOverflow3,
+    SOAMOverflow,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct SpriteEval {
+pub struct Sprites {
     soam_index: usize,
     poam_index: usize,
     counter: u8,
@@ -109,15 +106,28 @@ pub struct SpriteEval {
     eval_state: EvalState,
 }
 
-impl SpriteEval {
+impl Sprites {
     pub fn new() -> Self {
-        SpriteEval {
+        Sprites {
             soam_index: 0,
             poam_index: 0,
             counter: 0,
             oam_data: 0,
-            left_most_x: 0,
+            left_most_x: 0xFF,
             eval_state: EvalState::YRead,
+        }
+    }
+
+    pub fn reset_for_scanline(&mut self, ppu: &mut Context) {
+        ppu.oam_addr_reg = 0;
+        self.counter = 0;
+        self.soam_index = 0;
+        self.poam_index = 0;
+        self.left_most_x = 0xFF;
+        self.eval_state = EvalState::YRead;
+
+        for x in ppu.oam_ram_secondary.iter_mut() {
+            *x = 0xFF;
         }
     }
 
@@ -127,10 +137,33 @@ impl SpriteEval {
         sprite_line < size
     }
 
-    fn increment_poam(&mut self, ppu: &mut Context) {
+    fn increment_poam_sprite(&mut self, ppu: &mut Context) {
         self.poam_index = self.poam_index.wrapping_add(4);
         ppu.oam_addr_reg = self.poam_index as u8;
-        if self.poam_index == 0 {
+        if self.poam_index >= 256 {
+            self.poam_index = 0;
+            // poam index overflowed
+            self.eval_state = EvalState::POAMOverflow;
+        }
+    }
+
+    fn increment_poam_buggy(&mut self, ppu: &mut Context) {
+        // 3b. If the value is not in range, increment n AND m (without carry). If n overflows to 0, go to 4; otherwise go to 3
+		self.poam_index = (self.poam_index & 0x03) | (((self.poam_index & 0xfc) + 4) & 0xfc);
+        self.poam_index = (self.poam_index & 0xfc) | (((self.poam_index & 0x03) + 1) & 0x03); 
+        ppu.oam_addr_reg = self.poam_index as u8;
+        if self.poam_index >= 256 {
+            self.poam_index = 0;
+            // poam index overflowed
+            self.eval_state = EvalState::POAMOverflow;
+        }
+    }
+
+    fn increment_poam(&mut self, ppu: &mut Context) {
+        self.poam_index = self.poam_index.wrapping_add(1);
+        ppu.oam_addr_reg = self.poam_index as u8;
+        if self.poam_index >= 256 {
+            self.poam_index = 0;
             // poam index overflowed
             self.eval_state = EvalState::POAMOverflow;
         }
@@ -138,23 +171,19 @@ impl SpriteEval {
 
     fn increment_soam(&mut self) {
         self.soam_index = self.soam_index.wrapping_add(4);
-        if self.soam_index == 32 {
+        if self.soam_index >= 32 {
             self.soam_index = 0;
             // soam index overflowed
-            self.eval_state = EvalState::SOAMOverflow0;
+            self.eval_state = EvalState::SOAMOverflow;
         }
     }
 
-    pub fn reset_for_scanline(&mut self, ppu: &mut Context) {
-        ppu.oam_addr_reg = 0;
-        self.counter = 0;
-        self.soam_index = 0;
-        self.poam_index = 0;
-        self.left_most_x = 0;
-        self.eval_state = EvalState::YRead;
-    }
-
     pub fn evaluate(&mut self, ppu: &mut Context, size: u16) {
+        if ppu.scanline_dot < 65 {
+            // ppu is zeroing secondary oam
+            return;
+        }
+
         match self.eval_state {
             EvalState::YRead => {
                 self.oam_data = ppu.oam_ram_primary[self.poam_index];
@@ -163,10 +192,11 @@ impl SpriteEval {
             EvalState::YWrite => {
                 ppu.oam_ram_secondary[self.soam_index] = self.oam_data;
                 if self.sprite_in_range(ppu, size) {
+                    let sprite_line =  ppu.scanline_index.saturating_sub(self.oam_data as u16);
                     self.eval_state = EvalState::IndexRead;
                 }
                 else {
-                    self.increment_poam(ppu);
+                    self.increment_poam_sprite(ppu);
                 }
             }
             EvalState::IndexRead => {
@@ -191,30 +221,32 @@ impl SpriteEval {
             }
             EvalState::XWrite => {
                 ppu.oam_ram_secondary[self.soam_index + 3] = self.oam_data;
+                self.left_most_x = self.left_most_x.min(self.oam_data);
                 // increment secondary check if overflows
                 self.increment_soam();
                 //increment primary checking if overflow
-                self.increment_poam(ppu);
+                self.increment_poam_sprite(ppu);
             }
-            EvalState::SOAMOverflow0 => {
+            EvalState::SOAMOverflow => {
                 // we already found 8 sprites check if we need to set sprite overlow flag
-                
+                self.oam_data = ppu.oam_ram_primary[self.poam_index];
+                if self.sprite_in_range(ppu, size) {
+                    ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
+                    self.increment_poam(ppu);
+                }
+                else {
+                    self.increment_poam_buggy(ppu);
+                }
             }
-            _ => {}
+            EvalState::POAMOverflow => {
+                self.increment_poam_sprite(ppu);
+            }
         }
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-pub struct Sprites {
-   
-}
+    pub fn select_sprite_pixel(&mut self, ppu: &mut Context) -> u8 {
 
-impl Sprites {
-    pub fn new() -> Self {
-        // TODO implemet sprites
-        Sprites { 
-        }
+        0
     }
 }
 

@@ -103,7 +103,12 @@ impl Rp2c02 {
         match self.context.scanline_index {
             0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
                 // Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
-                self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
+                if self.context.scanline_dot < 65 { 
+                    self.context.io_db = 0xFF;
+                }
+                else {
+                    self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
+                }
                 pinout.data = self.context.io_db;
             }
             0..=239 | 261 => {
@@ -522,6 +527,7 @@ impl Rp2c02 {
         }
 
         if self.context.scanline_dot == 340 {
+            self.sp.reset_for_scanline(&mut self.context);
             self.context.scanline_index = 0;
             self.context.scanline_dot = if self.context.odd_frame { 1 } else { 0 };
         }
@@ -546,6 +552,7 @@ impl Rp2c02 {
             self.context.scanline_dot += 1;
         }
         else if self.context.scanline_dot == 340 {
+            self.sp.reset_for_scanline(&mut self.context);
             self.context.scanline_index = 0;
             self.context.scanline_dot = if self.context.odd_frame { 1 } else { 0 };
         }
