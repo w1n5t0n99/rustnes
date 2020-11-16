@@ -580,42 +580,42 @@ impl Rp2c02 {
 
                 match self.context.scanline_dot & 0x07 {
                     1 => {
-                        // eval sprites odd
+                        self.sp.evaluate(&mut self.context);
                         pinouts = open_tile_index(&mut self.context, mapper, pinouts);
                         self.status = PpuStatus::OpenTileIndex;
                     }
                     2 => {
-                        // eval sprites even
+                        self.sp.evaluate(&mut self.context);
                         pinouts = read_tile_index(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadTileIndex;
                     }
                     3 => {
-                        // eval sprites odd
+                        self.sp.evaluate(&mut self.context);
                         pinouts = open_background_attribute(&mut self.context, mapper, pinouts);
                         self.status = PpuStatus::OpenAttribute;
                     }
                     4 => {
-                        // eval sprites even
+                        self.sp.evaluate(&mut self.context);
                         pinouts = read_background_attribute(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::ReadAttribute;
                     }
                     5 => {
-                        // eval sprites odd
+                        self.sp.evaluate(&mut self.context);
                         pinouts = open_background_pattern0(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::OpenBackgroundPattern;
                     }
                     6 => {
-                        // eval sprites even
+                        self.sp.evaluate(&mut self.context);
                         pinouts = read_background_pattern0(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::OpenBackgroundPattern;
                     }
                     7 => {
-                        // eval sprites odd
+                        self.sp.evaluate(&mut self.context);
                         pinouts = open_background_pattern1(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::OpenBackgroundPattern;
                     }
                     0 => {
-                        // eval sprites even
+                        self.sp.evaluate(&mut self.context);
                         pinouts = read_background_pattern1(&mut self.context, &mut self.bg, mapper, pinouts);
                         self.status = PpuStatus::OpenBackgroundPattern;
                         self.bg.update_shift_registers_render();

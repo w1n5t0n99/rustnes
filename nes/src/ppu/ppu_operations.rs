@@ -1,12 +1,16 @@
 use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
-use super::ppu_renderer::{Background, Sprites};
+use super::ppu_renderer::{Background, Sprites, SpriteAttrib};
 use crate::mappers::Mapper;
 
 const PATTERN0_INDEX: usize = 0;
 const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_INDEX: usize = 1;
 const PATTERN1_OFFSET: u16 = 8;
+const SPRITE_8X_VALUE: u8 = 8;
+const SPRITE_16X_VALUE: u8 = 16;
+const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
+const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
 
 #[inline(always)]
 fn io_read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
@@ -200,9 +204,47 @@ pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: 
     pinouts
 }
 
+pub fn sprite_pattern_address0(ppu: &mut Context, sprite_index: u16, sprite_line: u16) -> u16 {
+    if ppu.control_reg.contains(ControlRegister::SPRITE_SIZE) {
+        // 8x16
+        (((sprite_index & 1) << 12) | ((sprite_index & 0xfe) << 4) | PATTERN0_OFFSET | (sprite_line & 7) | ((sprite_line & 0x08) << 1)) & 0xffff
+    }
+    else {
+        // 8x8
+        (ppu.control_reg.sprite_table_address()| (sprite_index << 4) | PATTERN0_OFFSET | sprite_line) & 0xffff
+    }
+}
+
+pub fn sprite_pattern_address1(ppu: &mut Context, sprite_index: u16, sprite_line: u16) -> u16 {
+    if ppu.control_reg.contains(ControlRegister::SPRITE_SIZE) {
+        // 8x16
+        (((sprite_index & 1) << 12) | ((sprite_index & 0xfe) << 4) | PATTERN1_OFFSET | (sprite_line & 7) | ((sprite_line & 0x08) << 1)) & 0xffff
+    }
+    else {
+        // 8x8
+        (ppu.control_reg.sprite_table_address()| (sprite_index << 4) | PATTERN1_OFFSET | sprite_line) & 0xffff
+    }
+}
+
 pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = 0;
-    pinouts.0.set_address(next_addr);
+    let current_sprite_index = ((ppu.scanline_dot - 1) >> 3) & 0x07;
+    let sprite = &mut sp.soam[current_sprite_index as usize];
+    if sprite.active {
+        match (sprite.attribute.contains(SpriteAttrib::VFLIP), ppu.control_reg.contains(ControlRegister::SPRITE_SIZE)) {
+            (false, false) => {},
+            (false, true) => {},
+            (true, false) => { sprite.y_pos ^= SPRITE_8X_FLIPMASK; }
+            (true, true) => { sprite.y_pos ^= SPRITE_16X_FLIPMASK; }
+        }
+
+        let next_addr = sprite_pattern_address0(ppu, sprite.tile_index as u16, sprite.y_pos as u16);
+        pinouts.0.set_address(next_addr);
+    }
+    else {
+        let next_addr = sprite_pattern_address0(ppu, 0xFF, 0xFF);
+        pinouts.0.set_address(next_addr);
+    }
+
 
     match ppu.io {
         IO::Idle => { pinouts.0.latch_address(); },

@@ -7,10 +7,10 @@ const PATTERN0_INDEX: usize = 0;
 const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_INDEX: usize = 1;
 const PATTERN1_OFFSET: u16 = 8;
-const SPRITE_8X_VALUE: u16 = 8;
-const SPRITE_16X_VALUE: u16 = 16;
-const SPRITE_8X_FLIPMASK: u16 = 0b00000111;
-const SPRITE_16X_FLIPMASK: u16 = 0b00001111;
+const SPRITE_8X_VALUE: u8 = 8;
+const SPRITE_16X_VALUE: u8 = 16;
+const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
+const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
 
 
 const REVERSE_BITS: [u8; 256] = [
@@ -127,7 +127,7 @@ bitflags! {
     // ||+------ Priority (0: in front of background; 1: behind background)
     // |+------- Flip sprite horizontally
     // +-------- Flip sprite vertically
-    struct SpriteAttrib: u8 {
+    pub struct SpriteAttrib: u8 {
         const PALETTE0                   = 0b00000001;
         const PALETTE1                  = 0b00000010;
         const UNUSED0                   = 0b00000100;
@@ -155,7 +155,7 @@ impl SpriteAttrib {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct SpriteData {
+pub struct SpriteData {
     pub y_pos: u8,
     pub x_pos: u8,
     pub tile_index: u8,
@@ -222,7 +222,7 @@ impl OamIndex {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
-    soam: [SpriteData; 8],
+    pub soam: [SpriteData; 8],
     soam_index: u8,
     poam_index: OamIndex,
     cur_sprite_index: u16,
@@ -257,54 +257,10 @@ impl Sprites {
         }
     }
 
-    pub fn sprite_pattern_address_low(&mut self, ppu: &mut Context, sprite_index: u16, sprite_line: u16) -> u16 {
-        if ppu.control_reg.contains(ControlRegister::SPRITE_SIZE) {
-            // 8x16
-            (((sprite_index & 1) << 12) | ((sprite_index & 0xfe) << 4) | PATTERN0_OFFSET | (sprite_line & 7) | ((sprite_line & 0x08) << 1)) & 0xffff
-        }
-        else {
-            // 8x8
-            (ppu.control_reg.sprite_table_address()| (sprite_index << 4) | PATTERN0_OFFSET | sprite_line) & 0xffff
-        }
-    }
-
-    pub fn sprite_pattern_address_high(&mut self, ppu: &mut Context, sprite_index: u16, sprite_line: u16) -> u16 {
-        if ppu.control_reg.contains(ControlRegister::SPRITE_SIZE) {
-            // 8x16
-            (((sprite_index & 1) << 12) | ((sprite_index & 0xfe) << 4) | PATTERN1_OFFSET | (sprite_line & 7) | ((sprite_line & 0x08) << 1)) & 0xffff
-        }
-        else {
-            // 8x8
-            (ppu.control_reg.sprite_table_address()| (sprite_index << 4) | PATTERN1_OFFSET | sprite_line) & 0xffff
-        }
-    }
-
     fn sprite_in_range(&mut self, ppu: &mut Context, size: u16) -> bool {
         // Y was read into oam data in the previous cycle
         let sprite_line = (ppu.scanline_index + 1).saturating_sub(self.oam_data as u16);
         sprite_line < size
-    }
-
-    fn increment_poam_buggy(&mut self, ppu: &mut Context) {
-        // 3b. If the value is not in range, increment n AND m (without carry). If n overflows to 0, go to 4; otherwise go to 3
-		self.poam_index = (self.poam_index & 0x03) | (((self.poam_index & 0xfc) + 4) & 0xfc);
-        self.poam_index = (self.poam_index & 0xfc) | (((self.poam_index & 0x03) + 1) & 0x03); 
-        ppu.oam_addr_reg = self.poam_index as u8;
-        if self.poam_index >= 256 {
-            self.poam_index = 0;
-            // poam index overflowed
-            self.eval_state = EvalState::POAMOverflow;
-        }
-    }
-
-    fn increment_poam(&mut self, ppu: &mut Context) {
-        self.poam_index = self.poam_index.wrapping_add(1);
-        ppu.oam_addr_reg = self.poam_index as u8;
-        if self.poam_index >= 256 {
-            self.poam_index = 0;
-            // poam index overflowed
-            self.eval_state = EvalState::POAMOverflow;
-        }
     }
 
     fn increment_soam(&mut self) {
@@ -329,9 +285,11 @@ impl Sprites {
                 self.eval_state = EvalState::YWrite;
             }
             EvalState::YWrite => {
+                let sprite_line =  (ppu.scanline_index + 1).saturating_sub(self.oam_data as u16);
+                self.soam[self.soam_index as usize].y_pos = sprite_line as u8;
+
                 if self.sprite_in_range(ppu, size) {
-                    let sprite_line =  (ppu.scanline_index + 1).saturating_sub(self.oam_data as u16);
-                    self.soam[self.soam_index as usize].y_pos = sprite_line as u8;
+                    self.soam[self.soam_index as usize].active = true;
                     self.eval_state = EvalState::IndexRead;
                 }
                 else {
@@ -372,17 +330,20 @@ impl Sprites {
             }
             EvalState::SOAMOverflow => {
                 // we already found 8 sprites check if we need to set sprite overlow flag
-                self.oam_data = ppu.oam_ram_primary[self.poam_index];
+                self.oam_data = ppu.oam_ram_primary[self.poam_index.m() as usize];
                 if self.sprite_in_range(ppu, size) {
                     ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
-                    self.increment_poam(ppu);
+                    self.poam_index.index = self.poam_index.index.wrapping_add(1);
+                    if self.poam_index.index == 0 { self.eval_state = EvalState::POAMOverflow; }
                 }
                 else {
-                    self.increment_poam_buggy(ppu);
+                    self.poam_index.increment_m();
+                    self.poam_index.increment_n();
+                    if self.poam_index.n() == 0 { self.eval_state = EvalState::POAMOverflow; }
                 }
             }
             EvalState::POAMOverflow => {
-                self.increment_poam_sprite(ppu);
+                self.poam_index.increment_n();
             }
         }
     }
@@ -445,6 +406,11 @@ mod test {
         assert_eq!(pixel, 0x0C);
         pixel = bg.select_background_pixel(&mut ppu_context);
         assert_eq!(pixel, 0x0F);
+    }
+
+    #[test]
+    fn test_oam_index() {
+
     }
 
 }
