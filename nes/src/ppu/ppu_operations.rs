@@ -227,22 +227,22 @@ pub fn sprite_pattern_address1(ppu: &mut Context, sprite_index: u16, sprite_line
 }
 
 pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let current_sprite_index = ((ppu.scanline_dot - 1) >> 3) & 0x07;
-    let sprite = &mut sp.soam[current_sprite_index as usize];
-    if sprite.active {
-        match (sprite.attribute.contains(SpriteAttrib::VFLIP), ppu.control_reg.contains(ControlRegister::SPRITE_SIZE)) {
+    if sp.next_soam[sp.cur_sprite_index as usize].active {
+        match (sp.next_soam[sp.cur_sprite_index as usize].attribute.contains(SpriteAttrib::VFLIP), ppu.control_reg.contains(ControlRegister::SPRITE_SIZE)) {
             (false, false) => {},
             (false, true) => {},
-            (true, false) => { sprite.y_pos ^= SPRITE_8X_FLIPMASK; }
-            (true, true) => { sprite.y_pos ^= SPRITE_16X_FLIPMASK; }
+            (true, false) => { sp.next_soam[sp.cur_sprite_index as usize].y_pos ^= SPRITE_8X_FLIPMASK; }
+            (true, true) => { sp.next_soam[sp.cur_sprite_index as usize].y_pos ^= SPRITE_16X_FLIPMASK; }
         }
 
-        let next_addr = sprite_pattern_address0(ppu, sprite.tile_index as u16, sprite.y_pos as u16);
-        pinouts.0.set_address(next_addr);
+        sp.soam[sp.cur_sprite_index as usize] = sp.next_soam[sp.cur_sprite_index as usize];
+        sp.next_pattern_address = sprite_pattern_address0(ppu, sp.soam[sp.cur_sprite_index as usize].tile_index as u16, sp.soam[sp.cur_sprite_index as usize].y_pos as u16);
+        pinouts.0.set_address(sp.next_pattern_address);
     }
     else {
-        let next_addr = sprite_pattern_address0(ppu, 0xFF, 0xFF);
-        pinouts.0.set_address(next_addr);
+        sp.soam[sp.cur_sprite_index as usize] = sp.next_soam[sp.cur_sprite_index as usize];
+        sp.next_pattern_address = sprite_pattern_address0(ppu, 0xFF, 0xFF);
+        pinouts.0.set_address(sp.next_pattern_address);
     }
 
 
@@ -259,8 +259,7 @@ pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
 }
 
 pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = 0;
-    pinouts.0.set_address(next_addr);
+    pinouts.0.set_address(sp.next_pattern_address);
 
     match ppu.io {
         IO::Idle => { pinouts = read(ppu, mapper, pinouts); },
@@ -271,12 +270,19 @@ pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
     }
 
+    sp.soam[sp.cur_sprite_index as usize].pattern[PATTERN0_INDEX] = pinouts.0.data();
     pinouts
 }
 
 pub fn open_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = 0;
-    pinouts.0.set_address(next_addr);
+    if sp.next_soam[sp.cur_sprite_index as usize].active {
+        sp.next_pattern_address = sprite_pattern_address1(ppu, sp.soam[sp.cur_sprite_index as usize].tile_index as u16, sp.soam[sp.cur_sprite_index as usize].y_pos as u16);
+        pinouts.0.set_address(sp.next_pattern_address);
+    }
+    else {
+        sp.next_pattern_address = sprite_pattern_address1(ppu, 0xFF, 0xFF);
+        pinouts.0.set_address(sp.next_pattern_address);
+    }
 
     match ppu.io {
         IO::Idle => { pinouts.0.latch_address(); },
@@ -291,8 +297,7 @@ pub fn open_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
 }
 
 pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = 0;
-    pinouts.0.set_address(next_addr);
+    pinouts.0.set_address(sp.next_pattern_address);
 
     match ppu.io {
         IO::Idle => { pinouts = read(ppu, mapper, pinouts); },
@@ -303,6 +308,8 @@ pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
     }
 
+    sp.soam[sp.cur_sprite_index as usize].pattern[PATTERN1_INDEX] = pinouts.0.data();
+    sp.next_pattern_address += 1;
     pinouts
 }
 

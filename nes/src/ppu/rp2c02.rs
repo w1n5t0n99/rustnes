@@ -251,7 +251,8 @@ impl Rp2c02 {
     fn select_pixel(&mut self) -> u8 {
         // background pixel is default
         let mut pixel = self.bg.select_background_pixel(&mut self.context);
-        // TODO see if sprite pixel overlaps
+        let hpos = self.context.scanline_dot - 1;
+        pixel = self.sp.select_sprite_pixel(&mut self.context, hpos, pixel);
         
         read_palette_rendering(&mut self.context, pixel as u16) & self.context.monochrome_mask
     }

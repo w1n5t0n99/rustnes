@@ -132,7 +132,7 @@ bitflags! {
         const PALETTE1                  = 0b00000010;
         const UNUSED0                   = 0b00000100;
         const UNUSED1                   = 0b00001000;
-        const UNUSED2                   = 0b00010000;
+        const OAMZERO                   = 0b00010000;
         const BEHIND_BACKGROUND         = 0b00100000;
         const HFLIP                     = 0b01000000;
         const VFLIP                     = 0b10000000; 
@@ -144,7 +144,7 @@ impl SpriteAttrib {
         SpriteAttrib::from_bits_truncate(0xFF)
     }
 
-    pub fn pallete_index(&mut self) -> u8 {
+    pub fn pallete_index(&self) -> u8 {
         match (self.contains(SpriteAttrib::PALETTE1), self.contains(SpriteAttrib::PALETTE0)) {
             (false, false) => 0,
             (false, true) => 1,
@@ -161,6 +161,7 @@ pub struct SpriteData {
     pub tile_index: u8,
     pub attribute: SpriteAttrib,
     pub active: bool,
+    pub zero: bool,
     pub pattern: [u8; 2],
 }
 
@@ -172,6 +173,7 @@ impl SpriteData {
             tile_index: 0xFF,
             attribute: SpriteAttrib::new(),
             active: false,
+            zero: false,
             pattern: [0xFF; 2],
         }
     }
@@ -182,6 +184,7 @@ impl SpriteData {
         self.tile_index = 0xFF;
         self.attribute = SpriteAttrib::new();
         self.active = false;
+        self.zero = false;
         self.pattern[0] = 0xFF;
         self.pattern[1] = 0xFF;
     }
@@ -223,9 +226,11 @@ impl OamIndex {
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
     pub soam: [SpriteData; 8],
+    pub next_soam: [SpriteData; 8],
+    pub next_pattern_address: u16,
+    pub cur_sprite_index: u8,
     soam_index: u8,
     poam_index: OamIndex,
-    cur_sprite_index: u16,
     oam_data: u8,
     left_most_x: u8,
     eval_state: EvalState,
@@ -235,6 +240,8 @@ impl Sprites {
     pub fn new() -> Self {
         Sprites {
             soam: [SpriteData::new(); 8],
+            next_soam: [SpriteData::new(); 8],
+            next_pattern_address: 0,
             soam_index: 0,
             poam_index: OamIndex::new(),
             cur_sprite_index: 0,
@@ -246,13 +253,14 @@ impl Sprites {
 
     pub fn reset_for_scanline(&mut self, ppu: &mut Context) {
         ppu.oam_addr_reg = 0;
+        self.next_pattern_address = 0;
         self.soam_index = 0;
         self.poam_index = OamIndex::new();
         self.cur_sprite_index = 0;
         self.left_most_x = 0xFF;
         self.eval_state = EvalState::YRead;
 
-        for x in self.soam.iter_mut() {
+        for x in self.next_soam.iter_mut() {
             x.clear();
         }
     }
@@ -286,11 +294,15 @@ impl Sprites {
             }
             EvalState::YWrite => {
                 let sprite_line =  (ppu.scanline_index + 1).saturating_sub(self.oam_data as u16);
-                self.soam[self.soam_index as usize].y_pos = sprite_line as u8;
+                self.next_soam[self.soam_index as usize].y_pos = sprite_line as u8;
 
                 if self.sprite_in_range(ppu, size) {
-                    self.soam[self.soam_index as usize].active = true;
+                    self.next_soam[self.soam_index as usize].active = true;
                     self.eval_state = EvalState::IndexRead;
+                    // check if zero sprite
+                    if self.soam_index == 0 {
+                        self.next_soam[self.soam_index as usize].zero = true;
+                    }
                 }
                 else {
                     self.poam_index.increment();
@@ -302,7 +314,7 @@ impl Sprites {
                 self.eval_state = EvalState::IndexWrite;
             }
             EvalState::IndexWrite => {
-                self.soam[self.soam_index as usize].tile_index = self.oam_data;
+                self.next_soam[self.soam_index as usize].tile_index = self.oam_data;
                 self.eval_state = EvalState::AttributeRead;
             }
             EvalState::AttributeRead => {
@@ -310,7 +322,7 @@ impl Sprites {
                 self.eval_state = EvalState::AttributeWrite;
             }
             EvalState::AttributeWrite => {
-                self.soam[self.soam_index as usize].attribute = SpriteAttrib::from_bits_truncate(self.oam_data);
+                self.next_soam[self.soam_index as usize].attribute = SpriteAttrib::from_bits_truncate(self.oam_data);
                 self.eval_state = EvalState::XRead;
             }
             EvalState::XRead => {
@@ -318,7 +330,7 @@ impl Sprites {
                 self.eval_state = EvalState::XRead;
             }
             EvalState::XWrite => {
-                self.soam[self.soam_index as usize].x_pos = self.oam_data;
+                self.next_soam[self.soam_index as usize].x_pos = self.oam_data;
                 self.left_most_x = self.left_most_x.min(self.oam_data);
                 self.eval_state = EvalState::YRead;
                 // increment secondary check if overflows
@@ -348,9 +360,45 @@ impl Sprites {
         }
     }
 
-    pub fn select_sprite_pixel(&mut self, ppu: &mut Context) -> u8 {
+    pub fn select_sprite_pixel(&mut self, ppu: &mut Context, index: u16, mut bg_pixel: u8) -> u8 {
+        // Are any sprites in range
+        if self.left_most_x as u16 <= index {
+            // Then check sprites if they belong
+            if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) | (ppu.scanline_dot >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
+                // Loop through sprites
+                for spr in self.soam.iter() {
+                    if spr.active == false { break; }
 
-        0
+                    let x_offset = index - (spr.x_pos as u16);
+                    // Is this sprite visible on this pixel?
+                    if x_offset < 8 {
+                        let p0 = spr.pattern[0];
+                        let p1 = spr.pattern[1];
+                        let shift = 7 - x_offset;
+                        let sprite_pixel = ((p0 >> shift) & 0x01) | (((p1 >> shift) << 0x01) & 0x02);
+
+                        // This pixel is visible..
+                        if (sprite_pixel & 0x03) > 0 {
+                            // we rendered a sprite0 pixel which collided with a BG pixel
+						    // NOTE: according to blargg's tests, a collision doesn't seem
+                            //       possible to occur on the rightmost pixel
+                            // bg pixel for sprite 0 hack
+                            if spr.zero == true && index < 255 && (bg_pixel & 0x03) > 0 {
+                                ppu.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, true);
+                            }
+
+                            if spr.attribute.contains(SpriteAttrib::BEHIND_BACKGROUND) == false && (bg_pixel & 0x03) == 0 && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
+                                bg_pixel = (0x10 | sprite_pixel | (spr.attribute.pallete_index() << 2)) & 0xff;
+                            }
+
+                            return bg_pixel;
+                        }
+                    }
+                }
+            }
+        }
+
+        return bg_pixel;
     }
 }
 
