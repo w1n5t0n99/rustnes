@@ -220,14 +220,14 @@ bitflags! {
     // |+-------- Emphasize green
     // +--------- Emphasize blue
     pub struct MaskRegister: u8 {
-        const GREYSCALE               = 0b00000001;
+        const GREYSCALE                 = 0b00000001;
         const LEFTMOST_8PXL_BACKGROUND  = 0b00000010;
         const LEFTMOST_8PXL_SPRITE      = 0b00000100;
-        const SHOW_BACKGROUND         = 0b00001000;
-        const SHOW_SPRITES            = 0b00010000;
-        //const EMPHASISE_RED           = 0b00100000;
-        //const EMPHASISE_GREEN         = 0b01000000;
-        //const EMPHASISE_BLUE          = 0b10000000;
+        const SHOW_BACKGROUND           = 0b00001000;
+        const SHOW_SPRITES              = 0b00010000;
+        const EMPHASISE_RED             = 0b00100000;
+        const EMPHASISE_GREEN           = 0b01000000;
+        const EMPHASISE_BLUE            = 0b10000000;
     }
 }
 

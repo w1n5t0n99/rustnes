@@ -105,7 +105,6 @@ impl fmt::Display for Pinout {
 #[derive(Clone, Copy)]
 pub struct Context {
     pub oam_ram_primary: [u8; 256],
-    pub oam_ram_secondary: [u8; 32],
     pub palette_ram: [u8; 32],
     pub cycle: u64,
     pub read_2002_cycle: u64,                           // Used to track NMI race condition
@@ -130,7 +129,6 @@ impl Context {
     pub fn new() -> Self {
         Context {
             oam_ram_primary: [0; 256],
-            oam_ram_secondary: [0; 32],
             palette_ram: [0; 32],
             cycle: 0,
             read_2002_cycle: 0,
