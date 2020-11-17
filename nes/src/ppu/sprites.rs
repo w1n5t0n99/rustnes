@@ -60,20 +60,16 @@ impl OamIndex {
         self.index & 0x3
     }
 
-    pub fn increment_by_sprite(&mut self) {
-        self.index = self.index.wrapping_add(4);
-    }
-
     pub fn increment(&mut self) {
         self.index = self.index.wrapping_add(1);
     }
 
     pub fn increment_n(&mut self) {
-        self.index = (self.index & 0x03) | (((self.index & 0xFC) + 4) & 0xFC);
+        self.index = (self.index & 0x03) | (self.index & 0xFC).wrapping_add(4);
     }
 
     pub fn increment_m(&mut self) {
-        self.index = (self.index & 0xFC) | (((self.index & 0x03) + 1) & 0x03);
+        self.index = (self.index & 0xFC) | (self.index & 0x03).wrapping_add(1);
     }
 }
 
@@ -191,6 +187,7 @@ pub struct Sprites {
     poam_index: OamIndex,
     oam_db: u8,
     left_most_x: u8,
+    sprite_0_hit: bool,
     eval_state: EvalState,
 }
 
@@ -206,6 +203,7 @@ impl Sprites {
             poam_index: OamIndex::new(),
             oam_db: 0,
             left_most_x: 0xFF,
+            sprite_0_hit: false,
             eval_state: EvalState::YRead,
         }
     }
@@ -217,6 +215,7 @@ impl Sprites {
         self.oam_db = 0;
         self.poam_index = OamIndex::from_oamaddr(oam_addr);
         self.left_most_x = 0xFF;
+        self.sprite_0_hit = false;
         self.eval_state = EvalState::YRead;
 
         for x in self.next_sprite_data.iter_mut() {
@@ -225,6 +224,7 @@ impl Sprites {
     }
 
     pub fn reset_for_frame(&mut self) {
+        self.sprite_0_hit = false;
         self.render_sprite_index = 0;
         for x in self.render_sprite_data.iter_mut() {
             x.active = false;
@@ -261,7 +261,7 @@ impl Sprites {
                     self.eval_state = EvalState::IndexRead;
                 }
                 else {
-                    self.poam_index.increment_by_sprite();
+                    self.poam_index.increment_n();
                     if self.poam_index.index() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
                 }
             }
@@ -293,7 +293,7 @@ impl Sprites {
                 self.next_sprite_index += 1;
                 if self.next_sprite_index >= 8 { self.eval_state = EvalState::MaxSpritesFound; }
                 //increment primary checking if overflow
-                self.poam_index.increment_by_sprite();
+                self.poam_index.increment_n();
                 if self.poam_index.index() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
             }
             EvalState::MaxSpritesFound => {
@@ -398,6 +398,10 @@ impl Sprites {
             if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (ppu.scanline_dot >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
                 // Loop through sprites
                 for spr in self.render_sprite_data.iter() {
+                    if !spr.active {
+                        continue;
+                    }
+
                     let x_offset = index - (spr.x_pos as u16);
                     // Is this sprite visible on this pixel?
                     if x_offset < 8 {
@@ -412,8 +416,9 @@ impl Sprites {
 						    // NOTE: according to blargg's tests, a collision doesn't seem
                             //       possible to occur on the rightmost pixel
                             // bg pixel for sprite 0 hack
-                            if spr.zero == true && index < 255 && (bg_pixel & 0x03) > 0 {
+                            if spr.zero == true && index < 255 && (bg_pixel & 0x03) > 0 && self.sprite_0_hit == false {
                                 ppu.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, true);
+                                self.sprite_0_hit = true;
                             }
 
                             if spr.attribute.infront_of_background() && (bg_pixel & 0x03) == 0 && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
@@ -440,10 +445,40 @@ mod test {
     #[test]
     fn test_oam_index() {
         let mut oam_index = OamIndex::from_oamaddr(248);
-        oam_index.increment_by_sprite();
+        oam_index.increment_n();
         assert_eq!(oam_index.index(), 252);
-        oam_index.increment_by_sprite();
-        assert_eq!(oam_index.index(), 0);            
+        assert_eq!(oam_index.n(), 63);
+        assert_eq!(oam_index.m(), 0);
+        oam_index.increment_n();
+        assert_eq!(oam_index.index(), 0); 
+        oam_index.increment_n();
+        assert_eq!(oam_index.index(), 4); 
+        oam_index.increment_n();
+        assert_eq!(oam_index.index(), 8); 
+
+        oam_index.increment_m();
+        assert_eq!(oam_index.index(), 9); 
+        oam_index.increment_m();
+        assert_eq!(oam_index.index(), 10); 
+        oam_index.increment_m();
+        assert_eq!(oam_index.index(), 11); 
+        oam_index.increment_m();
+        //assert_eq!(oam_index.index(), 9); 
+        
+    }
+
+    #[test]
+    fn test_sprite_evaluation() {
+        let mut sprites = Sprites::new();
+        let mut ppu = Context::new();
+
+        sprites.reset_for_eval(0x00);
+
+        let y = 0x1_u8;
+        let attrib = 0x0_u8;
+        
+        
+        
     }
 
 }

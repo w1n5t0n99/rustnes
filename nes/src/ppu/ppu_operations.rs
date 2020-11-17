@@ -140,7 +140,7 @@ pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper:
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN0_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    let next_addr = bg.pattern0_address(ppu);
     pinouts.0.set_address(next_addr);
 
     match ppu.io {
@@ -156,7 +156,7 @@ pub fn open_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: 
 }
 
 pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN0_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    let next_addr = bg.pattern0_address(ppu);
     pinouts.0.set_address(next_addr);
 
     match ppu.io {
@@ -173,7 +173,7 @@ pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: 
 }
 
 pub fn open_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN1_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    let next_addr = bg.pattern1_address(ppu);
     pinouts.0.set_address(next_addr);
 
     match ppu.io {
@@ -189,7 +189,7 @@ pub fn open_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: 
 }
 
 pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = (ppu.control_reg.background_table_address() | (bg.next_tile_index << 4)  | PATTERN1_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF;
+    let next_addr = bg.pattern1_address(ppu);
     pinouts.0.set_address(next_addr);
 
     match ppu.io {
