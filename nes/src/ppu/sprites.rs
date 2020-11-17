@@ -179,8 +179,8 @@ impl SpriteData {
 }
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
-    next_sprite_data: [SpriteData; 8],
-    render_sprite_data: [SpriteData; 8],
+    pub next_sprite_data: [SpriteData; 8],
+    pub render_sprite_data: [SpriteData; 8],
     next_sprite_index: u8,
     render_sprite_index: u8,
     next_pattern_address: u16,
@@ -283,7 +283,7 @@ impl Sprites {
             }
             EvalState::XRead => {
                 self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 3) as usize];
-                self.eval_state = EvalState::XRead;
+                self.eval_state = EvalState::XWrite;
             }
             EvalState::XWrite => {
                 self.next_sprite_data[self.next_sprite_index as usize].x_pos = self.oam_db;
@@ -291,7 +291,7 @@ impl Sprites {
                 self.eval_state = EvalState::YRead;
                 // check if 8 sprites have been found
                 self.next_sprite_index += 1;
-                if self.next_sprite_index >= 8 { self.eval_state = EvalState::MaxSpritesFound; }
+                if self.next_sprite_index >= 8 { self.next_sprite_index = 0; self.eval_state = EvalState::MaxSpritesFound; }
                 //increment primary checking if overflow
                 self.poam_index.increment_n();
                 if self.poam_index.index() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
@@ -398,9 +398,6 @@ impl Sprites {
             if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (ppu.scanline_dot >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
                 // Loop through sprites
                 for spr in self.render_sprite_data.iter() {
-                    if !spr.active {
-                        continue;
-                    }
 
                     let x_offset = index - (spr.x_pos as u16);
                     // Is this sprite visible on this pixel?
@@ -475,9 +472,28 @@ mod test {
         sprites.reset_for_eval(0x00);
 
         let y = 0x1_u8;
-        let attrib = 0x0_u8;
+        let index = 0x02_u8;
+        let attrib = 0x3_u8;
+        let x = 0x4_u8;
+
+        for i in (0..256).step_by(4) {
+            ppu.oam_ram_primary[i] = y;
+            ppu.oam_ram_primary[i+1] = index;
+            ppu.oam_ram_primary[i+2] = attrib;
+            ppu.oam_ram_primary[i+3] = x;
+        }
         
-        
+        for i in 65..=256 {
+            sprites.evaluate(&mut ppu);
+        }
+
+        assert_eq!(sprites.next_sprite_data[0].tile_index, 0x02);
+
+        println!("\n\n");
+
+        for s in sprites.next_sprite_data.iter() {
+            println!("y:{} index:{} attrib:{} x:{} active: {}", s.y_pos, s.tile_index, s.attribute.bits(), s.x_pos, s.active);
+        }
         
     }
 
