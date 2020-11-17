@@ -25,10 +25,51 @@ const PATTERN0_INDEX: usize = 0;
 const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_INDEX: usize = 1;
 const PATTERN1_OFFSET: u16 = 8;
-const SPRITE_8X_VALUE: u8 = 8;
-const SPRITE_16X_VALUE: u8 = 16;
+const SPRITE_8X_SIZE: u8 = 8;
+const SPRITE_16X_SIZE: u8 = 16;
 const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
 const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
+
+#[derive(Debug, Clone, Copy)]
+struct OamIndex {
+    index: u8,
+}
+
+impl OamIndex {
+    pub fn new() -> Self {
+        OamIndex {
+            index: 0,
+        }
+    }
+
+    pub fn index(&self) -> u8 {
+        self.index
+    }
+
+    pub fn n(&self) -> u8 {
+        (self.index & 0xFC) >> 2
+    }
+
+    pub fn m(&self) -> u8 {
+        self.index & 0x3
+    }
+
+    pub fn increment_by_sprite(&mut self) {
+        self.index = self.index.wrapping_add(4);
+    }
+
+    pub fn increment(&mut self) {
+        self.index = self.index.wrapping_add(1);
+    }
+
+    pub fn increment_n(&mut self) {
+        self.index = (self.index & 0x03) | (((self.index & 0xFC) + 4) & 0xFC);
+    }
+
+    pub fn increment_m(&mut self) {
+        self.index = (self.index & 0xFC) | (((self.index & 0x03) + 1) & 0x03);
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 enum EvalState {
@@ -40,8 +81,8 @@ enum EvalState {
     AttributeWrite,
     XRead,
     XWrite,
-    POAMOverflow,
-    SOAMOverflow,
+    OamSearchCompleted,
+    MaxSpritesFound,
 }
 
 bitflags! {
@@ -134,43 +175,139 @@ impl SpriteData {
         self.pattern[1] = 0xFF;
     }
 }
-
 #[derive(Debug, Clone, Copy)]
-struct OamIndex {
-    index: u8,
+pub struct Sprites {
+    pub next_sprite_data: [SpriteData; 8],
+    pub render_sprite_data: [SpriteData; 8],
+    pub next_sprite_index: u8,
+    pub render_sprite_index: u8,
+    pub next_pattern_address: u16,
+    poam_index: OamIndex,
+    oam_db: u8,
+    left_most_x: u8,
+    eval_state: EvalState,
 }
 
-impl OamIndex {
+
+impl Sprites {
     pub fn new() -> Self {
-        OamIndex {
-            index: 0,
+        Sprites {
+            next_sprite_data: [SpriteData::new(); 8],
+            render_sprite_data: [SpriteData::new(); 8],
+            next_sprite_index: 0,
+            render_sprite_index: 0,
+            next_pattern_address: 0,
+            poam_index: OamIndex::new(),
+            oam_db: 0,
+            left_most_x: 0xFF,
+            eval_state: EvalState::YRead,
         }
     }
 
-    pub fn index(&self) -> u8 {
-        self.index
+    pub fn reset_for_scanline(&mut self) {
+        self.next_sprite_index = 0;
+        self.render_sprite_index = 0;
+        self.next_pattern_address = 0;
+        self.oam_db = 0;
+        self.poam_index = OamIndex::new();
+        self.left_most_x = 0xFF;
+        self.eval_state = EvalState::YRead;
+
+        for x in self.next_sprite_data.iter_mut() {
+            x.active = false;
+        }
     }
 
-    pub fn n(&self) -> u8 {
-        (self.index & 0xFC) >> 2
+    fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u16) -> bool {
+        // Sprite eval happens for the next scanline
+        let sprite_line = (ppu.scanline_index + 1).saturating_sub(self.oam_db as u16);
+        sprite_line < sprite_size
     }
 
-    pub fn m(&self) -> u8 {
-        self.index & 0x3
+    pub fn evaluate(&mut self, ppu: &mut Context) {
+        if ppu.scanline_dot < 65 {
+            // ppu is zeroing secondary oam
+            return;
+        }
+        ppu.oam_addr_reg = self.poam_index.index;
+        let sprite_size = ppu.control_reg.sprite_size() as u16;
+
+        match self.eval_state {
+            EvalState::YRead => {
+                self.oam_db = ppu.oam_ram_primary[self.poam_index.index() as usize];
+                self.eval_state = EvalState::YWrite;
+            }
+            EvalState::YWrite => {
+                let sprite_line =  (ppu.scanline_index + 1).saturating_sub(self.oam_db as u16);
+                self.next_sprite_data[self.next_sprite_index as usize].y_pos = sprite_line as u8;
+
+                if self.sprite_in_range(ppu, sprite_size) {
+                    self.next_sprite_data[self.next_sprite_index as usize].active = true;
+                    // check if zero sprite
+                    if self.next_sprite_index == 0 {
+                        self.next_sprite_data[self.next_sprite_index as usize].zero = true;
+                    }
+
+                    self.eval_state = EvalState::IndexRead;
+                }
+                else {
+                    self.poam_index.increment_by_sprite();
+                    if self.poam_index.index() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                }
+            }
+            EvalState::IndexRead => {
+                self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 1) as usize];
+                self.eval_state = EvalState::IndexWrite;
+            }
+            EvalState::IndexWrite => {
+                self.next_sprite_data[self.next_sprite_index as usize].tile_index = self.oam_db;
+                self.eval_state = EvalState::AttributeRead;
+            }
+            EvalState::AttributeRead => {
+                self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 2) as usize];
+                self.eval_state = EvalState::AttributeWrite;
+            }
+            EvalState::AttributeWrite => {
+                self.next_sprite_data[self.next_sprite_index as usize].attribute = SpriteAttribute::from_bits_truncate(self.oam_db);
+                self.eval_state = EvalState::XRead;
+            }
+            EvalState::XRead => {
+                self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 3) as usize];
+                self.eval_state = EvalState::XRead;
+            }
+            EvalState::XWrite => {
+                self.next_sprite_data[self.next_sprite_index as usize].x_pos = self.oam_db;
+                self.left_most_x = self.left_most_x.min(self.oam_db);
+                self.eval_state = EvalState::YRead;
+                // check if 8 sprites have been found
+                self.next_sprite_index += 1;
+                if self.next_sprite_index >= 8 { self.eval_state = EvalState::MaxSpritesFound; }
+                //increment primary checking if overflow
+                self.poam_index.increment_by_sprite();
+                if self.poam_index.index == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+            }
+            EvalState::MaxSpritesFound => {
+                // we already found 8 sprites check if we need to set sprite overlow flag
+                self.oam_db = ppu.oam_ram_primary[self.poam_index.m() as usize];
+                if self.sprite_in_range(ppu, sprite_size) {
+                    ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
+                    self.poam_index.increment();
+                    if self.poam_index.index == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                }
+                else {
+                    self.poam_index.increment_m();
+                    self.poam_index.increment_n();
+                    if self.poam_index.n() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                }
+            }
+            EvalState::OamSearchCompleted => {
+                self.poam_index.increment_n();
+            }
+        }
     }
 
-    pub fn increment_by_sprite(&mut self) {
-        self.index = self.index.wrapping_add(4);
-    }
-
-    pub fn increment_n(&mut self) {
-        self.index = (self.index & 0x03) | (((self.index & 0xFC) + 4) & 0xFC);
-    }
-
-    pub fn increment_m(&mut self) {
-        self.index = (self.index & 0xFC) | (((self.index & 0x03) + 1) & 0x03);
-    }
 }
+
 
 #[cfg(test)]
 mod test {

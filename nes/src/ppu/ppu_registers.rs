@@ -201,6 +201,14 @@ impl ControlRegister {
         }
     }
 
+    pub fn large_sprite(&self) -> bool {
+        self.contains(ControlRegister::SPRITE_SIZE)
+    }
+
+    pub fn sprite_size(&self) -> u8 {
+        if self.contains(ControlRegister::SPRITE_SIZE) { 16 } else { 8 }
+    }
+
     pub fn io_write(&mut self, data: u8) {
         self.bits = data;
     }
