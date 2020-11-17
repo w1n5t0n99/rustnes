@@ -3,6 +3,8 @@ pub mod rp2c02;
 mod ppu_registers;
 mod ppu_renderer;
 mod ppu_operations;
+mod background;
+mod sprites;
 
 use std::fmt;
 

@@ -1,6 +1,6 @@
 use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
-use super::ppu_renderer::{Background, Sprites, SpriteAttrib};
+use super::ppu_renderer::{Background, Sprites, SpriteAttrib, REVERSE_BITS};
 use crate::mappers::Mapper;
 
 const PATTERN0_INDEX: usize = 0;
@@ -268,6 +268,11 @@ pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
         IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
         IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    }
+
+    let mut pattern =  pinouts.0.data();
+    if sp.soam[sp.cur_sprite_index as usize].attribute.contains(SpriteAttrib::HFLIP) {
+        pattern = REVERSE_BITS[pattern as usize];
     }
 
     sp.soam[sp.cur_sprite_index as usize].pattern[PATTERN0_INDEX] = pinouts.0.data();
