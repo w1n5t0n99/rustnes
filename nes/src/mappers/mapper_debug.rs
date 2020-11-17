@@ -292,6 +292,8 @@ mod tests {
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 
+        mapper.poke_ppu(0x2001, 0xFE);
+
         ppu_pinout.set_address(0x2001);
         ppu_pinout.latch_address();
         ppu_pinout.set_address(0x2001);
