@@ -29,62 +29,46 @@ const SPRITE_8X_SIZE: u8 = 8;
 const SPRITE_16X_SIZE: u8 = 16;
 const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
 const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
+const OAMPALETTE: u8 = 0b00000011;
+const OAMZERO: u8 = 0b00010000; // internal flag
+
 
 #[derive(Debug, Clone, Copy)]
-struct OamIndex {
-    index: u8,
-}
-
+struct OamIndex (u8);
 impl OamIndex {
-    pub fn new() -> Self {
-        OamIndex {
-            index: 0,
-        }
-    }
-
-    pub fn from_oamaddr(addr: u8) -> Self {
-        OamIndex {
-            index: addr,
-        }
-    }
-
-    pub fn index(&self) -> u8 {
-        self.index
-    }
-
     pub fn n(&self) -> u8 {
-        (self.index & 0xFC) >> 2
+        (self.0 & 0xFC) >> 2
     }
 
     pub fn m(&self) -> u8 {
-        self.index & 0x3
+        self.0 & 0x3
     }
 
     pub fn increment(&mut self) {
-        self.index = self.index.wrapping_add(1);
+        self.0 = self.0.wrapping_add(1);
     }
 
     pub fn increment_n(&mut self) {
-        self.index = (self.index & 0x03) | (self.index & 0xFC).wrapping_add(4);
+        self.0 = (self.0 & 0x03) | (self.0 & 0xFC).wrapping_add(4);
     }
 
     pub fn increment_m(&mut self) {
-        self.index = (self.index & 0xFC) | (self.index & 0x03).wrapping_add(1);
+        self.0 = (self.0 & 0xFC) | (self.0 & 0x03).wrapping_add(1);
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 enum EvalState {
-    YRead,
-    YWrite,
-    IndexRead,
-    IndexWrite,
-    AttributeRead,
-    AttributeWrite,
-    XRead,
-    XWrite,
-    OamSearchCompleted,
-    MaxSpritesFound,
+    StateYRead,
+    StateYWrite,
+    StateIndexRead,
+    StateIndexWrite,
+    StateAttribRead,
+    StateYAttribWrite,
+    StateXRead,
+    StateXWrite,
+    StateSecondaryOamFull,
+    StateOamIndexOverflow,
 }
 
 bitflags! {
@@ -98,9 +82,6 @@ bitflags! {
     pub struct SpriteAttribute: u8 {
         const PALETTE0                  = 0b00000001;
         const PALETTE1                  = 0b00000010;
-        const UNUSED0                   = 0b00000100;
-        const UNUSED1                   = 0b00001000;
-        const UNUSED2                   = 0b00010000;
         const BEHIND_BACKGROUND         = 0b00100000;
         const HFLIP                     = 0b01000000;
         const VFLIP                     = 0b10000000; 
@@ -148,7 +129,6 @@ pub struct SpriteData {
     pub x_pos: u8,
     pub tile_index: u8,
     pub attribute: SpriteAttribute,
-    pub active: bool,
     pub zero: bool,
     pub pattern: [u8; 2],
 }
@@ -160,34 +140,21 @@ impl SpriteData {
             x_pos: 0xFF,
             tile_index: 0xFF,
             attribute: SpriteAttribute::new(),
-            active: false,
             zero: false,
             pattern: [0xFF; 2],
         }
     }
-
-    pub fn clear(&mut self) {
-        self.y_pos = 0xFF;
-        self.x_pos = 0xFF;
-        self.tile_index = 0xFF;
-        self.attribute = SpriteAttribute::new();
-        self.active = false;
-        self.zero = false;
-        self.pattern[0] = 0xFF;
-        self.pattern[1] = 0xFF;
-    }
 }
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
-    pub next_sprite_data: [SpriteData; 8],
-    pub render_sprite_data: [SpriteData; 8],
-    next_sprite_index: u8,
-    render_sprite_index: u8,
-    next_pattern_address: u16,
-    poam_index: OamIndex,
-    oam_db: u8,
+    pub secondary_oam: [u8; 32],
+    pub sprite_data: [SpriteData; 8],
+    pub next_pattern: u8,
+    pub sprites_count: u8,
+    primary_oam_index: OamIndex,
+    secondary_oam_index: u8,
+    sprite_data_index: u8,
     left_most_x: u8,
-    sprite_0_hit: bool,
     eval_state: EvalState,
 }
 
@@ -195,129 +162,115 @@ pub struct Sprites {
 impl Sprites {
     pub fn new() -> Self {
         Sprites {
-            next_sprite_data: [SpriteData::new(); 8],
-            render_sprite_data: [SpriteData::new(); 8],
-            next_sprite_index: 0,
-            render_sprite_index: 0,
-            next_pattern_address: 0,
-            poam_index: OamIndex::new(),
-            oam_db: 0,
+            secondary_oam: [0; 32],
+            sprite_data: [SpriteData::new(); 8],
+            next_pattern: 0xFF,
+            sprites_count: 0,
+            primary_oam_index: OamIndex(0x0),
+            secondary_oam_index: 0,
+            sprite_data_index: 0,
             left_most_x: 0xFF,
-            sprite_0_hit: false,
-            eval_state: EvalState::YRead,
+            eval_state: EvalState::StateYRead,
         }
     }
 
-    pub fn reset_for_eval(&mut self, oam_addr: u8) {
-        self.next_sprite_index = 0;
-        self.render_sprite_index = 0;
-        self.next_pattern_address = 0;
-        self.oam_db = 0;
-        self.poam_index = OamIndex::from_oamaddr(oam_addr);
-        self.left_most_x = 0xFF;
-        self.sprite_0_hit = false;
-        self.eval_state = EvalState::YRead;
-
-        for x in self.next_sprite_data.iter_mut() {
-            x.active = false;
-        }
-    }
-
-    pub fn reset_for_frame(&mut self) {
-        self.sprite_0_hit = false;
-        self.render_sprite_index = 0;
-        for x in self.render_sprite_data.iter_mut() {
-            x.active = false;
-        }
-    }
-
-    fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u16) -> bool {
+    fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u16, y_pos: u16) -> bool {
         // Sprite eval happens for the next scanline
-        let sprite_line = (ppu.scanline_index + 1).saturating_sub(self.oam_db as u16);
+        let sprite_line = ppu.scanline_index.saturating_sub(y_pos);
         sprite_line < sprite_size
     }
 
+    pub fn clear_secondary_oam(&mut self) {
+        self.secondary_oam_index = 0;
+        self.sprites_count = 0;
+        for x in self.secondary_oam.iter_mut() { *x = 0xFF; }
+    }
+
     pub fn evaluate(&mut self, ppu: &mut Context) {
-  
-        ppu.oam_addr_reg = self.poam_index.index();
+        // OAMDATA exposes OAM accesses during sprite eval
+        ppu.oam_addr_reg = self.primary_oam_index.0;
         let sprite_size = ppu.control_reg.sprite_size() as u16;
 
         match self.eval_state {
-            EvalState::YRead => {
-                self.oam_db = ppu.oam_ram_primary[self.poam_index.index() as usize];
-                self.eval_state = EvalState::YWrite;
+            EvalState::StateYRead => {
+                self.eval_state = EvalState::StateYWrite;
             }
-            EvalState::YWrite => {
-                let sprite_line =  (ppu.scanline_index + 1).saturating_sub(self.oam_db as u16);
-                self.next_sprite_data[self.next_sprite_index as usize].y_pos = sprite_line as u8;
+            EvalState::StateYWrite => {
+                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize];
+                let sprite_line =  ppu.scanline_index.saturating_sub(data as u16);
 
-                if self.sprite_in_range(ppu, sprite_size) {
-                    self.next_sprite_data[self.next_sprite_index as usize].active = true;
-                    // check if zero sprite
-                    if self.next_sprite_index == 0 {
-                        self.next_sprite_data[self.next_sprite_index as usize].zero = true;
-                    }
-
-                    self.eval_state = EvalState::IndexRead;
+                if self.sprite_in_range(ppu, sprite_size, data as u16) {
+                    self.secondary_oam[self.secondary_oam_index as usize] = sprite_line as u8;
+                    self.eval_state = EvalState::StateIndexRead;
                 }
                 else {
-                    self.poam_index.increment_n();
-                    if self.poam_index.index() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                    self.primary_oam_index.increment_n();
+                    if self.primary_oam_index.0 == 0 { self.eval_state = EvalState::StateOamIndexOverflow; }
                 }
             }
-            EvalState::IndexRead => {
-                self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 1) as usize];
-                self.eval_state = EvalState::IndexWrite;
+            EvalState::StateIndexRead => {
+                self.eval_state = EvalState::StateIndexWrite;
             }
-            EvalState::IndexWrite => {
-                self.next_sprite_data[self.next_sprite_index as usize].tile_index = self.oam_db;
-                self.eval_state = EvalState::AttributeRead;
+            EvalState::StateIndexWrite => {
+                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 1];
+                self.secondary_oam[self.secondary_oam_index as usize + 1] = data;
+                self.eval_state = EvalState::StateAttribRead;
             }
-            EvalState::AttributeRead => {
-                self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 2) as usize];
-                self.eval_state = EvalState::AttributeWrite;
+            EvalState::StateAttribRead => {
+                self.eval_state = EvalState::StateYAttribWrite;
             }
-            EvalState::AttributeWrite => {
-                self.next_sprite_data[self.next_sprite_index as usize].attribute = SpriteAttribute::from_bits_truncate(self.oam_db);
-                self.eval_state = EvalState::XRead;
+            EvalState::StateYAttribWrite => {
+                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 2];
+                self.secondary_oam[self.secondary_oam_index as usize + 2] = data;
+                self.eval_state = EvalState::StateXRead;
             }
-            EvalState::XRead => {
-                self.oam_db = ppu.oam_ram_primary[(self.poam_index.index + 3) as usize];
-                self.eval_state = EvalState::XWrite;
+            EvalState::StateXRead => {
+                self.eval_state = EvalState::StateXWrite;
             }
-            EvalState::XWrite => {
-                self.next_sprite_data[self.next_sprite_index as usize].x_pos = self.oam_db;
-                self.left_most_x = self.left_most_x.min(self.oam_db);
-                self.eval_state = EvalState::YRead;
+            EvalState::StateXWrite => {
+                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 3];
+                self.secondary_oam[self.secondary_oam_index as usize + 3] = data;
+                self.left_most_x = self.left_most_x.min(data);
+                self.eval_state = EvalState::StateYRead;
                 // check if 8 sprites have been found
-                self.next_sprite_index += 1;
-                if self.next_sprite_index >= 8 { self.next_sprite_index = 0; self.eval_state = EvalState::MaxSpritesFound; }
+                self.sprites_count += 1;
+                self.secondary_oam_index += 4;
+                if self.secondary_oam_index >= 32 {
+                     self.eval_state = EvalState::StateSecondaryOamFull; 
+                }
                 //increment primary checking if overflow
-                self.poam_index.increment_n();
-                if self.poam_index.index() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                self.primary_oam_index.increment_n();
+                if self.primary_oam_index.0 == 0 {
+                     self.eval_state = EvalState::StateOamIndexOverflow;
+                }
             }
-            EvalState::MaxSpritesFound => {
+            EvalState::StateSecondaryOamFull => {
                 // we already found 8 sprites check if we need to set sprite overlow flag
-                self.oam_db = ppu.oam_ram_primary[self.poam_index.m() as usize];
-                if self.sprite_in_range(ppu, sprite_size) {
+                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize];
+                if self.sprite_in_range(ppu, sprite_size, data as u16) {
                     ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
-                    self.poam_index.increment();
-                    if self.poam_index.index == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                    self.primary_oam_index.increment();
+                    if self.primary_oam_index.0 == 0 {
+                         self.eval_state = EvalState::StateOamIndexOverflow; 
+                    }
                 }
                 else {
-                    self.poam_index.increment_m();
-                    self.poam_index.increment_n();
-                    if self.poam_index.n() == 0 { self.eval_state = EvalState::OamSearchCompleted; }
+                    self.primary_oam_index.increment_m();
+                    self.primary_oam_index.increment_n();
+                    if self.primary_oam_index.n() == 0 { 
+                        self.eval_state = EvalState::StateOamIndexOverflow;
+                    }
                 }
             }
-            EvalState::OamSearchCompleted => {
-                self.poam_index.increment_n();
+            EvalState::StateOamIndexOverflow => {
+                self.primary_oam_index.increment_n();
             }
         }
     }
 
-    pub fn fetch_y(&mut self, ppu: &mut Context) {
-        self.render_sprite_data[self.render_sprite_index as usize].y_pos = self.next_sprite_data[self.next_sprite_index as usize].y_pos;
+    fn fetch_y(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
+        self.secondary_oam[sprite_index * 4 + 0]
+        /*
         if self.next_sprite_data[self.next_sprite_index as usize].attribute.vflip() {
             if ppu.control_reg.large_sprite() { 
                 self.render_sprite_data[self.render_sprite_index as usize].y_pos ^= SPRITE_16X_FLIPMASK;
@@ -326,33 +279,54 @@ impl Sprites {
                 self.render_sprite_data[self.render_sprite_index as usize].y_pos ^= SPRITE_8X_FLIPMASK;
             }
         }
+        */
     }
 
-    pub fn fetch_tile_index(&mut self) {
-        self.render_sprite_data[self.render_sprite_index as usize].tile_index = self.next_sprite_data[self.next_sprite_index as usize].tile_index;
+    fn fetch_tile_index(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
+        self.secondary_oam[sprite_index * 4 + 1]
     }
 
-    pub fn fetch_attribute(&mut self) {
-        self.render_sprite_data[self.render_sprite_index as usize].attribute = self.next_sprite_data[self.next_sprite_index as usize].attribute;
+    fn fetch_attribute(&mut self, ppu: &mut Context, sprite_index: usize) -> SpriteAttribute {
+        SpriteAttribute::from_bits_truncate(self.secondary_oam[sprite_index * 4 + 1])
     }
 
-    pub fn fetch_x(&mut self) {
-        self.render_sprite_data[self.render_sprite_index as usize].x_pos = self.next_sprite_data[self.next_sprite_index as usize].x_pos;
+    fn fetch_x(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
+        self.secondary_oam[sprite_index * 4 + 1]
     }
 
     pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
-        let mut tile_index = 0xFF;
-        let mut sprite_line = 0xFF;
-        if self.render_sprite_data[self.render_sprite_index as usize].active {
-            tile_index = self.render_sprite_data[self.render_sprite_index as usize].tile_index as u16;
-            sprite_line = self.render_sprite_data[self.render_sprite_index as usize].y_pos as u16;
-        }
+        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let spr = &mut self.sprite_data[current_sprite_index as usize];
+        let y = self.fetch_y(ppu, current_sprite_index as usize);
 
-        if ppu.control_reg.large_sprite() {
-            (((tile_index & 1) << 12) | ((tile_index & 0xfe) << 4) | PATTERN0_OFFSET | (sprite_line & 7) | ((sprite_line & 0x08) << 1)) & 0xffff
+        spr.y_pos = y;
+        if spr.y_pos != 0xFF {
+            spr.tile_index = self.fetch_tile_index(ppu, current_sprite_index as usize);
+            spr.attribute = self.fetch_attribute(ppu, current_sprite_index as usize);
+            spr.x_pos = self.fetch_x(ppu, current_sprite_index as usize);
+
+            if spr.attribute.vflip() && ppu.control_reg.large_sprite() {
+                spr.y_pos ^= SPRITE_16X_FLIPMASK;
+            }
+            else if spr.attribute.vflip() {
+                spr.y_pos ^= SPRITE_8X_FLIPMASK;
+            }
+
+            if ppu.control_reg.large_sprite() {
+                ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
+            }
+            else {
+                (ppu.control_reg.sprite_table_address()| (((spr.tile_index as u16)) << 4) | PATTERN0_OFFSET | (spr.y_pos as u16)) & 0xffff
+            }
         }
         else {
-            (ppu.control_reg.sprite_table_address()| (tile_index << 4) | PATTERN0_OFFSET | sprite_line) & 0xffff
+            // dummy address
+            if ppu.control_reg.large_sprite() {
+                (((0xFF & 1) << 12) | ((0xFF & 0xfe) << 4) | PATTERN0_OFFSET | (0xFF & 7) | ((0xFF & 0x08) << 1)) & 0xffff
+            }
+            else {
+                (ppu.control_reg.sprite_table_address()| (0xFF << 4) | PATTERN0_OFFSET | 0xFF) & 0xffff
+            }
         }
     }
 
