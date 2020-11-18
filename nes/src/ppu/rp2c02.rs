@@ -804,9 +804,9 @@ impl Rp2c02 {
 
 impl fmt::Display for Rp2c02 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} BG: {}",
+        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} BG {} SPR: {}",
         self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.prev_scanline_index,
-        self.context.prev_scanline_dot, self.pinout, self.bg)
+        self.context.prev_scanline_dot, self.pinout, self.bg, self.sp)
     }
 }
 
