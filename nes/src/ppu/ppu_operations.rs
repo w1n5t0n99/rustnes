@@ -235,7 +235,7 @@ pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
     }
 
-    sp.set_pattern0( pinouts.0.data());
+    sp.set_pattern0(ppu, pinouts.0.data());
     pinouts
 }
 
@@ -268,7 +268,7 @@ pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
     }
 
-    sp.set_pattern1( pinouts.0.data());
+    sp.set_pattern1( ppu, pinouts.0.data());
     pinouts
 }
 

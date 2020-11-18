@@ -129,7 +129,6 @@ pub struct SpriteData {
     pub x_pos: u8,
     pub tile_index: u8,
     pub attribute: SpriteAttribute,
-    pub zero: bool,
     pub pattern: [u8; 2],
 }
 
@@ -140,7 +139,6 @@ impl SpriteData {
             x_pos: 0xFF,
             tile_index: 0xFF,
             attribute: SpriteAttribute::new(),
-            zero: false,
             pattern: [0xFF; 2],
         }
     }
@@ -149,8 +147,8 @@ impl SpriteData {
 pub struct Sprites {
     pub secondary_oam: [u8; 32],
     pub sprite_data: [SpriteData; 8],
+    pub sprites_count: u16,
     pub next_pattern: u8,
-    pub sprites_count: u8,
     primary_oam_index: OamIndex,
     secondary_oam_index: u8,
     sprite_data_index: u8,
@@ -164,8 +162,8 @@ impl Sprites {
         Sprites {
             secondary_oam: [0; 32],
             sprite_data: [SpriteData::new(); 8],
-            next_pattern: 0xFF,
             sprites_count: 0,
+            next_pattern: 0xFF,
             primary_oam_index: OamIndex(0x0),
             secondary_oam_index: 0,
             sprite_data_index: 0,
@@ -174,13 +172,32 @@ impl Sprites {
         }
     }
 
+    fn fetch_y(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
+        self.secondary_oam[sprite_index * 4 + 0]
+    }
+
+    fn fetch_tile_index(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
+        self.secondary_oam[sprite_index * 4 + 1]
+    }
+
+    fn fetch_attribute(&mut self, ppu: &mut Context, sprite_index: usize) -> SpriteAttribute {
+        SpriteAttribute::from_bits_truncate(self.secondary_oam[sprite_index * 4 + 1])
+    }
+
+    fn fetch_x(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
+        self.secondary_oam[sprite_index * 4 + 1]
+    }
+
     fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u16, y_pos: u16) -> bool {
         // Sprite eval happens for the next scanline
         let sprite_line = ppu.scanline_index.saturating_sub(y_pos);
         sprite_line < sprite_size
     }
 
-    pub fn clear_secondary_oam(&mut self) {
+    // Secondary sprite data is cleared between dots (1-64)
+    // We'll just clear on dot 65 before first eval
+    pub fn clear_secondary_oam(&mut self, oam_addr: u8) {
+        self.primary_oam_index = OamIndex(oam_addr);
         self.secondary_oam_index = 0;
         self.sprites_count = 0;
         for x in self.secondary_oam.iter_mut() { *x = 0xFF; }
@@ -268,50 +285,31 @@ impl Sprites {
         }
     }
 
-    fn fetch_y(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
-        self.secondary_oam[sprite_index * 4 + 0]
-        /*
-        if self.next_sprite_data[self.next_sprite_index as usize].attribute.vflip() {
-            if ppu.control_reg.large_sprite() { 
-                self.render_sprite_data[self.render_sprite_index as usize].y_pos ^= SPRITE_16X_FLIPMASK;
+    pub fn fetch_sprite_data(&mut self, ppu: &mut Context) {
+        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let y = self.fetch_y(ppu, current_sprite_index as usize);
+
+        self.sprite_data[current_sprite_index as usize].y_pos = y;
+        if current_sprite_index <= self.sprites_count {
+            self.sprite_data[current_sprite_index as usize].tile_index = self.fetch_tile_index(ppu, current_sprite_index as usize);
+            self.sprite_data[current_sprite_index as usize].attribute = self.fetch_attribute(ppu, current_sprite_index as usize);
+            self.sprite_data[current_sprite_index as usize].x_pos = self.fetch_x(ppu, current_sprite_index as usize);
+
+            if self.sprite_data[current_sprite_index as usize].attribute.vflip() && ppu.control_reg.large_sprite() {
+                self.sprite_data[current_sprite_index as usize].y_pos ^= SPRITE_16X_FLIPMASK;
             }
-            else {
-                self.render_sprite_data[self.render_sprite_index as usize].y_pos ^= SPRITE_8X_FLIPMASK;
+            else if self.sprite_data[current_sprite_index as usize].attribute.vflip() {
+                self.sprite_data[current_sprite_index as usize].y_pos ^= SPRITE_8X_FLIPMASK;
             }
         }
-        */
-    }
-
-    fn fetch_tile_index(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
-        self.secondary_oam[sprite_index * 4 + 1]
-    }
-
-    fn fetch_attribute(&mut self, ppu: &mut Context, sprite_index: usize) -> SpriteAttribute {
-        SpriteAttribute::from_bits_truncate(self.secondary_oam[sprite_index * 4 + 1])
-    }
-
-    fn fetch_x(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
-        self.secondary_oam[sprite_index * 4 + 1]
     }
 
     pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
-        let y = self.fetch_y(ppu, current_sprite_index as usize);
 
-        spr.y_pos = y;
-        if spr.y_pos != 0xFF {
-            spr.tile_index = self.fetch_tile_index(ppu, current_sprite_index as usize);
-            spr.attribute = self.fetch_attribute(ppu, current_sprite_index as usize);
-            spr.x_pos = self.fetch_x(ppu, current_sprite_index as usize);
-
-            if spr.attribute.vflip() && ppu.control_reg.large_sprite() {
-                spr.y_pos ^= SPRITE_16X_FLIPMASK;
-            }
-            else if spr.attribute.vflip() {
-                spr.y_pos ^= SPRITE_8X_FLIPMASK;
-            }
-
+        if current_sprite_index <= self.sprites_count {
+            
             if ppu.control_reg.large_sprite() {
                 ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
             }
@@ -331,37 +329,53 @@ impl Sprites {
     }
 
     pub fn pattern1_address(&mut self, ppu: &mut Context) -> u16 {
-        let mut tile_index = 0xFF;
-        let mut sprite_line = 0xFF;
-        if self.render_sprite_data[self.render_sprite_index as usize].active {
-            tile_index = self.render_sprite_data[self.render_sprite_index as usize].tile_index as u16;
-            sprite_line = self.render_sprite_data[self.render_sprite_index as usize].y_pos as u16;
-        }
+        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let spr = &mut self.sprite_data[current_sprite_index as usize];
 
-        if ppu.control_reg.large_sprite() {
-            (((tile_index & 1) << 12) | ((tile_index & 0xfe) << 4) | PATTERN1_OFFSET | (sprite_line & 7) | ((sprite_line & 0x08) << 1)) & 0xffff
+        if current_sprite_index <= self.sprites_count {
+            
+            if ppu.control_reg.large_sprite() {
+                ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
+            }
+            else {
+                (ppu.control_reg.sprite_table_address()| (((spr.tile_index as u16)) << 4) | PATTERN1_OFFSET | (spr.y_pos as u16)) & 0xffff
+            }
         }
         else {
-            (ppu.control_reg.sprite_table_address()| (tile_index << 4) | PATTERN1_OFFSET | sprite_line) & 0xffff
+            // dummy address
+            if ppu.control_reg.large_sprite() {
+                (((0xFF & 1) << 12) | ((0xFF & 0xfe) << 4) | PATTERN1_OFFSET | (0xFF & 7) | ((0xFF & 0x08) << 1)) & 0xffff
+            }
+            else {
+                (ppu.control_reg.sprite_table_address()| (0xFF << 4) | PATTERN1_OFFSET | 0xFF) & 0xffff
+            }
         }
     }
 
-    pub fn set_pattern0(&mut self, mut data: u8) {
-        if self.render_sprite_data[self.render_sprite_index as usize].attribute.hflip() {
+    pub fn set_pattern0(&mut self, ppu: &mut Context, mut data: u8) {
+        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let spr = &mut self.sprite_data[current_sprite_index as usize];
+
+        spr.pattern[0] = data;
+
+        if spr.attribute.hflip() {
             data = REVERSE_BITS[data as usize];
         }
 
-        self.render_sprite_data[self.render_sprite_index as usize].pattern[0] = data;
+        spr.pattern[0] = data;
     }
 
-    pub fn set_pattern1(&mut self, mut data: u8) {
-        if self.render_sprite_data[self.render_sprite_index as usize].attribute.hflip() {
+    pub fn set_pattern1(&mut self,  ppu: &mut Context, mut data: u8) {
+        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let spr = &mut self.sprite_data[current_sprite_index as usize];
+
+        spr.pattern[0] = data;
+
+        if spr.attribute.hflip() {
             data = REVERSE_BITS[data as usize];
         }
 
-        self.render_sprite_data[self.render_sprite_index as usize].pattern[1] = data;
-        self.render_sprite_index += 1;
-        if self.render_sprite_index >= 8 { self.render_sprite_index = 0; }
+        spr.pattern[1] = data;
     }
 
     pub fn select_sprite_pixel(&mut self, ppu: &mut Context, mut bg_pixel: u8) -> u8 {
@@ -371,8 +385,8 @@ impl Sprites {
             // Then check sprites if they belong
             if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (ppu.scanline_dot >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
                 // Loop through sprites
-                for spr in self.render_sprite_data.iter() {
-
+                for i in 0..self.sprites_count {
+                    let spr = &mut self.sprite_data[i as usize];
                     let x_offset = index - (spr.x_pos as u16);
                     // Is this sprite visible on this pixel?
                     if x_offset < 8 {
@@ -387,9 +401,8 @@ impl Sprites {
 						    // NOTE: according to blargg's tests, a collision doesn't seem
                             //       possible to occur on the rightmost pixel
                             // bg pixel for sprite 0 hack
-                            if spr.zero == true && index < 255 && (bg_pixel & 0x03) > 0 && self.sprite_0_hit == false {
+                            if i == 0 && index < 255 && (bg_pixel & 0x03) > 0 {
                                 ppu.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, true);
-                                self.sprite_0_hit = true;
                             }
 
                             if spr.attribute.infront_of_background() && (bg_pixel & 0x03) == 0 && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
@@ -415,24 +428,24 @@ mod test {
 
     #[test]
     fn test_oam_index() {
-        let mut oam_index = OamIndex::from_oamaddr(248);
+        let mut oam_index = OamIndex(248);
         oam_index.increment_n();
-        assert_eq!(oam_index.index(), 252);
+        assert_eq!(oam_index.0, 252);
         assert_eq!(oam_index.n(), 63);
         assert_eq!(oam_index.m(), 0);
         oam_index.increment_n();
-        assert_eq!(oam_index.index(), 0); 
+        assert_eq!(oam_index.0, 0); 
         oam_index.increment_n();
-        assert_eq!(oam_index.index(), 4); 
+        assert_eq!(oam_index.0, 4); 
         oam_index.increment_n();
-        assert_eq!(oam_index.index(), 8); 
+        assert_eq!(oam_index.0, 8); 
 
         oam_index.increment_m();
-        assert_eq!(oam_index.index(), 9); 
+        assert_eq!(oam_index.0, 9); 
         oam_index.increment_m();
-        assert_eq!(oam_index.index(), 10); 
+        assert_eq!(oam_index.0, 10); 
         oam_index.increment_m();
-        assert_eq!(oam_index.index(), 11); 
+        assert_eq!(oam_index.0, 11); 
         oam_index.increment_m();
         //assert_eq!(oam_index.index(), 9); 
         
@@ -443,7 +456,7 @@ mod test {
         let mut sprites = Sprites::new();
         let mut ppu = Context::new();
 
-        sprites.reset_for_eval(0x00);
+        sprites.clear_secondary_oam(0x00);
 
         let y = 0x1_u8;
         let index = 0x02_u8;
@@ -461,14 +474,8 @@ mod test {
             sprites.evaluate(&mut ppu);
         }
 
-        assert_eq!(sprites.next_sprite_data[0].tile_index, 0x02);
+        assert_eq!(sprites.secondary_oam[0], 1);
 
-        println!("\n\n");
-
-        for s in sprites.next_sprite_data.iter() {
-            println!("y:{} index:{} attrib:{} x:{} active: {}", s.y_pos, s.tile_index, s.attribute.bits(), s.x_pos, s.active);
-        }
-        
     }
 
 }
