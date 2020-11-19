@@ -386,19 +386,29 @@ impl Sprites {
     pub fn select_sprite_pixel(&mut self, ppu: &mut Context, mut bg_pixel: u8) -> u8 {
         let index = ppu.scanline_dot - 1;
         // Are any sprites in range
-        if self.left_most_x as u16 <= index {
+        let lm = self.left_most_x as u16;
+
+        if ppu.cycle >= 34859212 && ppu.scanline_index == 32 {
+            println!("leftmost:{} ---- dot:{} ----- sl:{} cycle: {}", lm, index, ppu.scanline_index, ppu.cycle);
+        }
+
+        if (self.left_most_x as u16) <= index {
+
+            if lm == 80 && ppu.scanline_index == 32 {
+                println!("leftmost:{} <= dot:{}", lm, index);
+            }
+
             // Then check sprites if they belong
             if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (index >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
                 // Loop through sprites
                 for i in 0..self.sprites_count {
                     let spr = &mut self.sprite_data[i as usize];
-                    if ppu.scanline_index == 32 {
-                        println!("y:{} x:{} index:{:#X}", spr.y_pos, spr.x_pos, spr.tile_index);
-                    }
+                    
                     let x_offset = index.wrapping_sub(spr.x_pos as u16);
                     if spr.y_pos == 0xFF {
                         continue;
                     }
+
                     // Is this sprite visible on this pixel?
                     if x_offset < 8 {
                         let p0 = spr.pattern[0];
