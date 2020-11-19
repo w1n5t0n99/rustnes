@@ -225,7 +225,7 @@ impl Sprites {
             EvalState::StateYWrite => {
                 let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize];
                 //println!("Write Sprite Line: {} to {}", data, self.secondary_oam_index);
-
+        
                 if self.sprite_in_range(ppu, sprite_size, data as u16) {
                     let sprite_line =  ppu.scanline_index.wrapping_sub(data as u16);
                     self.secondary_oam[self.secondary_oam_index(self.sprites_count, 0) as usize] = sprite_line as u8;
@@ -300,9 +300,8 @@ impl Sprites {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
         let y = self.fetch_y(ppu, current_sprite_index as usize);
 
-        let y_pos = self.sprite_data[current_sprite_index as usize].y_pos;
         self.sprite_data[current_sprite_index as usize].y_pos = y;
-        if y_pos != 0xFF {
+        if current_sprite_index < (self.sprites_count as u16) {
             self.sprite_data[current_sprite_index as usize].tile_index = self.fetch_tile_index(ppu, current_sprite_index as usize);
             self.sprite_data[current_sprite_index as usize].attribute = self.fetch_attribute(ppu, current_sprite_index as usize);
             self.sprite_data[current_sprite_index as usize].x_pos = self.fetch_x(ppu, current_sprite_index as usize);
@@ -318,11 +317,9 @@ impl Sprites {
 
     pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
-        let y_pos = self.sprite_data[current_sprite_index as usize].y_pos;
-        let spr = &mut self.sprite_data[current_sprite_index as usize];
 
-        if y_pos != 0xFF {
-            
+        if current_sprite_index < (self.sprites_count as u16) {
+            let spr = &mut self.sprite_data[current_sprite_index as usize];
             if ppu.control_reg.large_sprite() {
                 ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
             }
@@ -343,11 +340,9 @@ impl Sprites {
 
     pub fn pattern1_address(&mut self, ppu: &mut Context) -> u16 {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
-        let y_pos = self.sprite_data[current_sprite_index as usize].y_pos;
-        let spr = &mut self.sprite_data[current_sprite_index as usize];
 
-        if y_pos != 0xFF {
-            
+        if current_sprite_index < (self.sprites_count as u16) {
+            let spr = &mut self.sprite_data[current_sprite_index as usize];
             if ppu.control_reg.large_sprite() {
                 ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
             }
@@ -397,7 +392,13 @@ impl Sprites {
                 // Loop through sprites
                 for i in 0..self.sprites_count {
                     let spr = &mut self.sprite_data[i as usize];
-                    let x_offset = index - (spr.x_pos as u16);
+                    if ppu.scanline_index == 32 {
+                        println!("y:{} x:{} index:{:#X}", spr.y_pos, spr.x_pos, spr.tile_index);
+                    }
+                    let x_offset = index.wrapping_sub(spr.x_pos as u16);
+                    if spr.y_pos == 0xFF {
+                        continue;
+                    }
                     // Is this sprite visible on this pixel?
                     if x_offset < 8 {
                         let p0 = spr.pattern[0];
