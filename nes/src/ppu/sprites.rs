@@ -147,10 +147,9 @@ impl SpriteData {
 pub struct Sprites {
     pub secondary_oam: [u8; 32],
     pub sprite_data: [SpriteData; 8],
-    pub sprites_count: u16,
-    pub next_pattern: u8,
+    pub sprites_count: u8,
     primary_oam_index: OamIndex,
-    secondary_oam_index: u8,
+    //secondary_oam_index: u8,
     sprite_data_index: u8,
     left_most_x: u8,
     eval_state: EvalState,
@@ -163,31 +162,40 @@ impl Sprites {
             secondary_oam: [0xFF; 32],
             sprite_data: [SpriteData::new(); 8],
             sprites_count: 0,
-            next_pattern: 0xFF,
             primary_oam_index: OamIndex(0x0),
-            secondary_oam_index: 0,
+            //secondary_oam_index: 0,
             sprite_data_index: 0,
             left_most_x: 0xFF,
             eval_state: EvalState::StateYRead,
         }
     }
 
+    #[inline(always)]
+    fn secondary_oam_index(&self, sprite_index: u8, offset: u8) -> u8 {
+        sprite_index * 4 + offset
+    }
+
+    #[inline(always)]
     fn fetch_y(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
         self.secondary_oam[sprite_index * 4 + 0]
     }
 
+    #[inline(always)]
     fn fetch_tile_index(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
         self.secondary_oam[sprite_index * 4 + 1]
     }
 
+    #[inline(always)]
     fn fetch_attribute(&mut self, ppu: &mut Context, sprite_index: usize) -> SpriteAttribute {
-        SpriteAttribute::from_bits_truncate(self.secondary_oam[sprite_index * 4 + 1])
+        SpriteAttribute::from_bits_truncate(self.secondary_oam[sprite_index * 4 + 2])
     }
 
+    #[inline(always)]
     fn fetch_x(&mut self, ppu: &mut Context, sprite_index: usize) -> u8 {
-        self.secondary_oam[sprite_index * 4 + 1]
+        self.secondary_oam[sprite_index * 4 + 3]
     }
 
+    #[inline(always)]
     fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u16, y_pos: u16) -> bool {
         // Sprite eval happens for the next scanline
         let sprite_line = ppu.scanline_index.wrapping_sub(y_pos);
@@ -198,8 +206,9 @@ impl Sprites {
     // We'll just clear on dot 65 before first eval
     pub fn clear_secondary_oam(&mut self, oam_addr: u8) {
         self.primary_oam_index = OamIndex(oam_addr);
-        self.secondary_oam_index = 0;
+       // self.secondary_oam_index = 0;
         self.sprites_count = 0;
+        self.left_most_x = 0xFF;
         self.eval_state = EvalState::StateYRead;
         for x in self.secondary_oam.iter_mut() { *x = 0xFF; }
     }
@@ -219,7 +228,7 @@ impl Sprites {
 
                 if self.sprite_in_range(ppu, sprite_size, data as u16) {
                     let sprite_line =  ppu.scanline_index.wrapping_sub(data as u16);
-                    self.secondary_oam[self.secondary_oam_index as usize] = sprite_line as u8;
+                    self.secondary_oam[self.secondary_oam_index(self.sprites_count, 0) as usize] = sprite_line as u8;
                     self.eval_state = EvalState::StateIndexRead;
                 }
                 else {
@@ -232,7 +241,7 @@ impl Sprites {
             }
             EvalState::StateIndexWrite => {
                 let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 1];
-                self.secondary_oam[self.secondary_oam_index as usize + 1] = data;
+                self.secondary_oam[self.secondary_oam_index(self.sprites_count, 1) as usize] = data;
                 self.eval_state = EvalState::StateAttribRead;
             }
             EvalState::StateAttribRead => {
@@ -240,7 +249,7 @@ impl Sprites {
             }
             EvalState::StateYAttribWrite => {
                 let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 2];
-                self.secondary_oam[self.secondary_oam_index as usize + 2] = data;
+                self.secondary_oam[self.secondary_oam_index(self.sprites_count, 2) as usize ] = data;
                 self.eval_state = EvalState::StateXRead;
             }
             EvalState::StateXRead => {
@@ -248,13 +257,13 @@ impl Sprites {
             }
             EvalState::StateXWrite => {
                 let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 3];
-                self.secondary_oam[self.secondary_oam_index as usize + 3] = data;
+                self.secondary_oam[self.secondary_oam_index(self.sprites_count, 3) as usize] = data;
                 self.left_most_x = self.left_most_x.min(data);
                 self.eval_state = EvalState::StateYRead;
                 // check if 8 sprites have been found
                 self.sprites_count += 1;
-                self.secondary_oam_index += 4;
-                if self.secondary_oam_index >= 32 {
+                //self.secondary_oam_index += 4;
+                if self.sprites_count >= 8 {
                      self.eval_state = EvalState::StateSecondaryOamFull; 
                 }
                 //increment primary checking if overflow
@@ -291,8 +300,9 @@ impl Sprites {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
         let y = self.fetch_y(ppu, current_sprite_index as usize);
 
+        let y_pos = self.sprite_data[current_sprite_index as usize].y_pos;
         self.sprite_data[current_sprite_index as usize].y_pos = y;
-        if current_sprite_index <= self.sprites_count {
+        if y_pos != 0xFF {
             self.sprite_data[current_sprite_index as usize].tile_index = self.fetch_tile_index(ppu, current_sprite_index as usize);
             self.sprite_data[current_sprite_index as usize].attribute = self.fetch_attribute(ppu, current_sprite_index as usize);
             self.sprite_data[current_sprite_index as usize].x_pos = self.fetch_x(ppu, current_sprite_index as usize);
@@ -308,9 +318,10 @@ impl Sprites {
 
     pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let y_pos = self.sprite_data[current_sprite_index as usize].y_pos;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
 
-        if current_sprite_index <= self.sprites_count {
+        if y_pos != 0xFF {
             
             if ppu.control_reg.large_sprite() {
                 ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
@@ -332,9 +343,10 @@ impl Sprites {
 
     pub fn pattern1_address(&mut self, ppu: &mut Context) -> u16 {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let y_pos = self.sprite_data[current_sprite_index as usize].y_pos;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
 
-        if current_sprite_index <= self.sprites_count {
+        if y_pos != 0xFF {
             
             if ppu.control_reg.large_sprite() {
                 ((((spr.tile_index as u16) & 1) << 12) | (((spr.tile_index as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
@@ -358,8 +370,6 @@ impl Sprites {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
 
-        spr.pattern[0] = data;
-
         if spr.attribute.hflip() {
             data = REVERSE_BITS[data as usize];
         }
@@ -370,8 +380,6 @@ impl Sprites {
     pub fn set_pattern1(&mut self,  ppu: &mut Context, mut data: u8) {
         let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
-
-        spr.pattern[0] = data;
 
         if spr.attribute.hflip() {
             data = REVERSE_BITS[data as usize];
@@ -385,7 +393,7 @@ impl Sprites {
         // Are any sprites in range
         if self.left_most_x as u16 <= index {
             // Then check sprites if they belong
-            if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (ppu.scanline_dot >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
+            if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (index >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
                 // Loop through sprites
                 for i in 0..self.sprites_count {
                     let spr = &mut self.sprite_data[i as usize];
@@ -407,7 +415,7 @@ impl Sprites {
                                 ppu.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, true);
                             }
 
-                            if spr.attribute.infront_of_background() && (bg_pixel & 0x03) == 0 && ppu.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
+                            if spr.attribute.infront_of_background() || (bg_pixel & 0x03) == 0 {
                                 bg_pixel = (0x10 | sprite_pixel | (spr.attribute.pallete_index() << 2)) & 0xff;
                             }
 
@@ -547,25 +555,76 @@ mod test {
         let x = 0x4_u8;
 
         for i in (0..256).step_by(4) {
-            ppu.oam_ram_primary[i] = y;
-            ppu.oam_ram_primary[i+1] = index;
-            ppu.oam_ram_primary[i+2] = attrib;
-            ppu.oam_ram_primary[i+3] = x;
+            ppu.oam_ram_primary[i] = 0x80;
+            ppu.oam_ram_primary[i+1] = 0x80;
+            ppu.oam_ram_primary[i+2] = 0;
+            ppu.oam_ram_primary[i+3] = 0x80;
         }
+
+        ppu.oam_ram_primary[0] = 0;
+        ppu.oam_ram_primary[1] = index;
+        ppu.oam_ram_primary[2] = attrib;
+        ppu.oam_ram_primary[3] = x;
+
+        ppu.oam_ram_primary[252] = 0;
+        ppu.oam_ram_primary[253] = index;
+        ppu.oam_ram_primary[254] = attrib;
+        ppu.oam_ram_primary[255] = x;
         
         for i in 65..=256 {
             sprites.evaluate(&mut ppu);
         }
 
+        assert_eq!(sprites.sprites_count, 2);
+        assert_eq!(ppu.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
+
         ppu.scanline_dot = 257;
+        let mut addr = 0xff_u16;
 
-        sprites.fetch_sprite_data(&mut ppu);
-        let p0_addr = sprites.pattern0_address(&mut ppu);
-        let p1_addr = sprites.pattern1_address(&mut ppu);
+        for i in 257..=320 {
+            let data = (ppu.scanline_dot & 0x07) as u8;
+            match ppu.scanline_dot & 0x07 {
+                1 => {
+                    sprites.fetch_sprite_data(&mut ppu);
+                }
+                2 => {
+                }
+                3 => {
+                }
+                4 => {
+                }
+                5 => {
+                    addr = sprites.pattern0_address(&mut ppu);
+                }
+                6 => {
+                    addr = sprites.pattern0_address(&mut ppu);
+                    sprites.set_pattern0(&mut ppu, data);
+                    
+                }
+                7 => {
+                    addr = sprites.pattern1_address(&mut ppu);
+                }
+                0 => {
+                    addr = sprites.pattern1_address(&mut ppu);
+                    sprites.set_pattern1(&mut ppu, data);
 
-        assert_eq!(sprites.sprite_data[0].y_pos, sprites.secondary_oam[0]);
+                }
+                _ => {
+                    panic!("ppu 305-321 out of bounds");
+                }
+            }
 
-        println!("Sprite Pattern 0: {:#X} Sprite Pattern 0: {:#X}", p0_addr, p1_addr);
+            ppu.scanline_dot += 1;
+        }
+
+        assert_eq!(sprites.secondary_oam[0], 0);
+        assert_eq!(sprites.secondary_oam[4], 0);
+        assert_eq!(sprites.secondary_oam[8], 0xFF);
+
+        assert_eq!(sprites.sprite_data[0].y_pos, 0);
+        assert_eq!(sprites.sprite_data[0].x_pos, 4);
+        assert_eq!(sprites.sprite_data[1].y_pos, 0);
+        assert_eq!(sprites.sprite_data[1].x_pos, 4);
 
     }
 

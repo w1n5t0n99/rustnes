@@ -79,6 +79,12 @@ impl Rp2c02 {
     }
 
     pub fn write_oamaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        /*
+        On the 2C02G, writes to OAMADDR reliably corrupt OAM.[3] This can then be worked around by writing all 256 bytes of OAM.
+        It is also the case that if OAMADDR is not less than eight when rendering starts, the eight bytes starting at OAMADDR & 0xF8 are copied to the first eight bytes of OAM;
+        it seems likely that this is related. On the Dendy, the latter bug is required for 2C02 compatibility.
+        It is known that in the 2C03, 2C04, 2C05[4], and 2C07, OAMADDR works as intended. It is not known whether this bug is present in all revisions of the 2C02.
+        */
         self.context.io_db = pinout.data;
         self.context.oam_addr_reg = pinout.data;
         pinout
@@ -236,7 +242,6 @@ impl Rp2c02 {
     fn select_pixel(&mut self) -> u8 {
         // background pixel is default
         let mut pixel = self.bg.select_background_pixel(&mut self.context);
-        let hpos = self.context.scanline_dot - 1;
         pixel = self.sp.select_sprite_pixel(&mut self.context, pixel);
         
         read_palette_rendering(&mut self.context, pixel as u16) & self.context.monochrome_mask
