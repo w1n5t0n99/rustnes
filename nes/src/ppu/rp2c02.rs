@@ -1,6 +1,6 @@
 use super::{Pinout, Context, IO};
 use super::background::Background;
-use super::sprites::{SpriteAttribute, SpriteData, Sprites};
+use super::sprites::Sprites;
 use super::ppu_registers::*;
 use super::ppu_operations::*;
 use crate::mappers::Mapper;
@@ -500,7 +500,7 @@ impl Rp2c02 {
         pinouts.1
     }
 
-    fn scanline_render(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn scanline_render(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, cpu_pinout: mos::Pinout) -> mos::Pinout {
         let mut pinouts = (self.pinout, cpu_pinout);
         
         match self.context.scanline_dot {
@@ -713,7 +713,7 @@ impl Rp2c02 {
         pinouts.1
     }
 
-    fn scanline_render_nonvisible(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn scanline_render_nonvisible(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, cpu_pinout: mos::Pinout) -> mos::Pinout {
         let mut pinouts = (self.pinout, cpu_pinout);
     
         match self.context.scanline_dot {
@@ -747,7 +747,7 @@ impl Rp2c02 {
         pinouts.1
     }
 
-    fn scanline_postrender(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn scanline_postrender(&mut self, mapper: &mut dyn Mapper, cpu_pinout: mos::Pinout) -> mos::Pinout {
         let mut pinouts = (self.pinout, cpu_pinout);
 
         match self.context.scanline_dot {
@@ -769,7 +769,7 @@ impl Rp2c02 {
         pinouts.1
     }
 
-    fn scanline_vblank(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+    fn scanline_vblank(&mut self, mapper: &mut dyn Mapper, cpu_pinout: mos::Pinout) -> mos::Pinout {
         let mut pinouts = (self.pinout, cpu_pinout);
 
         // TODO add support for multipe NMIs
@@ -853,7 +853,6 @@ mod tests {
     #[test]
     fn test_palette_readwrite() {
         let mut ppu = Rp2c02::from_power_on();
-        let mut cpu_pinout = Pinout::new();
 
         write_palette(&mut ppu.context, 0x3F00, 0xFF);
         let mut data = read_palette_nonrender(&mut ppu.context, 0x3F00);

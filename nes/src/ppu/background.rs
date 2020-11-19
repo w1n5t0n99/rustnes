@@ -1,12 +1,10 @@
 
-use super::{Pinout, Context, IO};
+use super::Context;
 use super::ppu_registers::*;
 
 use std::fmt;
 
-const PATTERN0_INDEX: usize = 0;
 const PATTERN0_OFFSET: u16 = 0;
-const PATTERN1_INDEX: usize = 1;
 const PATTERN1_OFFSET: u16 = 8;
 
 #[derive(Debug, Clone, Copy)]

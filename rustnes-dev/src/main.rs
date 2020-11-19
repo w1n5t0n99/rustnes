@@ -23,46 +23,6 @@ pub fn execute_nestest_cpu_only<P: AsRef<Path>>(file_path: P) {
     }
 }
 
-pub fn ppu_debug<P: AsRef<Path>>(file_path: P) {
-    let mut fb: Vec<u32> = vec![0; 256*240];
-    let mut nes = NesNtsc::new();
-    //nes.load_rom(file_path);
-    nes.load_debug_rom();
-    let now = Instant::now();
-
-    nes.nametable_framebuffer(&mut fb);
-    println!("FRAME TIME: {}", now.elapsed().as_millis());
-
-    let window_options = WindowOptions {
-        borderless: false,
-        title: true,
-        resize: false,
-        scale: Scale::X2,
-        scale_mode: ScaleMode::AspectRatioStretch,
-        topmost: true,
-        transparency: false,
-    };
-
-    let mut window = Window::new(
-        "NES Test - ESC to exit",
-        256,
-        240,
-        window_options,
-    ).unwrap_or_else(|e| {
-        panic!("{}", e);
-    });
-
-    // Limit to max ~60 fps update rate
-    window.limit_update_rate(Some(std::time::Duration::from_millis(16)));
-
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        //let rgb_buffer: Vec<u32> = fb.iter().map(|pixel| palette[*pixel as usize]).collect();
-        nes.nametable_framebuffer(&mut fb);
-        window.update_with_buffer(&fb, 256, 240).unwrap();
-    }
-}
-
 pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     let mut fb: Vec<u32> = vec![0; 256*240];
     let mut nes = NesNtsc::new();
@@ -104,17 +64,27 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     let mut duration = now.elapsed().as_millis();
 
     println!("Frame Execution ms: {}", duration);
-
+    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         nes.execute_frame(&mut fb);
-        //nes.execute_debug_frame(&mut fb, &mut log_file);
+        
+        window.get_keys().map(|keys| {
+            for t in keys {
+                match t {
+                    Key::W => println!("holding w!"),
+                    Key::T => println!("holding t!"),
+                    _ => (),
+                }
+            }
+        });
+
         window.update_with_buffer(&fb, 256, 240).unwrap();
     }
 }
 
 fn main() {
     //execute_nestest_cpu_only("test_roms\\nestest.nes");
-    //ppu_debug("test_roms\\donkey_kong.nes");
     debug_run("test_roms\\donkey_kong.nes");
+    //debug_run("test_roms\\nestest.nes");
 }

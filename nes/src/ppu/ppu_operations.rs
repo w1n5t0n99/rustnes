@@ -1,17 +1,11 @@
 use super::{Pinout, Context, IO};
 use super::ppu_registers::*;
 use super::background::Background;
-use super::sprites::{SpriteAttribute, SpriteData, Sprites};
+use super::sprites::Sprites;
 use crate::mappers::Mapper;
 
 const PATTERN0_INDEX: usize = 0;
-const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_INDEX: usize = 1;
-const PATTERN1_OFFSET: u16 = 8;
-const SPRITE_8X_VALUE: u8 = 8;
-const SPRITE_16X_VALUE: u8 = 16;
-const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
-const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
 
 #[inline(always)]
 fn io_read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {

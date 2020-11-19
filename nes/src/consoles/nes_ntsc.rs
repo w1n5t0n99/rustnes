@@ -50,54 +50,6 @@ impl NesNtsc {
 
         self.power_on();
     }
-
-    pub fn nametable_framebuffer(&mut self, frame_buffer: &mut [u32]) {
-        let cpu_cycles = if self.odd_frame { 29780 } else { 29781 };
-        let old_ppu = self.ppu;
-
-        self.ppu.enable_rendering(false);
-        self.ppu.reset_renderer();
-        let mut cpu_pinout = Pinout::new();
-        cpu_pinout.address = 0x23C0;
-        
-        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
-        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
-
-        for n in 0x23C0..0x23FF {
-            cpu_pinout.data = self.nt_index;
-            cpu_pinout = self.ppu.write_ppudata(cpu_pinout);
-            //self.nt_index ^= 0xFF;
-
-            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-        }
-
-        cpu_pinout.address = 0x2000;
-        
-        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
-        cpu_pinout = self.ppu.write_ppuaddr(cpu_pinout);
-
-
-        self.ppu.reset_renderer();
-        self.ppu.enable_rendering(true);
-
-        for _cycle in 0..=cpu_cycles {
-            {
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-            }
-        }
-
-        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
-            let (fi, pi) = it;
-            *fi = PALETTE[(*pi) as usize];
-        }
-        
-        self.ppu = old_ppu;
-        self.odd_frame = !self.odd_frame;
-    }
 }
 
 impl Console for NesNtsc {
