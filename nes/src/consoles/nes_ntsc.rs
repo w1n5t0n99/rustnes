@@ -1,8 +1,10 @@
 use super::*;
+use crate::{StandardInput, ZapperInput};
 use crate::dma::Dma;
 use crate::ppu::rp2c02::Rp2c02;
 use crate::mappers;
 use crate::mappers::Mapper;
+use crate::controllers::Controllers;
 use crate::palette::*;
 use crate::bus::*;
 use mos::{Pinout, rp2a03::Rp2a03};
@@ -18,6 +20,7 @@ pub struct NesNtsc {
     cpu_pinout: Pinout,
     dma: Dma,
     ppu: Rp2c02,
+    controllers: Controllers,
     mapper: Box<dyn Mapper>,
     pbuffer: Vec<u16>,
     palette: Vec<u32>,
@@ -33,6 +36,7 @@ impl NesNtsc {
             cpu_pinout: cpu_pinout,
             dma: Dma::from_power_on(),
             ppu: Rp2c02::from_power_on(),
+            controllers: Controllers::from_power_on(),
             mapper: mappers::create_mapper_null(),
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
             palette: generate_palette(DEFAULT_SATURATION, DEFAULT_HUE, DEFAULT_CONTRAST, DEFAULT_BRIGHTNESS, DEFAULT_GAMMA),
@@ -82,12 +86,12 @@ impl Console for NesNtsc {
 
         for _cycle in 0..=cpu_cycles {
             {
-                let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu);
+                let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
                 self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
             }
     
             {
-                let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu);
+                let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu, &mut self.controllers);
                 self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
             }
     
@@ -108,12 +112,12 @@ impl Console for NesNtsc {
 
     fn execute_cycle(&mut self) {
         {
-            let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu);
+            let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
             self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
         }
 
         {
-            let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu);
+            let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu, &mut self.controllers);
             self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
         }
 
@@ -122,6 +126,10 @@ impl Console for NesNtsc {
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
         }
+    }
+
+    fn update_controller1(&mut self, controller: StandardInput) {
+        self.controllers.update_controller1(controller);
     }
 }
 

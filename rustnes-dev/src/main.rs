@@ -1,4 +1,5 @@
 use nes::consoles::{Console, nes_ntsc::NesNtsc};
+use nes::{StandardInput, ZapperInput};
 use std::fs::File;
 use std::path::Path;
 use std::io::Write;
@@ -50,11 +51,6 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     });
 
     let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
-    //for i in (0)..(29781*10) {
-        //nes.execute_cycle();
-        //log_file.write_all(format!("{}", nes).as_bytes()).unwrap(); 
-    //}
-
     let ten_millis = Duration::from_millis(10);
     let mut now = Instant::now();
 
@@ -64,20 +60,23 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     let mut duration = now.elapsed().as_millis();
 
     println!("Frame Execution ms: {}", duration);
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+    let ctr1 = StandardInput::from_bits_truncate(0x0);
+    //window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         nes.execute_frame(&mut fb);
-        
+        let mut ctr1 = StandardInput::from_bits_truncate(0x0);
         window.get_keys().map(|keys| {
             for t in keys {
                 match t {
-                    Key::W => println!("holding w!"),
-                    Key::T => println!("holding t!"),
+                    Key::W => ctr1.set(StandardInput::Up, true),
+                    Key::S => ctr1.set(StandardInput::Down, true),
                     _ => (),
                 }
             }
         });
+
+        nes.update_controller1(ctr1);
 
         window.update_with_buffer(&fb, 256, 240).unwrap();
     }
