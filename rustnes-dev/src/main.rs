@@ -69,13 +69,20 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
         window.get_keys().map(|keys| {
             for t in keys {
                 match t {
-                    Key::W => ctr1.set(StandardInput::Up, true),
-                    Key::S => ctr1.set(StandardInput::Down, true),
+                    Key::Up => ctr1.set(StandardInput::Up, true),
+                    Key::Down => ctr1.set(StandardInput::Down, true),
+                    Key::Left => ctr1.set(StandardInput::Left, true),
+                    Key::Right => ctr1.set(StandardInput::Right, true),
+                    Key::Enter =>  ctr1.set(StandardInput::Start, true),
+                    Key::Backspace =>  ctr1.set(StandardInput::Select, true),
+                    Key::A =>  ctr1.set(StandardInput::A, true),
+                    Key::B =>  ctr1.set(StandardInput::B, true),
                     _ => (),
                 }
             }
         });
 
+        // update controller state for last frame
         nes.update_controller1(ctr1);
 
         window.update_with_buffer(&fb, 256, 240).unwrap();
@@ -84,6 +91,6 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
 fn main() {
     //execute_nestest_cpu_only("test_roms\\nestest.nes");
-    debug_run("test_roms\\donkey_kong.nes");
-    //debug_run("test_roms\\nestest.nes");
+    //debug_run("test_roms\\donkey_kong.nes");
+    debug_run("test_roms\\nestest.nes");
 }

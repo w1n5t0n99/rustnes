@@ -495,7 +495,7 @@ mod test {
         }
 
         assert_eq!(sprites.secondary_oam[0], 0);
-        assert_eq!(sprites.sprites_count, 8);
+        assert_eq!(sprites.next_sprites_count, 8);
         assert_eq!(ppu.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), true);
 
         //=================================================
@@ -519,7 +519,7 @@ mod test {
         }
 
         assert_eq!(sprites.secondary_oam[0], 0);
-        assert_eq!(sprites.sprites_count, 8);
+        assert_eq!(sprites.next_sprites_count, 8);
         assert_eq!(ppu.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
 
         //===============================================
@@ -543,7 +543,7 @@ mod test {
         }
 
         assert_eq!(sprites.secondary_oam[0], 0);
-        assert_eq!(sprites.sprites_count, 7);
+        assert_eq!(sprites.next_sprites_count, 7);
         assert_eq!(ppu.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
 
     }
@@ -580,7 +580,7 @@ mod test {
             sprites.evaluate(&mut ppu);
         }
 
-        assert_eq!(sprites.sprites_count, 2);
+        assert_eq!(sprites.next_sprites_count, 2);
         assert_eq!(ppu.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
 
         ppu.scanline_dot = 257;
@@ -622,6 +622,7 @@ mod test {
             ppu.scanline_dot += 1;
         }
 
+        assert_eq!(sprites.sprites_count, 2);
         assert_eq!(sprites.secondary_oam[0], 0);
         assert_eq!(sprites.secondary_oam[4], 0);
         assert_eq!(sprites.secondary_oam[8], 0xFF);

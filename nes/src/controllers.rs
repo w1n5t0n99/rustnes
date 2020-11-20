@@ -21,41 +21,25 @@ impl Controllers {
             zapper1: ZapperInput::from_bits_truncate(0),
             controller2: StandardInput::from_bits_truncate(0),
             zapper2: ZapperInput::from_bits_truncate(0),
-            shift1_count: 8,
-            shift2_count: 8,
+            shift1_count: 0,
+            shift2_count: 0,
             polling: false,
         }
     }
 
     pub fn update_controller1(&mut self, controller: StandardInput) {
-        if self.polling == false {
-            return;
-        }
-
         self.controller1 = controller;
     }
 
     pub fn update_zapper1(&mut self, zapper: ZapperInput) {
-        if self.polling == false {
-            return;
-        }
-
         self.zapper1 = zapper;
     }
 
     pub fn update_controller2(&mut self, controller: StandardInput) {
-        if self.polling == false {
-            return;
-        }
-
         self.controller2 = controller;
     }
 
     pub fn update_zapper2(&mut self, zapper: ZapperInput) {
-        if self.polling == false {
-            return;
-        }
-
         self.zapper2 = zapper;
     }
 
@@ -74,14 +58,14 @@ impl Controllers {
 
     pub fn read_controller1(&mut self, mut pinout: mos::Pinout) ->  mos::Pinout {
         if self.polling == true {
-            pinout.data = self.controller1.bits() & 0x1;
+            pinout.data = (pinout.data & NESS001_MASK) | (self.controller1.bits() & 0x1);
         }
         else {
             let bits = self.controller1.bits();
             if self.shift1_count > 0 {
                 pinout.data = (pinout.data & NESS001_MASK) | (bits & 0x1);
                 self.controller1 = StandardInput::from_bits_truncate(bits >> 1);
-                self.shift1_count -= 1;
+                self.shift1_count = self.shift1_count.saturating_sub(1);
             }
             else {
                 pinout.data = (pinout.data & NESS001_MASK) | 0x1;
@@ -93,14 +77,14 @@ impl Controllers {
 
     pub fn read_controller2(&mut self, mut pinout: mos::Pinout) ->  mos::Pinout {
         if self.polling == true {
-            pinout.data = self.controller2.bits() & 0x1;
+            pinout.data = (pinout.data & NESS001_MASK) | (self.controller1.bits() & 0x1);
         }
         else {
             let bits = self.controller2.bits();
-            if self.shift1_count > 0 {
+            if self.shift2_count > 0 {
                 pinout.data = (pinout.data & NESS001_MASK) | (bits & 0x1);
                 self.controller2 = StandardInput::from_bits_truncate(bits >> 1);
-                self.shift1_count -= 1;
+                self.shift2_count = self.shift2_count.saturating_sub(1);
             }
             else {
                 pinout.data = (pinout.data & NESS001_MASK) | 0x1;
@@ -108,6 +92,56 @@ impl Controllers {
         }
 
         pinout
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*; 
+
+    #[test]
+    fn test_standard_controller_polling() {
+        let mut ct = Controllers::from_power_on();
+        let mut pinout = mos::Pinout::new();
+        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0x1);
+
+        let mut p1 = StandardInput::from_bits_truncate(0x0);
+        p1.set(StandardInput::A, true);
+        p1.set(StandardInput::Up, true);
+        // while polling controller should return A 
+        pinout.data = 1;
+        pinout = ct.write_controller1(pinout);
+        ct.update_controller1(p1);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, p1.bits() & 0x1);
+        // after polling data should be in shift registers
+        pinout.data = 0;
+        pinout = ct.write_controller1(pinout);
+        pinout.data = 0b10100000;
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 1);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 0);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 0);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 0);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 1);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 0);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 0);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 0);
+        // remaining should all be 1
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 1);
+        pinout = ct.read_controller1(pinout);
+        assert_eq!(pinout.data, 0b10100000 | 1);
+       
     }
 }
 
