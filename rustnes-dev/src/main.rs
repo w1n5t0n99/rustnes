@@ -50,18 +50,14 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
         panic!("{}", e);
     });
 
-    let mut log_file = File::create("nes_log.txt").expect("Unable to open log file");
-    let ten_millis = Duration::from_millis(10);
-    let mut now = Instant::now();
-
-    //std::thread::sleep(ten_millis);
+ 
+    let now = Instant::now();
     nes.execute_frame(&mut fb);
-
     let mut duration = now.elapsed().as_millis();
 
     println!("Frame Execution ms: {}", duration);
     let ctr1 = StandardInput::from_bits_truncate(0x0);
-    //window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+    window.limit_update_rate(Some(std::time::Duration::from_millis(16)));
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         nes.execute_frame(&mut fb);
@@ -91,6 +87,6 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
 fn main() {
     //execute_nestest_cpu_only("test_roms\\nestest.nes");
-    //debug_run("test_roms\\donkey_kong.nes");
-    debug_run("test_roms\\nestest.nes");
+    debug_run("test_roms\\donkey_kong.nes");
+    //debug_run("test_roms\\nestest.nes");
 }
