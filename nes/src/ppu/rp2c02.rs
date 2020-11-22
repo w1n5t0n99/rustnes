@@ -13,6 +13,8 @@ pub struct Rp2c02 {
     bg: Background,
     sp: Sprites,
     pinout: Pinout,   
+    last_scanline_cycle: bool,
+    last_frame_cycle: bool,
 }
 
 impl Rp2c02 {
@@ -22,22 +24,21 @@ impl Rp2c02 {
             bg: Background::new(),
             sp: Sprites::new(),
             pinout: Pinout::new(),
+            last_scanline_cycle: false,
+            last_frame_cycle: false,
         }
     }
 
-    pub fn enable_rendering(&mut self, enable_flag: bool) {
-        if enable_flag == true {
-            self.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
-            self.context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
-            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
-            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, true);
-        }
-        else {
-            self.context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, false);
-            self.context.mask_reg.set(MaskRegister::SHOW_SPRITES, false);
-            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, false);
-            self.context.mask_reg.set(MaskRegister::LEFTMOST_8PXL_BACKGROUND, false);    
-        }
+    pub fn is_odd_frame(&mut self) -> bool {
+        self.context.odd_frame
+    }
+
+    pub fn is_end_of_frame(&mut self) -> bool {
+        self.last_frame_cycle
+    }
+
+    pub fn is_end_of_scanline(&mut self) -> bool {
+        self.last_scanline_cycle
     }
 
     pub fn reset_renderer(&mut self) {
@@ -200,6 +201,8 @@ impl Rp2c02 {
     }
 
     pub fn tick(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
+        self.last_frame_cycle = false;
+        self.last_scanline_cycle = false;
         // TODO add power on write block
         self.pinout.clear_ctrl();
         self.context.prev_scanline_index = self.context.scanline_index;
@@ -465,6 +468,8 @@ impl Rp2c02 {
         }
 
         if self.context.scanline_dot == 340 {
+            self.last_scanline_cycle = true;
+            self.last_frame_cycle = true;
             self.context.scanline_index = 0;
             self.context.scanline_dot = if self.context.odd_frame { 1 } else { 0 };
         }
@@ -488,9 +493,12 @@ impl Rp2c02 {
             self.context.scanline_dot += 1;
         }
         else if self.context.scanline_dot == 340 {
+            self.last_scanline_cycle = true;
+            self.last_frame_cycle = true;
             // no sprite eval during prerender so nothing to render first render scanline
             self.context.scanline_index = 0;
-            self.context.scanline_dot = if self.context.odd_frame { 1 } else { 0 };
+            // no skipped frame if rendering is disabled
+            self.context.scanline_dot = 0;
         }
         else {
             self.context.scanline_dot += 1;
@@ -702,6 +710,7 @@ impl Rp2c02 {
         }
 
         if self.context.scanline_dot == 340 {
+            self.last_scanline_cycle = true;
             self.context.scanline_index += 1;
             self.context.scanline_dot = 0;
         }
@@ -736,6 +745,7 @@ impl Rp2c02 {
         }
 
         if self.context.scanline_dot == 340 {
+            self.last_scanline_cycle = true;
             self.context.scanline_index += 1;
             self.context.scanline_dot = 0;
         }
@@ -756,6 +766,7 @@ impl Rp2c02 {
                 self.context.scanline_dot += 1;
             }
             340 => {
+                self.last_scanline_cycle = true;
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
@@ -791,6 +802,7 @@ impl Rp2c02 {
                 self.context.scanline_dot += 1;
             }
             340 => {
+                self.last_scanline_cycle = true;
                 pinouts = nonrender_cycle(&mut self.context, mapper, pinouts);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;

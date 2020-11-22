@@ -268,14 +268,23 @@ pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
 
 #[inline(always)]
 pub fn enter_vblank(ppu: &mut Context, mut pinout: mos::Pinout) -> mos::Pinout {
-    // Reading one PPU clock before reads it as clear and never sets the flag
-    // or generates NMI for that frame.
-    if ppu.cycle != ppu.read_2002_cycle {
-        ppu.status_reg.set(StatusRegister::VBLANK_STARTED, true);
-    }
-
-    if ppu.control_reg.contains(ControlRegister::GENERATE_NMI) {
-        pinout.ctrl.set(mos::Ctrl::NMI, false);
+    let ppu_diff = ppu.cycle - ppu.read_2002_cycle;
+    
+    match ppu_diff {
+        0 => {
+            // Reading on same cycle, reads as set but suppresses nmi
+            ppu.status_reg.set(StatusRegister::VBLANK_STARTED, true);
+            // TODO this also seems to hold true for 1 cycle after
+        }
+        1 => {
+            // Reading one PPU clock before reads it as clear and never sets the flag or generates NMI for that frame.
+        }
+        _ => {
+            ppu.status_reg.set(StatusRegister::VBLANK_STARTED, true);
+            if ppu.control_reg.contains(ControlRegister::GENERATE_NMI) {
+                pinout.ctrl.set(mos::Ctrl::NMI, false);
+            }
+        }
     }
 
     pinout
@@ -311,10 +320,6 @@ pub fn write_palette(ppu: &mut Context, address: u16, data: u8) {
         0x1C => { ppu.palette_ram[0x0C] = data; }
         _ => { ppu.palette_ram[address as usize] = data; }
     }
-}
-
-pub fn is_odd_frame(ppu: &mut Context) -> bool {
-    ppu.odd_frame
 }
 
 pub fn is_rendering(ppu: &mut Context) -> bool {

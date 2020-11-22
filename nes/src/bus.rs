@@ -1,8 +1,7 @@
 use super::dma::{Dma, ApuDmaInterconnect};
 use super::mappers::Mapper;
 use super::ppu::rp2c02::Rp2c02;
-use super::controllers::Controllers;
-use crate::{StandardInput, ZapperInput};
+use super::controllers::NesControllers;
 
 
 /*
@@ -30,12 +29,12 @@ pub struct CpuBus<'a> {
     mapper: &'a mut dyn Mapper,
     dma: &'a mut Dma,
     ppu: &'a mut Rp2c02,
-    controllers: &'a mut Controllers,
+    controllers: &'a mut NesControllers,
     // TODO PPU, APU, Controller
 }
 
 impl<'a> CpuBus<'a> {
-    pub fn new(mapper: &'a mut dyn Mapper, dma: &'a mut Dma, ppu: &'a mut Rp2c02, controllers: &'a mut Controllers) -> CpuBus<'a> {
+    pub fn new(mapper: &'a mut dyn Mapper, dma: &'a mut Dma, ppu: &'a mut Rp2c02, controllers: &'a mut NesControllers) -> CpuBus<'a> {
         CpuBus {
             mapper: mapper,
             dma: dma,
@@ -71,10 +70,10 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
                 pinout.data = 0;
             }
             0x4016 => {
-                pinout = self.controllers.read_controller1(pinout);
+                pinout = self.controllers.read_4016(pinout);
             }
             0x4017 => {
-                pinout = self.controllers.read_controller2(pinout);
+                pinout = self.controllers.read_4017(pinout);
             }
             0x4018..=0x401F => {
                 // The range $4018-$401F does nothing on a retail NES. It was intended for 2A03 functionality that never made it to production
@@ -110,7 +109,7 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
                 //TODO implement
             }
             0x4016 => {
-                pinout = self.controllers.write_controller1(pinout);
+                pinout = self.controllers.write_4016(pinout);
             }
             0x4018..=0x401F => {
                 // The range $4018-$401F does nothing on a retail NES. It was intended for 2A03 functionality that never made it to production
@@ -128,12 +127,12 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
 pub struct DmaBus<'a> {
     mapper: &'a mut dyn Mapper,
     ppu: &'a mut Rp2c02,
-    controllers: &'a mut Controllers,
+    controllers: &'a mut NesControllers,
     // TODO PPU, APU
 }
 
 impl<'a> DmaBus<'a> {
-    pub fn new(mapper: &'a mut dyn Mapper,  ppu: &'a mut Rp2c02, controllers: &'a mut Controllers) -> DmaBus<'a> {
+    pub fn new(mapper: &'a mut dyn Mapper,  ppu: &'a mut Rp2c02, controllers: &'a mut NesControllers) -> DmaBus<'a> {
         DmaBus {
             mapper: mapper,
             ppu: ppu,
@@ -163,10 +162,10 @@ impl<'a> mos::bus::Bus for DmaBus<'a> {
                 }
             }
             0x4016 => {
-                pinout = self.controllers.read_controller1(pinout);
+                pinout = self.controllers.read_4016(pinout);
             }
             0x4017 => {
-                pinout = self.controllers.read_controller2(pinout);
+                pinout = self.controllers.read_4017(pinout);
             }
             _ => { /* open bus */ }
         }
@@ -194,7 +193,7 @@ impl<'a> mos::bus::Bus for DmaBus<'a> {
                 }
             }
             0x4016 => {
-                pinout = self.controllers.write_controller1(pinout);
+                pinout = self.controllers.write_4016(pinout);
             }
             _ => { /* open bus */ }
         }

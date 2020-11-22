@@ -1,53 +1,64 @@
-use crate::{StandardInput, ZapperInput};
 
 const NESS001_MASK: u8 = 0b11100000;
 const NESS101_MASK: u8 = 0b11100100;
 
+bitflags! {
+    pub struct JoypadInput: u8 {
+        const A                  = 0b00000001;
+        const B                  = 0b00000010;
+        const SELECT             = 0b00000100;
+        const START              = 0b00001000;
+        const UP                 = 0b00010000;
+        const DOWN               = 0b00100000; 
+        const LEFT               = 0b01000000;
+        const RIGHT              = 0b10000000;
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
-pub struct Controllers {
-    controller1: StandardInput,
-    zapper1: ZapperInput,
-    controller2: StandardInput,
-    zapper2: ZapperInput,
+pub struct NesControllers {
+    joypad1: JoypadInput,
+    joypad2: JoypadInput,
+    joypad1_latch: u8,
+    joypad2_latch: u8,
     shift1_count: u8,
     shift2_count: u8,
     polling: bool,
 }
 
-impl Controllers {
+impl NesControllers {
     pub fn from_power_on() -> Self {
-        Controllers {
-            controller1: StandardInput::from_bits_truncate(0),
-            zapper1: ZapperInput::from_bits_truncate(0),
-            controller2: StandardInput::from_bits_truncate(0),
-            zapper2: ZapperInput::from_bits_truncate(0),
+        NesControllers {
+            joypad1: JoypadInput::from_bits_truncate(0),
+            joypad2: JoypadInput::from_bits_truncate(0),
             shift1_count: 0,
             shift2_count: 0,
+            joypad1_latch: 0,
+            joypad2_latch: 0,
             polling: false,
         }
     }
 
-    pub fn update_controller1(&mut self, controller: StandardInput) {
-        self.controller1 = controller;
+    pub fn set_joypad1_state(&mut self, controller: JoypadInput) {
+        self.joypad1 = controller;
     }
 
-    pub fn update_zapper1(&mut self, zapper: ZapperInput) {
-        self.zapper1 = zapper;
+    pub fn set_joypad2_state(&mut self, controller: JoypadInput) {
+        self.joypad2 = controller;
     }
 
-    pub fn update_controller2(&mut self, controller: StandardInput) {
-        self.controller2 = controller;
+    pub fn clear_joypads_state(&mut self) {
+        self.joypad1 = JoypadInput::from_bits_truncate(0x0);
+        self.joypad2 = JoypadInput::from_bits_truncate(0x0);
     }
 
-    pub fn update_zapper2(&mut self, zapper: ZapperInput) {
-        self.zapper2 = zapper;
-    }
-
-    pub fn write_controller1(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        if (pinout.data & 0x01) == 1 {
+    pub fn write_4016(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        if (pinout.data & 0x01) == 1 && self.polling == false {
             self.polling = true;
             self.shift1_count = 8;
             self.shift2_count = 8;
+            self.joypad1_latch = self.joypad1.bits();
+            self.joypad2_latch = self.joypad2.bits();
         }
         else {
             self.polling = false;
@@ -56,15 +67,14 @@ impl Controllers {
         pinout
     }
 
-    pub fn read_controller1(&mut self, mut pinout: mos::Pinout) ->  mos::Pinout {
+    pub fn read_4016(&mut self, mut pinout: mos::Pinout) ->  mos::Pinout {
         if self.polling == true {
-            pinout.data = (pinout.data & NESS001_MASK) | (self.controller1.bits() & 0x1);
+            pinout.data = (pinout.data & NESS001_MASK) | (self.joypad1_latch & 0x1);
         }
         else {
-            let bits = self.controller1.bits();
             if self.shift1_count > 0 {
-                pinout.data = (pinout.data & NESS001_MASK) | (bits & 0x1);
-                self.controller1 = StandardInput::from_bits_truncate(bits >> 1);
+                pinout.data = (pinout.data & NESS001_MASK) | (self.joypad1_latch & 0x1);
+                self.joypad1_latch >>= 1;
                 self.shift1_count = self.shift1_count.saturating_sub(1);
             }
             else {
@@ -75,15 +85,14 @@ impl Controllers {
         pinout
     }
 
-    pub fn read_controller2(&mut self, mut pinout: mos::Pinout) ->  mos::Pinout {
+    pub fn read_4017(&mut self, mut pinout: mos::Pinout) ->  mos::Pinout {
         if self.polling == true {
-            pinout.data = (pinout.data & NESS001_MASK) | (self.controller1.bits() & 0x1);
+            pinout.data = (pinout.data & NESS001_MASK) | (self.joypad2_latch & 0x1);
         }
         else {
-            let bits = self.controller2.bits();
             if self.shift2_count > 0 {
-                pinout.data = (pinout.data & NESS001_MASK) | (bits & 0x1);
-                self.controller2 = StandardInput::from_bits_truncate(bits >> 1);
+                pinout.data = (pinout.data & NESS001_MASK) | (self.joypad2_latch & 0x1);
+                self.joypad2_latch >>= 1;
                 self.shift2_count = self.shift2_count.saturating_sub(1);
             }
             else {
@@ -101,45 +110,45 @@ mod test {
 
     #[test]
     fn test_standard_controller_polling() {
-        let mut ct = Controllers::from_power_on();
+        let mut ct = NesControllers::from_power_on();
         let mut pinout = mos::Pinout::new();
-        pinout = ct.read_controller1(pinout);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0x1);
 
-        let mut p1 = StandardInput::from_bits_truncate(0x0);
-        p1.set(StandardInput::A, true);
-        p1.set(StandardInput::Up, true);
+        let mut p1 = JoypadInput::from_bits_truncate(0x0);
+        p1.set(JoypadInput::A, true);
+        p1.set(JoypadInput::UP, true);
         // while polling controller should return A 
         pinout.data = 1;
-        pinout = ct.write_controller1(pinout);
-        ct.update_controller1(p1);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.write_4016(pinout);
+        ct.set_joypad1_state(p1);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, p1.bits() & 0x1);
         // after polling data should be in shift registers
         pinout.data = 0;
-        pinout = ct.write_controller1(pinout);
+        pinout = ct.write_4016(pinout);
         pinout.data = 0b10100000;
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 1);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 0);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 0);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 0);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 1);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 0);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 0);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 0);
         // remaining should all be 1
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 1);
-        pinout = ct.read_controller1(pinout);
+        pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 1);
        
     }

@@ -1,10 +1,9 @@
 use super::*;
-use crate::{StandardInput, ZapperInput};
 use crate::dma::Dma;
 use crate::ppu::rp2c02::Rp2c02;
 use crate::mappers;
 use crate::mappers::Mapper;
-use crate::controllers::Controllers;
+use crate::controllers::{NesControllers, JoypadInput};
 use crate::palette::*;
 use crate::bus::*;
 use mos::{Pinout, rp2a03::Rp2a03};
@@ -20,12 +19,9 @@ pub struct NesNtsc {
     cpu_pinout: Pinout,
     dma: Dma,
     ppu: Rp2c02,
-    controllers: Controllers,
+    controllers: NesControllers,
     mapper: Box<dyn Mapper>,
     pbuffer: Vec<u16>,
-    palette: Vec<u32>,
-    nt_index: u8,
-    odd_frame: bool,
 }
 
 impl NesNtsc {
@@ -36,23 +32,10 @@ impl NesNtsc {
             cpu_pinout: cpu_pinout,
             dma: Dma::from_power_on(),
             ppu: Rp2c02::from_power_on(),
-            controllers: Controllers::from_power_on(),
+            controllers: NesControllers::from_power_on(),
             mapper: mappers::create_mapper_null(),
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
-            palette: generate_palette(DEFAULT_SATURATION, DEFAULT_HUE, DEFAULT_CONTRAST, DEFAULT_BRIGHTNESS, DEFAULT_GAMMA),
-            nt_index: 0,
-            odd_frame: true,
         }
-    }
-
-    pub fn set_entry(&mut self, addr: u16) {
-        self.mapper.rst_vector(addr);
-    }
-
-    pub fn load_debug_rom(&mut self) {
-        self.mapper = mappers::create_mapper_debug();
-
-        self.power_on();
     }
 }
 
@@ -63,10 +46,10 @@ impl Console for NesNtsc {
         let ines = ines::Ines::from_rom(ines_file).unwrap();
         self.mapper = mappers::create_mapper(&ines);
 
-        self.power_on();
+        self.power_on_console();
     }
 
-    fn power_on(&mut self) {
+    fn power_on_console(&mut self) {
         let (cpu, cpu_pinout) = Rp2a03::from_power_on();
         self.cpu = cpu;
         self.cpu_pinout = cpu_pinout;
@@ -77,14 +60,12 @@ impl Console for NesNtsc {
         // RAM values are undefined on power-on so prob don't need to zero out
     }
 
-    fn restart(&mut self) {
+    fn restart_console(&mut self) {
         // TODO implement restart
     }
 
     fn execute_frame(&mut self, frame_buffer: &mut [u32]) {
-        let cpu_cycles = if self.odd_frame { 29780 } else { 29781 };
-
-        for _cycle in 0..=cpu_cycles {
+        loop {
             {
                 let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
                 self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
@@ -97,8 +78,11 @@ impl Console for NesNtsc {
     
             {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                if self.ppu.is_end_of_frame() { break; }
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                if self.ppu.is_end_of_frame() { break; }
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                if self.ppu.is_end_of_frame() { break; }
             }
         }
 
@@ -106,8 +90,34 @@ impl Console for NesNtsc {
             let (fi, pi) = it;
             *fi = PALETTE[(*pi) as usize];
         }
+    }
 
-        self.odd_frame = !self.odd_frame;
+    fn execute_scanline(&mut self, frame_buffer: &mut [u32]) {
+        loop {
+            {
+                let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
+                self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
+            }
+    
+            {
+                let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu, &mut self.controllers);
+                self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
+            }
+    
+            {
+                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                if self.ppu.is_end_of_frame() { break; }
+                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                if self.ppu.is_end_of_frame() { break; }
+                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                if self.ppu.is_end_of_frame() { break; }
+            }
+        }
+
+        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
+            let (fi, pi) = it;
+            *fi = PALETTE[(*pi) as usize];
+        }
     }
 
     fn execute_cycle(&mut self) {
@@ -128,8 +138,12 @@ impl Console for NesNtsc {
         }
     }
 
-    fn update_controller1(&mut self, controller: StandardInput) {
-        self.controllers.update_controller1(controller);
+    fn set_joypad1_state(&mut self, controller: JoypadInput) {
+        self.controllers.set_joypad1_state(controller);
+    }
+
+    fn set_joypad2_state(&mut self, controller: JoypadInput) {
+        self.controllers.set_joypad2_state(controller);
     }
 }
 
