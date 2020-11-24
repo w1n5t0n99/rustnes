@@ -1,7 +1,7 @@
 use nes::consoles::{Console, nes_ntsc::NesNtsc,};
-use nes::JoypadInput;
+use nes::{JoypadInput, utils};
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use ::minifb::{Key, Window, WindowOptions, Scale, ScaleMode};
 
 pub fn debug_run<P: AsRef<Path>>(file_path: P) {
@@ -31,15 +31,15 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     });
 
  
-    let now = Instant::now();
-    nes.execute_frame(&mut fb);
-    let duration = now.elapsed().as_millis();
+    let mut avg_frame_execution = utils::AvgDuration::new();
+    let frame_limit = utils::FrameLimit::new(60);
 
-    println!("Frame Execution ms: {}", duration);
-    //window.limit_update_rate(Some(std::time::Duration::from_millis(16)));
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
+       
+        avg_frame_execution.begin();
+
         nes.execute_frame(&mut fb);
+
         let mut jp1 = JoypadInput::from_bits_truncate(0x0);
         window.get_keys().map(|keys| {
             for t in keys {
@@ -61,11 +61,17 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
         nes.set_joypad1_state(jp1);
 
         window.update_with_buffer(&fb, 256, 240).unwrap();
+
+        avg_frame_execution.end();
+
+        window.set_title(format!("TEST --- avg frame execution {} us", avg_frame_execution.get_average_duration().as_micros()).as_str());
+
+        frame_limit.end_of_frame(avg_frame_execution.get_current_duration());
     }
 }
 
 fn main() {
     //debug_run("test_roms\\nestest.nes");
-    //debug_run("test_roms\\donkey_kong.nes");
-    debug_run("test_roms\\cpu_interrupts.nes");
+    debug_run("test_roms\\donkey_kong.nes");
+    //debug_run("test_roms\\cpu_interrupts.nes");
 }
