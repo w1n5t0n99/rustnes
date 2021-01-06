@@ -4,12 +4,12 @@ use std::path::Path;
 use std::time::{Instant, Duration};
 use ::minifb::{Key, Window, WindowOptions, Scale, ScaleMode};
 
+
 pub fn debug_run<P: AsRef<Path>>(file_path: P) {
     let mut fb: Vec<u32> = vec![0; 256*240];
     let mut nes = NesNtsc::new();
     nes.load_rom(file_path);
 
-    //nes.nametable_framebuffer(&mut fb);
 
     let window_options = WindowOptions {
         borderless: false,
@@ -64,7 +64,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
         avg_frame_execution.end();
 
-        window.set_title(format!("TEST --- avg frame execution {} us", avg_frame_execution.get_average_duration().as_micros()).as_str());
+        window.set_title(format!("RUSTNES --- avg frame execution {} us", avg_frame_execution.get_average_duration().as_micros()).as_str());
 
         frame_limit.end_of_frame(avg_frame_execution.get_current_duration());
     }
@@ -73,5 +73,5 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 fn main() {
     //debug_run("test_roms\\nestest.nes");
     debug_run("test_roms\\donkey_kong.nes");
-    //debug_run("test_roms\\cpu_interrupts.nes");
+    //debug_run("test_roms\\Super Mario Bros (JU) (PRG 0).nes");
 }
