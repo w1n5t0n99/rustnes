@@ -72,6 +72,7 @@ pub fn debug_run<P: AsRef<Path>>(file_path: P) {
 
 fn main() {
     //debug_run("test_roms\\nestest.nes");
-    debug_run("test_roms\\donkey_kong.nes");
+    //debug_run("test_roms\\donkey_kong.nes");
     //debug_run("test_roms\\Super Mario Bros (JU) (PRG 0).nes");
+    debug_run("test_roms\\color_test.nes");
 }
