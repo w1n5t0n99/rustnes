@@ -36,6 +36,7 @@ pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: 
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
             ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
+            println!("NR| PPU Cycle: {} - Address: {:X} - RD Buffer {:X}", ppu.cycle, pinouts.0.address, ppu.ppu_2007_rd_buffer);
         }
         Ppu2007State::Write => { 
             pinouts.0.data = ppu.ppu_2007_wr_buffer;

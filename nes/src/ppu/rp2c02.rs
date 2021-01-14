@@ -166,6 +166,7 @@ impl Rp2c02 {
             }
             0x0000..=0x3EFF => {
                 pinout.data = self.context.ppu_2007_rd_buffer;
+                println!("IO| PPU Cycle: {} - Address: {:X} - RD Buffer {:X}",self.context.cycle, v, self.context.ppu_2007_rd_buffer);
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
