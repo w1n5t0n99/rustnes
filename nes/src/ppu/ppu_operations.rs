@@ -1,4 +1,4 @@
-use super::{Pinout, Context, IO};
+use super::{Context, Pinout, Ppu2007State};
 use super::ppu_registers::*;
 use super::background::Background;
 use super::sprites::Sprites;
@@ -7,262 +7,233 @@ use crate::mappers::Mapper;
 const PATTERN0_INDEX: usize = 0;
 const PATTERN1_INDEX: usize = 1;
 
-#[inline(always)]
-fn io_read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    // assert rd pin, basically only used for debug info
-    pinouts.0.rd();
-    // read data
-    let pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
-    // set io rd buffer and io state
-    ppu.rd_buffer = pinouts.0.data();
-    ppu.io = IO::Idle;
-
-    pinouts
-}
-
-#[inline(always)]
-fn read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    // assert rd pin, basically only used for debug info
-    pinouts.0.rd();
-    // read data
-    pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
-    pinouts
-}
-
-#[inline(always)]
-fn io_write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    // assert wr pin, basically only used for debug info
-    pinouts.0.wr();
-    // write data, must place on address bus
-    pinouts.0.set_data(ppu.wr_buffer);
-    pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-    // set io state
-    ppu.io = IO::Idle;
-    pinouts
-}
-
 
 pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x2FFF);
-
-    match ppu.io {
-        IO::Idle => { },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => { ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    pinouts.0.address = ppu.addr_reg.vram_address() & 0x2FFF;
+    match ppu.ppu_2007_state {
+        Ppu2007State::Idle => { },
+        Ppu2007State::Read => { 
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => { 
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
+    ppu.ppu_2007_state = Ppu2007State::Idle;
     pinouts
 }
 
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.vram_address() & 0x2FFF);
-    match ppu.io {
-        IO::Idle => { },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); },
-        IO::WRPALETTE => { ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment()); ppu.io = IO::Idle; }
+    pinouts.0.address = ppu.addr_reg.vram_address() & 0x2FFF;
+    match ppu.ppu_2007_state {
+        Ppu2007State::Idle => { },
+        Ppu2007State::Read => { 
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
+        }
+        Ppu2007State::Write => { 
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
+        }
     }
 
+    ppu.ppu_2007_state = Ppu2007State::Idle;
     pinouts
 }
 
 pub fn open_tile_index(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.tile_address());
-
-    match ppu.io {
-        IO::Idle => { pinouts.0.latch_address(); },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
-    }
+    pinouts.0.address = ppu.addr_reg.tile_address();
 
     pinouts
 }
 
 pub fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.tile_address());
+    pinouts.0.address = ppu.addr_reg.tile_address();
 
-    match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts);  },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    match ppu.ppu_2007_state { 
+        Ppu2007State::Idle => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+        }
+        Ppu2007State::Read => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => {
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
-    bg.next_tile_index = pinouts.0.data() as u16;
+    ppu.ppu_2007_state = Ppu2007State::Idle;
+    bg.next_tile_index = pinouts.0.data as u16;
     pinouts
 }
 
 pub fn open_background_attribute(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.attribute_address());
-
-    match ppu.io {
-        IO::Idle => { pinouts.0.latch_address(); },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
-    }
+    pinouts.0.address = ppu.addr_reg.attribute_address();
 
     pinouts
 }
 
 pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    pinouts.0.set_address(ppu.addr_reg.attribute_address());
+    pinouts.0.address = ppu.addr_reg.attribute_address();
 
-    match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts);  },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    match ppu.ppu_2007_state { 
+        Ppu2007State::Idle => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+        }
+        Ppu2007State::Read => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => {
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
-    bg.next_attribute = ppu.addr_reg.attribute_bits(pinouts.0.data());
+    ppu.ppu_2007_state = Ppu2007State::Idle;
+    bg.next_attribute = ppu.addr_reg.attribute_bits(pinouts.0.data);
     pinouts
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = bg.pattern0_address(ppu);
-    pinouts.0.set_address(next_addr);
-
-    match ppu.io {
-        IO::Idle => { pinouts.0.latch_address(); },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
-    }
+    pinouts.0.address = next_addr;
 
     pinouts
 }
 
 pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = bg.pattern0_address(ppu);
-    pinouts.0.set_address(next_addr);
+    pinouts.0.address = next_addr;
 
-    match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts);  },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    match ppu.ppu_2007_state { 
+        Ppu2007State::Idle => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+        }
+        Ppu2007State::Read => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => {
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
-    bg.next_pattern[PATTERN0_INDEX] = pinouts.0.data();
+    ppu.ppu_2007_state = Ppu2007State::Idle;
+    bg.next_pattern[PATTERN0_INDEX] = pinouts.0.data;
     pinouts
 }
 
 pub fn open_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = bg.pattern1_address(ppu);
-    pinouts.0.set_address(next_addr);
-
-    match ppu.io {
-        IO::Idle => { pinouts.0.latch_address(); },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
-    }
+    pinouts.0.address = next_addr;
 
     pinouts
 }
 
 pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = bg.pattern1_address(ppu);
-    pinouts.0.set_address(next_addr);
+    pinouts.0.address = next_addr;
 
-    match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.coarse_x_increment(); },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; ppu.addr_reg.coarse_x_increment(); },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; ppu.addr_reg.coarse_x_increment(); },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    match ppu.ppu_2007_state { 
+        Ppu2007State::Idle => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.coarse_x_increment();
+        }
+        Ppu2007State::Read => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => {
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
-    bg.next_pattern[PATTERN1_INDEX] = pinouts.0.data();
+    ppu.ppu_2007_state = Ppu2007State::Idle;
+    bg.next_pattern[PATTERN1_INDEX] = pinouts.0.data;
     pinouts
 }
 
 pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = sp.pattern0_address(ppu);
-    pinouts.0.set_address(next_addr);
-
-
-    match ppu.io {
-        IO::Idle => { pinouts.0.latch_address(); },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
-    }
+    pinouts.0.address = next_addr;
 
     pinouts
 }
 
 pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = sp.pattern0_address(ppu);
-    pinouts.0.set_address(next_addr);
+    pinouts.0.address = next_addr;
 
-    match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts); },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    match ppu.ppu_2007_state { 
+        Ppu2007State::Idle => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+        }
+        Ppu2007State::Read => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => {
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
-    sp.set_pattern0(ppu, pinouts.0.data());
+    ppu.ppu_2007_state = Ppu2007State::Idle;
+    sp.set_pattern0(ppu, pinouts.0.data);
     pinouts
 }
 
 pub fn open_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = sp.pattern1_address(ppu);
-    pinouts.0.set_address(next_addr);
-
-    match ppu.io {
-        IO::Idle => { pinouts.0.latch_address(); },
-        IO::RDALE => { pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts.0.latch_address(); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
-    }
+    pinouts.0.address = next_addr;
 
     pinouts
 }
 
 pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     let next_addr = sp.pattern1_address(ppu);
-    pinouts.0.set_address(next_addr);
+    pinouts.0.address = next_addr;
 
-    match ppu.io {
-        IO::Idle => { pinouts = read(ppu, mapper, pinouts); },
-        IO::RDALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::RD; },
-        IO::WRALE => { pinouts = read(ppu, mapper, pinouts); pinouts.0.latch_address(); ppu.io = IO::WR; },
-        IO::RD => { pinouts = io_read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WR => { pinouts = io_write(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); },
-        IO::WRPALETTE => {pinouts = read(ppu, mapper, pinouts); ppu.addr_reg.quirky_increment(); ppu.io = IO::Idle; }
+    match ppu.ppu_2007_state { 
+        Ppu2007State::Idle => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+        }
+        Ppu2007State::Read => {
+            pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
+            ppu.ppu_2007_rd_buffer = pinouts.0.data;
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
+        Ppu2007State::Write => {
+            pinouts.0.data = ppu.ppu_2007_wr_buffer;
+            pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
+            ppu.addr_reg.ppu2007_during_render_increment();
+        }
     }
 
-    sp.set_pattern1( ppu, pinouts.0.data());
+    ppu.ppu_2007_state = Ppu2007State::Idle;
+    sp.set_pattern1( ppu, pinouts.0.data);
     pinouts
 }
 

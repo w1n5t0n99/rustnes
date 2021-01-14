@@ -1,4 +1,4 @@
-use super::{Pinout, Context, IO};
+use super::{Pinout, Context, Ppu2007State};
 use super::background::Background;
 use super::sprites::Sprites;
 use super::ppu_registers::*;
@@ -158,45 +158,43 @@ impl Rp2c02 {
     }
 
     pub fn read_ppudata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        self.context.io = IO::RDALE;
         let v = self.context.addr_reg.vram_address();
         match v {
             0x3F00..=0x3FFF => {
                 // Reading palette updates latch with contents of nametable under palette address
-                self.context.io_db = if  is_rendering(&mut self.context) { read_palette_rendering(&mut self.context, v) } else { read_palette_nonrender(&mut self.context, v) };
-                pinout.data = self.context.io_db;
+                pinout.data = if  is_rendering(&mut self.context) { read_palette_rendering(&mut self.context, v) } else { read_palette_nonrender(&mut self.context, v) };
             }
             0x0000..=0x3EFF => {
-                self.context.io_db = self.context.rd_buffer;
-                pinout.data = self.context.rd_buffer;
+                pinout.data = self.context.ppu_2007_rd_buffer;
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
             }
         }
 
+        self.context.ppu_2007_state = Ppu2007State::Read;
+        self.context.io_db = pinout.data;
         pinout
     }
 
     pub fn write_ppudata(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        self.context.io_db = pinout.data;
         let v = self.context.addr_reg.vram_address();
         match v {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does
-                self.context.io = IO::WRPALETTE;
                 write_palette(&mut self.context, v, pinout.data);
             }
             0x0000..=0x3EFF => {
-                //println!("WRITE PPUDATA: {:#X} - {:#X}",  self.context.addr_reg.v, pinout.data);
-                self.context.io = IO::WRALE;
-                self.context.wr_buffer = self.context.io_db;
+
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
             }
         }
 
+        self.context.ppu_2007_state = Ppu2007State::Write;
+        self.context.ppu_2007_wr_buffer = pinout.data;
+        self.context.io_db = pinout.data;
         pinout
     }
 
@@ -204,7 +202,6 @@ impl Rp2c02 {
         self.last_frame_cycle = false;
         self.last_scanline_cycle = false;
         // TODO add power on write block
-        self.pinout.clear_ctrl();
         self.context.prev_scanline_index = self.context.scanline_index;
         self.context.prev_scanline_dot = self.context.scanline_dot;
 

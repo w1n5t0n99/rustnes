@@ -111,7 +111,7 @@ impl AddrReg {
         self.v = (self.v & 0xFC1F) | edcba;
     }
 
-    pub fn quirky_increment(&mut self) {
+    pub fn ppu2007_during_render_increment(&mut self) {
         self.coarse_x_increment();
         self.y_increment();
     }
@@ -171,7 +171,7 @@ impl ControlRegister {
         ControlRegister::from_bits_truncate(0x00)
     }
 
-    pub fn vram_addr_increment(&self) -> u16 {
+    pub fn vram_addr_increment_amount(&self) -> u16 {
         match self.contains(ControlRegister::VRAM_ADD_INCREMENT) {
             true => 32,
             false => 1,
@@ -342,7 +342,7 @@ mod test {
         control_reg.io_write(0x0F);
 
         assert_eq!(control_reg.base_nametable_address(), 0x2C00);
-        assert_eq!(control_reg.vram_addr_increment(), 32);
+        assert_eq!(control_reg.vram_addr_increment_amount(), 32);
         assert_eq!(control_reg.sprite_table_address(), 0x1000);
     }
 

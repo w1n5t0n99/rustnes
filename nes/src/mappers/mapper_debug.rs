@@ -166,19 +166,19 @@ impl Mapper for MapperDebug {
     }
 
     fn read_ppu(&mut self, mut ppu_pinout: ppu::Pinout, cpu_pinout: mos::Pinout) -> (ppu::Pinout, mos::Pinout) {
-        let addr = ppu_pinout.address();
+        let addr = ppu_pinout.address;
 
         match addr {
             // CHR ROM
-            0x000..=0x1FFF => { ppu_pinout.set_data(self.chr_rom[addr as usize]); },
+            0x000..=0x1FFF => { ppu_pinout.data = self.chr_rom[addr as usize]; },
              // NT A
-             0x2000..=0x23FF => { ppu_pinout.set_data(self.vram[(addr - self.nt_offset.nt_a) as usize]); },
+             0x2000..=0x23FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_a) as usize]; },
              // NT B
-             0x2400..=0x27FF => { ppu_pinout.set_data(self.vram[(addr - self.nt_offset.nt_b) as usize]); },
+             0x2400..=0x27FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_b) as usize]; },
              // NT C
-             0x2800..=0x2BFF => { ppu_pinout.set_data(self.vram[(addr - self.nt_offset.nt_c) as usize]); },
+             0x2800..=0x2BFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_c) as usize]; },
              // NT D
-             0x2C00..=0x2FFF => { ppu_pinout.set_data(self.vram[(addr - self.nt_offset.nt_d) as usize]); },
+             0x2C00..=0x2FFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_d) as usize]; },
              _ => panic!("DebugMapper PPU read out of bounds: {}", addr),
 
         }
@@ -187,19 +187,19 @@ impl Mapper for MapperDebug {
     }
 
     fn write_ppu(&mut self, ppu_pinout: ppu::Pinout, cpu_pinout: mos::Pinout) -> (ppu::Pinout, mos::Pinout) {
-        let addr = ppu_pinout.address();
+        let addr = ppu_pinout.address;
 
         match addr {
             // CHR ROM
             0x000..=0x1FFF => { /* returns whatevers on the bus already */ },
              // NT A
-             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = ppu_pinout.data(); },
+             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = ppu_pinout.data; },
              // NT B
-             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = ppu_pinout.data(); },
+             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = ppu_pinout.data; },
              // NT C
-             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = ppu_pinout.data(); },
+             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = ppu_pinout.data; },
              // NT D
-             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = ppu_pinout.data(); },
+             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = ppu_pinout.data; },
              _ => panic!("DebugMapper PPU write out of bounds: {}", addr),
 
         }
@@ -253,34 +253,28 @@ mod tests {
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 
-        ppu_pinout.set_address(0x2001);
-        ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2001);
+        ppu_pinout.address = 0x2001;
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
-        let d0 = ppu_pinout.data();
+        let d0 = ppu_pinout.data;
 
-        ppu_pinout.set_address(0x2801);
-        ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2801);
+        ppu_pinout.address = 0x2801;
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
-        let d1 =ppu_pinout.data();
+        let d1 =ppu_pinout.data;
 
         assert_eq!(d0, d1);
 
-        ppu_pinout.set_address(0x2401);
-        ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2401);
+        ppu_pinout.address = 0x2401;
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
-        let d2 =ppu_pinout.data();
+        let d2 =ppu_pinout.data;
         assert_ne!(d1, d2);
 
     }
@@ -294,34 +288,29 @@ mod tests {
 
         mapper.poke_ppu(0x2001, 0xFE);
 
-        ppu_pinout.set_address(0x2001);
-        ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2001);
+        ppu_pinout.address = 0x2001;
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
-        let d0 = ppu_pinout.data();
+        let d0 = ppu_pinout.data;
 
-        ppu_pinout.set_address(0x2401);
-        ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2401);
+        ppu_pinout.address = 0x2401;
+
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
-        let d1 =ppu_pinout.data();
+        let d1 =ppu_pinout.data;
 
         assert_eq!(d0, d1);
 
-        ppu_pinout.set_address(0x2801);
-        ppu_pinout.latch_address();
-        ppu_pinout.set_address(0x2801);
+        ppu_pinout.address = 0x2801;
 
         let p = mapper.read_ppu(ppu_pinout, cpu_pinout);
         ppu_pinout = p.0; 
         cpu_pinout = p.1;
-        let d2 =ppu_pinout.data();
+        let d2 =ppu_pinout.data;
         assert_ne!(d1, d2);
 
     }
