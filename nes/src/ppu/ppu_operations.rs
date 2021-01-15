@@ -7,7 +7,6 @@ use crate::mappers::Mapper;
 const PATTERN0_INDEX: usize = 0;
 const PATTERN1_INDEX: usize = 1;
 
-
 pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
     pinouts.0.address = ppu.addr_reg.vram_address() & 0x2FFF;
     match ppu.ppu_2007_state {
@@ -15,12 +14,12 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts
         Ppu2007State::Read => { 
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => { 
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 
@@ -36,7 +35,6 @@ pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinouts: 
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
             ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
-            println!("NR| PPU Cycle: {} - Address: {:X} - RD Buffer {:X}", ppu.cycle, pinouts.0.address, ppu.ppu_2007_rd_buffer);
         }
         Ppu2007State::Write => { 
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
@@ -65,12 +63,12 @@ pub fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn 
         Ppu2007State::Read => {
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => {
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 
@@ -95,12 +93,12 @@ pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper:
         Ppu2007State::Read => {
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => {
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 
@@ -110,15 +108,13 @@ pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper:
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = bg.pattern0_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = bg.pattern0_address(ppu);
 
     pinouts
 }
 
 pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = bg.pattern0_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = bg.pattern0_address(ppu);
 
     match ppu.ppu_2007_state { 
         Ppu2007State::Idle => {
@@ -127,12 +123,12 @@ pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: 
         Ppu2007State::Read => {
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => {
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 
@@ -142,15 +138,13 @@ pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: 
 }
 
 pub fn open_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = bg.pattern1_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = bg.pattern1_address(ppu);
 
     pinouts
 }
 
 pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = bg.pattern1_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = bg.pattern1_address(ppu);
 
     match ppu.ppu_2007_state { 
         Ppu2007State::Idle => {
@@ -160,12 +154,12 @@ pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: 
         Ppu2007State::Read => {
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => {
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 
@@ -175,15 +169,13 @@ pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: 
 }
 
 pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = sp.pattern0_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = sp.pattern0_address(ppu);
 
     pinouts
 }
 
 pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = sp.pattern0_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = sp.pattern0_address(ppu);
 
     match ppu.ppu_2007_state { 
         Ppu2007State::Idle => {
@@ -192,12 +184,12 @@ pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         Ppu2007State::Read => {
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => {
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 
@@ -207,15 +199,13 @@ pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
 }
 
 pub fn open_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = sp.pattern1_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = sp.pattern1_address(ppu);
 
     pinouts
 }
 
 pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinouts: (Pinout, mos::Pinout)) -> (Pinout, mos::Pinout) {
-    let next_addr = sp.pattern1_address(ppu);
-    pinouts.0.address = next_addr;
+    pinouts.0.address = sp.pattern1_address(ppu);
 
     match ppu.ppu_2007_state { 
         Ppu2007State::Idle => {
@@ -224,12 +214,12 @@ pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dy
         Ppu2007State::Read => {
             pinouts = mapper.read_ppu(pinouts.0, pinouts.1);
             ppu.ppu_2007_rd_buffer = pinouts.0.data;
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
         Ppu2007State::Write => {
             pinouts.0.data = ppu.ppu_2007_wr_buffer;
             pinouts = mapper.write_ppu(pinouts.0, pinouts.1);
-            ppu.addr_reg.ppu2007_during_render_increment();
+            ppu.addr_reg.ppu_2007_during_render_increment();
         }
     }
 

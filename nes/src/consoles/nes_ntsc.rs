@@ -57,7 +57,6 @@ impl Console for NesNtsc {
         self.ppu = Rp2c02::from_power_on();
         self.dma = Dma::from_power_on();
         self.pbuffer = vec![0; (WIDTH*HEIGHT) as usize];
-        // RAM values are undefined on power-on so prob don't need to zero out
     }
 
     fn restart_console(&mut self) {

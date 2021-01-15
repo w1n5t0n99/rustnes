@@ -20,7 +20,7 @@ impl AddrReg {
     }
 
     pub fn io_write_2000(&mut self, data: u8) {
-        self.t = (self.t & 0xF3FF) | (((data & 0x3) as u16) << 8);
+        self.t = (self.t & 0xF3FF) | (((data & 0x3) as u16) << 10);
     }
 
     pub fn io_read_2002(&mut self) {
@@ -111,7 +111,7 @@ impl AddrReg {
         self.v = (self.v & 0xFC1F) | edcba;
     }
 
-    pub fn ppu2007_during_render_increment(&mut self) {
+    pub fn ppu_2007_during_render_increment(&mut self) {
         self.coarse_x_increment();
         self.y_increment();
     }
