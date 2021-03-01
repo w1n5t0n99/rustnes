@@ -27,7 +27,7 @@ impl NametableOffset {
         }
     }
 
-    pub fn from_nametable(nt_type: ines::NametableMirroring) -> NametableOffset {
+    pub fn from_mirroring_type(nt_type: ines::NametableMirroring) -> NametableOffset {
         // TODO: update nes_rom crate to support other mirroring types
         match nt_type {
             // TODO fix offsets

@@ -26,7 +26,7 @@ impl MapperDebug {
         };
 
         
-        mapper.nt_offset = NametableOffset::from_nametable(ines::NametableMirroring::Horizontal);
+        mapper.nt_offset = NametableOffset::from_mirroring_type(ines::NametableMirroring::Horizontal);
         mapper.load_tile_checkerboard();
         mapper.load_tile_indices();
         mapper.set_nt_attribute(0x0);
@@ -35,12 +35,12 @@ impl MapperDebug {
     }
 
     pub fn set_horizontal_mirroring(&mut self) {
-        self.nt_offset = NametableOffset::from_nametable(ines::NametableMirroring::Horizontal);
+        self.nt_offset = NametableOffset::from_mirroring_type(ines::NametableMirroring::Horizontal);
         self.load_tile_indices();
     }
 
     pub fn set_vertical_mirroring(&mut self) {
-        self.nt_offset = NametableOffset::from_nametable(ines::NametableMirroring::Vertical);
+        self.nt_offset = NametableOffset::from_mirroring_type(ines::NametableMirroring::Vertical);
         self.load_tile_indices();
     }
 

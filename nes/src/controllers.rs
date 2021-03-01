@@ -119,15 +119,18 @@ mod test {
         let mut p1 = JoypadInput::from_bits_truncate(0x0);
         p1.set(JoypadInput::A, true);
         p1.set(JoypadInput::UP, true);
-        // while polling controller should return A 
+        ct.set_joypad1_state(p1);
+
+        // load shifts
         pinout.data = 1;
         pinout = ct.write_4016(pinout);
-        ct.set_joypad1_state(p1);
+        // while polling controller should return A 
         pinout = ct.read_4016(pinout);
-        assert_eq!(pinout.data, p1.bits() & 0x1);
-        // after polling data should be in shift registers
+        assert_eq!(pinout.data, 0x1);
+        // lock shifts end polling
         pinout.data = 0;
         pinout = ct.write_4016(pinout);
+        
         pinout.data = 0b10100000;
         pinout = ct.read_4016(pinout);
         assert_eq!(pinout.data, 0b10100000 | 1);

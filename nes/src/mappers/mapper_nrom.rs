@@ -39,7 +39,7 @@ impl MapperNrom {
             nrom.prg_mask = 0xFFFF;
         }
 
-        nrom.nt_offset = NametableOffset::from_nametable(rom.nametable_mirroring);
+        nrom.nt_offset = NametableOffset::from_mirroring_type(rom.nametable_mirroring);
 
         // copy prg data
         unsafe {
@@ -125,17 +125,16 @@ impl Mapper for MapperNrom {
 
         match addr {
             // CHR ROM
-            0x000..=0x1FFF => { ppu_pinout.data = self.chr_rom[addr as usize]; },
-             // NT A
-             0x2000..=0x23FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_a) as usize]; },
-             // NT B
-             0x2400..=0x27FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_b) as usize]; },
-             // NT C
-             0x2800..=0x2BFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_c) as usize]; },
-             // NT D
-             0x2C00..=0x2FFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_d) as usize]; },
-             _ => panic!("NROM PPU read out of bounds: {}", addr),
-
+            0x0000..=0x1FFF => { ppu_pinout.data = self.chr_rom[addr as usize]; },
+            // NT A
+            0x2000..=0x23FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_a) as usize]; },
+            // NT B
+            0x2400..=0x27FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_b) as usize]; },
+            // NT C
+            0x2800..=0x2BFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_c) as usize]; },
+            // NT D
+            0x2C00..=0x2FFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_d) as usize]; },
+            _ => panic!("NROM PPU read out of bounds: {}", addr),
         }
 
         (ppu_pinout, cpu_pinout)
@@ -146,17 +145,16 @@ impl Mapper for MapperNrom {
 
         match addr {
             // CHR ROM
-            0x000..=0x1FFF => { /* returns whatevers on the bus already */ },
-             // NT A
-             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = ppu_pinout.data; },
-             // NT B
-             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = ppu_pinout.data; },
-             // NT C
-             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = ppu_pinout.data; },
-             // NT D
-             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = ppu_pinout.data; },
-             _ => panic!("NROM PPU write out of bounds: {}", addr),
-
+            0x0000..=0x1FFF => { /* returns whatevers on the bus already */ },
+            // NT A
+            0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = ppu_pinout.data; },
+            // NT B
+            0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = ppu_pinout.data; },
+            // NT C
+            0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = ppu_pinout.data; },
+            // NT D
+            0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = ppu_pinout.data; },
+            _ => panic!("NROM PPU write out of bounds: {}", addr),
         }
 
         (ppu_pinout, cpu_pinout)
@@ -181,17 +179,16 @@ impl Mapper for MapperNrom {
     fn poke_ppu(&mut self, addr: u16, data: u8) {
         match addr {
             // CHR ROM
-            0x000..=0x1FFF => { /* returns whatevers on the bus already */ },
-             // NT A
-             0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = data; },
-             // NT B
-             0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = data; },
-             // NT C
-             0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = data; },
-             // NT D
-             0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = data; },
-             _ => panic!("NROM PPU write out of bounds: {}", addr),
-
+            0x0000..=0x1FFF => { /* returns whatevers on the bus already */ },
+            // NT A
+            0x2000..=0x23FF => { self.vram[(addr - self.nt_offset.nt_a) as usize] = data; },
+            // NT B
+            0x2400..=0x27FF => { self.vram[(addr - self.nt_offset.nt_b) as usize] = data; },
+            // NT C
+            0x2800..=0x2BFF => { self.vram[(addr - self.nt_offset.nt_c) as usize] = data; },
+            // NT D
+            0x2C00..=0x2FFF => { self.vram[(addr - self.nt_offset.nt_d) as usize] = data; },
+            _ => panic!("NROM PPU write out of bounds: {}", addr),
         }
     }
 }
