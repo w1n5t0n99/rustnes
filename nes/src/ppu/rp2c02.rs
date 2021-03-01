@@ -839,7 +839,7 @@ mod tests {
         let mut cpu_pinout = Pinout::new();
         let mut mapper = MapperDebug::new();
 
-        mapper.set_nt_mirroring(NametableType::Horizontal);
+        mapper.set_horizontal_mirroring();
         cpu_pinout.data = 0x23;
         cpu_pinout = ppu.write_ppuaddr(cpu_pinout);
         ppu.tick(&mut fb, &mut mapper, cpu_pinout);

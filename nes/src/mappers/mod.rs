@@ -27,33 +27,22 @@ impl NametableOffset {
         }
     }
 
-    pub fn from_nametable(nt_type: NametableType) -> NametableOffset {
+    pub fn from_nametable(nt_type: ines::NametableMirroring) -> NametableOffset {
+        // TODO: update nes_rom crate to support other mirroring types
         match nt_type {
             // TODO fix offsets
-            NametableType::Horizontal => return NametableOffset::new(0x2000, 0x2400, 0x2400, 0x2800),
-            NametableType::Vertical => return NametableOffset::new(0x2000, 0x2000, 0x2800, 0x2800),
-            NametableType::SingleScreen => return NametableOffset::new(0x2000, 0x2400, 0x2800, 0x2C00),
-            NametableType::FourScreen => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2000),
-            NametableType::Diagonal => return NametableOffset::new(0x2000, 0x2000, 0x2400, 0x2C00),
-            NametableType::LShaped => return NametableOffset::new(0x2000, 0x2000, 0x2400, 0x2800),
-            NametableType::ThreeScreenVertical => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2800),
-            NametableType::ThreeScreenHorizontal => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2400),
-            NametableType::ThreeScreenDiagonal => return NametableOffset::new(0x2000, 0x2000, 0x2400, 0x2000),
+            ines::NametableMirroring::Horizontal => return NametableOffset::new(0x2000, 0x2400, 0x2400, 0x2800),
+            ines::NametableMirroring::Vertical => return NametableOffset::new(0x2000, 0x2000, 0x2800, 0x2800),
+            //NametableType::SingleScreen => return NametableOffset::new(0x2000, 0x2400, 0x2800, 0x2C00),
+            ines::NametableMirroring::FourScreens => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2000),
+            //NametableType::Diagonal => return NametableOffset::new(0x2000, 0x2000, 0x2400, 0x2C00),
+            //NametableType::LShaped => return NametableOffset::new(0x2000, 0x2000, 0x2400, 0x2800),
+            //NametableType::ThreeScreenVertical => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2800),
+            //NametableType::ThreeScreenHorizontal => return NametableOffset::new(0x2000, 0x2000, 0x2000, 0x2400),
+            //NametableType::ThreeScreenDiagonal => return NametableOffset::new(0x2000, 0x2000, 0x2400, 0x2000),
+            ines::NametableMirroring::Other => panic!("Invalid NROM nametable mirroring: {:?}", nt_type),
         }
     }
-}
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum NametableType {
-    Horizontal,
-    Vertical,
-    SingleScreen,
-    FourScreen,
-    Diagonal,
-    LShaped,
-    ThreeScreenVertical,
-    ThreeScreenHorizontal,
-    ThreeScreenDiagonal,
 }
 
 pub trait Mapper {

@@ -1,7 +1,7 @@
 use ::nes_rom::ines;
 use std::ptr;
 
-use super::{Mapper, NametableOffset, NametableType};
+use super::{Mapper, NametableOffset};
 use super::ppu;
 
 pub struct MapperNrom {
@@ -39,15 +39,7 @@ impl MapperNrom {
             nrom.prg_mask = 0xFFFF;
         }
 
-        match rom.nametable_mirroring {
-            ines::NametableMirroring::Horizontal => {
-                nrom.nt_offset = NametableOffset::from_nametable(NametableType::Horizontal);
-            }
-            ines::NametableMirroring::Vertical => {
-                nrom.nt_offset = NametableOffset::from_nametable(NametableType::Vertical);
-            }
-            _ => panic!("Invalid NROM nametable mirroring: {:?}", rom.nametable_mirroring),
-        }
+        nrom.nt_offset = NametableOffset::from_nametable(rom.nametable_mirroring);
 
         // copy prg data
         unsafe {

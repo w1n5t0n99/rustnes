@@ -1,5 +1,7 @@
-use super::{Mapper, NametableOffset, NametableType};
+use super::{Mapper, NametableOffset};
 use super::ppu;
+use ::nes_rom::ines;
+
 
 pub struct MapperDebug {
     pub sram: Vec<u8>,
@@ -24,7 +26,7 @@ impl MapperDebug {
         };
 
         
-        mapper.nt_offset = NametableOffset::from_nametable(NametableType::FourScreen);
+        mapper.nt_offset = NametableOffset::from_nametable(ines::NametableMirroring::Horizontal);
         mapper.load_tile_checkerboard();
         mapper.load_tile_indices();
         mapper.set_nt_attribute(0x0);
@@ -32,8 +34,13 @@ impl MapperDebug {
         mapper
     }
 
-    pub fn set_nt_mirroring(&mut self, nt_type: NametableType) {
-        self.nt_offset = NametableOffset::from_nametable(nt_type);
+    pub fn set_horizontal_mirroring(&mut self) {
+        self.nt_offset = NametableOffset::from_nametable(ines::NametableMirroring::Horizontal);
+        self.load_tile_indices();
+    }
+
+    pub fn set_vertical_mirroring(&mut self) {
+        self.nt_offset = NametableOffset::from_nametable(ines::NametableMirroring::Vertical);
         self.load_tile_indices();
     }
 
@@ -248,7 +255,7 @@ mod tests {
     #[test]
     fn test_nametable_vertical() {
         let mut mapper = MapperDebug::new();
-        mapper.set_nt_mirroring(NametableType::Vertical);
+        mapper.set_vertical_mirroring();
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 
@@ -281,7 +288,7 @@ mod tests {
     #[test]
     fn test_nametable_horizontal() {
         let mut mapper = MapperDebug::new();
-        mapper.set_nt_mirroring(NametableType::Horizontal);
+        mapper.set_horizontal_mirroring();
         let mut cpu_pinout = mos::Pinout::new();
         let mut ppu_pinout = ppu::Pinout::new();
 
