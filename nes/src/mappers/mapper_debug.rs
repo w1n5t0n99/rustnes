@@ -29,7 +29,10 @@ impl MapperDebug {
         mapper.nt_offset = NametableOffset::from_mirroring_type(ines::NametableMirroring::Horizontal);
         mapper.load_tile_checkerboard();
         mapper.load_tile_indices();
-        mapper.set_nt_attribute(0x0);
+        mapper.set_nt_a_attribute(0b00000000);
+        mapper.set_nt_b_attribute(0b01010101);
+        mapper.set_nt_c_attribute(0b10101010);
+        mapper.set_nt_d_attribute(0b11111111);
 
         mapper
     }
@@ -44,19 +47,25 @@ impl MapperDebug {
         self.load_tile_indices();
     }
 
-    pub fn set_nt_attribute(&mut self, value: u8) {
+    pub fn set_nt_a_attribute(&mut self, value: u8) {
         for n in ((self.nt_offset.nt_a - 0x2000) + 0x3C0)..((self.nt_offset.nt_a - 0x2000) + 0x400) {
             self.vram[n as usize] = value;
         }
+    }
 
+    pub fn set_nt_b_attribute(&mut self, value: u8) {
         for n in ((self.nt_offset.nt_b - 0x2000) + 0x3C0)..((self.nt_offset.nt_b - 0x2000) + 0x400) {
             self.vram[n as usize] = value;
         }
+    }
 
+    pub fn set_nt_c_attribute(&mut self, value: u8) {
         for n in ((self.nt_offset.nt_c - 0x2000) + 0x3C0)..((self.nt_offset.nt_c - 0x2000) + 0x400) {
             self.vram[n as usize] = value;
         }
+    }
 
+    pub fn set_nt_d_attribute(&mut self, value: u8) {
         for n in ((self.nt_offset.nt_d - 0x2000) + 0x3C0)..((self.nt_offset.nt_d - 0x2000) + 0x400) {
             self.vram[n as usize] = value;
         }
