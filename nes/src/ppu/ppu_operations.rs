@@ -251,7 +251,7 @@ pub fn enter_vblank(ppu: &mut Context, mut pinout: mos::Pinout) -> mos::Pinout {
 
     pinout
 }
-
+// TODO make sure palette read and writes are put on the bus for mmc5?
 pub fn read_palette_rendering(ppu: &mut Context, address: u16) -> u8 { 
     // only call if rendering enbabled
     let address = address & 0x1F;        

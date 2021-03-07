@@ -1,143 +1,250 @@
 use ::nes_rom::ines;
 use std::ptr;
 
-use super::{Mapper, NametableOffset};
+use super::*;
 use super::ppu;
 
 pub struct MapperNrom {
-    pub sram: Vec<u8>,
-    pub vram: Vec<u8>,
-    pub prg_rom: Vec<u8>,
-    pub chr_rom: Vec<u8>,
-    pub prg_size: u32,
-    pub prg_mask: u16,
-    pub nt_offset: NametableOffset,
+    pub context: Context,
 }
 
 impl MapperNrom {
     pub fn new() -> MapperNrom {
         MapperNrom {
-            sram: vec![0; 0x800],
-            vram: vec![0; 0x1000],
-            prg_rom: Vec::new(),
-            chr_rom: Vec::new(),
-            prg_size: 0,
-            prg_mask: 0,
-            nt_offset: NametableOffset::new(0, 0, 0, 0),
+            context: Context::new(),
         }
     }
 
     pub fn from_ines(rom: &ines::Ines) -> MapperNrom {
-        let mut nrom = MapperNrom::new();
-        nrom.prg_size = rom.prg_rom_size;
-        nrom.prg_rom = vec![0; (rom.prg_rom_size + 1) as usize];
-        // check if rom is 16K or 32K
-        if rom.prg_rom_size == 16384 {
-            nrom.prg_mask = 0xBFFF;
-        }
-        else {
-            nrom.prg_mask = 0xFFFF;
-        }
+        let mut mapper_nrom = MapperNrom::new();
 
-        nrom.nt_offset = NametableOffset::from_mirroring_type(rom.nametable_mirroring);
+        mapper_nrom.context.prg_rom = rom.prg_data.clone();
+        mapper_nrom.context.chr_rom = rom.chr_data.clone();
 
-        // copy prg data
-        unsafe {
-            let src_len = rom.prg_data.len();
-            let dst_ptr = nrom.prg_rom.as_mut_ptr();
-            let src_ptr = rom.prg_data.as_ptr();
-            ptr::copy_nonoverlapping(src_ptr, dst_ptr, src_len);
-        }
+        match rom.prg_rom_size as usize {
+            SIZE_16K => {
+                set_prg16k_8000_bfff(&mut mapper_nrom.context.prg_bank_lookup, 0);
+                set_prg16k_c000_ffff(&mut mapper_nrom.context.prg_bank_lookup, 0);
+             }
+            SIZE_32K => {
+                set_prg16k_8000_bfff(&mut mapper_nrom.context.prg_bank_lookup, 0);
+                set_prg16k_c000_ffff(&mut mapper_nrom.context.prg_bank_lookup, 1);
+             }
+            _ => panic!("prg rom size is invalid - {:#X}", rom.prg_rom_size)
+        };
 
-        nrom.chr_rom = vec![0; (rom.chr_rom_size + 1) as usize];
-        // nrom chr size must be 8K
-
-        // copy chr data
-        unsafe {
-            let src_len = rom.chr_data.len();
-            let dst_ptr = nrom.chr_rom.as_mut_ptr();
-            let src_ptr = rom.chr_data.as_ptr();
-            ptr::copy_nonoverlapping(src_ptr, dst_ptr, src_len);
+        match rom.chr_rom_size as usize {
+            SIZE_8K => {
+                set_chr8k_0000_1fff(&mut mapper_nrom.context.chr_bank_lookup, 0);
+            }
+            _ => panic!("chr rom size is invalid - {:#X}", rom.chr_rom_size)
         }
 
-        nrom
+        set_nametable_from_mirroring_type(&mut mapper_nrom.context.nametable_bank_lookup, rom.nametable_mirroring);
+
+        mapper_nrom
     }
 }
 
 impl Mapper for MapperNrom {
 
-    fn rst_vector(&mut self, addr: u16) {
+    fn change_rst_vector(&mut self, addr: u16) {
         let hb = (addr >> 8) as u8;
         let lb = addr as u8;
 
-        let mut rst_vec = (0xFFFD & self.prg_mask) - 0x8000;
-        self.prg_rom[rst_vec as usize] = hb;
-        rst_vec = (0xFFFC & self.prg_mask) - 0x8000;
-        self.prg_rom[rst_vec as usize] = lb;
+        let bank = &self.context.prg_bank_lookup[7];
+
+        let mut rst_vec = get_mem_address(bank, 0xFFFD);
+        self.context.prg_rom[rst_vec as usize] = hb;
+
+        rst_vec = get_mem_address(bank, 0xFFFC);
+        self.context.prg_rom[rst_vec as usize] = lb;
     }
 
-    fn read_internal_ram(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        pinout.data = self.sram[(pinout.address & 0x7FF) as usize];
+    // cpu 
+    fn read_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        pinout.data = self.context.sys_ram[(pinout.address & 0x7FF) as usize];
         pinout
     }
 
-    fn write_internal_ram(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        self.sram[(pinout.address & 0x7FF) as usize] = pinout.data;
+    fn read_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        // open bus
         pinout
     }
 
-    fn read_expansion_rom(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        // nrom does not implement - open bus
+    fn read_cpu_6000_7fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        // open bus
+        // TODO: maybe implement 8k wram
         pinout
     }
 
-    fn write_expansion_rom(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        // nrom does not implement - open bus
+    fn read_cpu_8000_8fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[0];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_wram(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        // nrom does not implement - open bus
+    fn read_cpu_9000_9fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[1];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+    
+    fn read_cpu_a000_afff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[2];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn write_wram(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        // nrom does not implement - open bus
+    fn read_cpu_b000_bfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[3];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_prg(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        let addr = (pinout.address & self.prg_mask) - 0x8000;
-        pinout.data = self.prg_rom[addr as usize];
+    fn read_cpu_c000_cfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[4];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn write_prg(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        // ROM can't tell whether you're doing a read or a write. It just sees "chip enabled" and "$8000", assumes everything is a read
-        // (Some boards take special ROMs that can tell a read from a write. CNROM isn't one of them. AOROM is.)
-        let addr = (pinout.address & self.prg_mask) - 0x8000;
-        pinout.data = self.prg_rom[addr as usize];
+    fn read_cpu_d000_dfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[5];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu(&mut self, mut ppu_pinout: ppu::Pinout, cpu_pinout: mos::Pinout) -> (ppu::Pinout, mos::Pinout) {
-        let addr = ppu_pinout.address;
+    fn read_cpu_e000_efff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[6];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
 
-        match addr {
-            // CHR ROM
-            0x0000..=0x1FFF => { ppu_pinout.data = self.chr_rom[addr as usize]; },
-            // NT A
-            0x2000..=0x23FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_a) as usize]; },
-            // NT B
-            0x2400..=0x27FF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_b) as usize]; },
-            // NT C
-            0x2800..=0x2BFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_c) as usize]; },
-            // NT D
-            0x2C00..=0x2FFF => { ppu_pinout.data = self.vram[(addr - self.nt_offset.nt_d) as usize]; },
-            _ => panic!("NROM PPU read out of bounds: {}", addr),
-        }
+    fn read_cpu_f000_ffff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[7];
+        pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
 
-        (ppu_pinout, cpu_pinout)
+    fn write_cpu_8000_8fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[0];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        pinout
+    }
+
+    fn write_cpu_9000_9fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[1];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] =pinout.data;
+        pinout
+    }
+    
+    fn write_cpu_a000_afff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[2];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        pinout
+    }
+
+    fn write_cpu_b000_bfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[3];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        pinout
+    }
+
+    fn write_cpu_c000_cfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[4];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] =pinout.data;
+        pinout
+    }
+
+    fn write_cpu_d000_dfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[5];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        pinout
+    }
+
+    fn write_cpu_e000_efff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[6];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        pinout
+    }
+
+    fn write_cpu_f000_ffff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        let bank = &self.context.prg_bank_lookup[7];
+        self.context.prg_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        pinout
+    }
+
+    // ppu
+    fn read_ppu_0000_03ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[0];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_0400_07ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[1];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_0800_0bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[2];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_0c00_0fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[3];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_1000_13ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[4];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_1400_17ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[5];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_1800_1bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[6];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_1c00_1fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.chr_bank_lookup[7];
+        pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.nametable_bank_lookup[0];
+        pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_2400_27ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.nametable_bank_lookup[1];
+        pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_2800_2bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.nametable_bank_lookup[2];
+        pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
+        pinout
+    }
+
+    fn read_ppu_2c00_2fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+        let bank = &self.context.nametable_bank_lookup[3];
+        pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
+        pinout
     }
 
     fn write_ppu(&mut self, ppu_pinout: ppu::Pinout, cpu_pinout: mos::Pinout) -> (ppu::Pinout, mos::Pinout) {
