@@ -6,6 +6,8 @@ use std::fmt;
 
 const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_OFFSET: u16 = 8;
+const PATTERN0_INDEX: usize = 0;
+const PATTERN1_INDEX: usize = 1;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Background {
@@ -25,6 +27,14 @@ impl Background {
             next_attribute: 0,
             next_tile_index: 0,
         }
+    }
+
+    pub fn set_next_pattern0(&mut self, data: u8) {
+        self.next_pattern[PATTERN0_INDEX] = data;
+    }
+
+    pub fn set_next_pattern1(&mut self, data: u8) {
+        self.next_pattern[PATTERN1_INDEX] = data;
     }
 
     pub fn select_background_pixel(&mut self, ppu: &mut Context) -> u8 {

@@ -83,6 +83,10 @@ impl Console for NesNtsc {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
                 if self.ppu.is_end_of_frame() { break; }
             }
+
+            {
+                self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
+            }
         }
 
         for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
@@ -111,6 +115,10 @@ impl Console for NesNtsc {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
                 if self.ppu.is_end_of_frame() { break; }
             }
+
+            {
+                self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
+            }
         }
 
         for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
@@ -134,6 +142,10 @@ impl Console for NesNtsc {
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
             self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+        }
+
+        {
+            self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
         }
     }
 

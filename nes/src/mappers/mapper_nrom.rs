@@ -62,252 +62,252 @@ impl Mapper for MapperNrom {
     }
 
     // cpu 
-    fn read_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_0000_1fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout.data = self.context.sys_ram[(pinout.address & 0x7FF) as usize];
         pinout
     }
 
-    fn read_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_4020_5fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         // open bus
         pinout
     }
 
-    fn read_cpu_6000_7fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         // open bus
         // TODO: maybe implement 8k wram
         pinout
     }
 
-    fn read_cpu_8000_8fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_8000_8fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[0];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_cpu_9000_9fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_9000_9fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[1];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
     
-    fn read_cpu_a000_afff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_a000_afff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[2];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_cpu_b000_bfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_b000_bfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[3];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_cpu_c000_cfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_c000_cfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[4];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_cpu_d000_dfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_d000_dfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[5];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_cpu_e000_efff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_e000_efff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[6];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_cpu_f000_ffff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_f000_ffff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         let bank = &self.context.prg_bank_lookup[7];
         pinout.data = self.context.prg_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn write_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_0000_1fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         self.context.sys_ram[(pinout.address & 0x7FF) as usize] = pinout.data;
         pinout
     }
 
-    fn write_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_4020_5fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         // open bus
         pinout
     }
 
-    fn write_cpu_6000_7fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         // open bus
         // TODO: maybe implement 8k wram
         pinout
     }
 
-    fn write_cpu_8000_8fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_8000_8fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn write_cpu_9000_9fff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_9000_9fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
     
-    fn write_cpu_a000_afff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_a000_afff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn write_cpu_b000_bfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_b000_bfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn write_cpu_c000_cfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_c000_cfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn write_cpu_d000_dfff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_d000_dfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn write_cpu_e000_efff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_e000_efff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn write_cpu_f000_ffff(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_f000_ffff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
     // ppu
-    fn read_ppu_0000_03ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_0000_03ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[0];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_0400_07ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_0400_07ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[1];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_0800_0bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_0800_0bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[2];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_0c00_0fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_0c00_0fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[3];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_1000_13ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_1000_13ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[4];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_1400_17ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_1400_17ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[5];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_1800_1bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_1800_1bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[6];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_1c00_1fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_1c00_1fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.chr_bank_lookup[7];
         pinout.data = self.context.chr_rom[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn read_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn read_ppu_2000_23ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[0];
         pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn  read_ppu_2400_27ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  read_ppu_2400_27ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[1];
         pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn  read_ppu_2800_2bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  read_ppu_2800_2bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[2];
         pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn  read_ppu_2c00_2fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  read_ppu_2c00_2fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[3];
         pinout.data = self.context.vram[get_mem_address(bank, pinout.address)];
         pinout
     }
 
-    fn  write_ppu_0000_03ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_0000_03ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_0400_07ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_0400_07ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_0800_0bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_0800_0bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_0c00_0fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_0c00_0fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_1000_13ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_1000_13ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_1400_17ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_1400_17ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_1800_1bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_1800_1bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_1c00_1fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_1c00_1fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 
-    fn  write_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_2000_23ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[0];
         self.context.vram[get_mem_address(bank, pinout.address)] =pinout.data;
         pinout
     }
 
-    fn  write_ppu_2400_27ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_2400_27ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[1];
         self.context.vram[get_mem_address(bank, pinout.address)] = pinout.data;
         pinout
     }
 
-    fn  write_ppu_2800_2bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_2800_2bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[2];
         self.context.vram[get_mem_address(bank, pinout.address)] = pinout.data;
         pinout
     }
 
-    fn  write_ppu_2c00_2fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_2c00_2fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         let bank = &self.context.nametable_bank_lookup[3];
         self.context.vram[get_mem_address(bank, pinout.address)] = pinout.data;
         pinout
     }
 
-    fn cpu_tick(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+    fn cpu_tick(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         pinout
     }
 
-    fn ppu_tick(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
+    fn ppu_tick(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 }
