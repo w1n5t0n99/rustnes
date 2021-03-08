@@ -20,6 +20,8 @@ impl MapperNrom {
 
         mapper_nrom.context.prg_rom = rom.prg_data.clone();
         mapper_nrom.context.chr_rom = rom.chr_data.clone();
+        // lets 8k wram
+        mapper_nrom.context.work_ram = Some(vec![0; SIZE_8K]);
 
         match rom.prg_rom_size as usize {
             SIZE_16K => {
@@ -40,6 +42,7 @@ impl MapperNrom {
             _ => panic!("chr rom size is invalid - {:#X}", rom.chr_rom_size)
         }
 
+        set_wram8k_6000_7fff(&mut mapper_nrom.context.wram_bank_lookup, 0);
         set_nametable_from_mirroring_type(&mut mapper_nrom.context.nametable_bank_lookup, rom.nametable_mirroring);
 
         mapper_nrom
@@ -74,7 +77,15 @@ impl Mapper for MapperNrom {
 
     fn read_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         // open bus
-        // TODO: maybe implement 8k wram
+        match self.context.work_ram {
+            Some(ref wram) => {
+                let bank = &self.context.wram_bank_lookup[0];
+                pinout.data = wram[get_mem_address(bank, pinout.address)];
+            }
+            None => {
+
+            }
+        }
         pinout
     }
 
@@ -137,8 +148,15 @@ impl Mapper for MapperNrom {
     }
 
     fn write_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        // open bus
-        // TODO: maybe implement 8k wram
+        match self.context.work_ram {
+            Some(ref mut wram) => {
+                let bank = &self.context.wram_bank_lookup[0];
+                wram[get_mem_address(bank, pinout.address)] = pinout.data;
+            }
+            None => {
+
+            }
+        }
         pinout
     }
 

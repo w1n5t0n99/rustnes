@@ -119,7 +119,6 @@ pub fn set_nametable_three_screen_diagonal(bank_lookup: &mut[Bank]) {
 pub fn set_wram8k_6000_7fff(bank_lookup: &mut[Bank], bank_index: usize) {
     let bank_mask = 0x1FFF;
     bank_lookup[0] = Bank::new(bank_mask, bank_index << 13);
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 13);
 }
 
 // cpu 4k bank switching
@@ -333,9 +332,9 @@ pub struct Context {
     pub chr_rom: Vec<u8>,
     pub sys_ram: Vec<u8>,
     pub vram: Vec<u8>,
-    pub work_ram: Option<Vec<u8>>,
+    pub work_ram: Option<Vec<u8>>,           
     pub prg_bank_lookup: [Bank; 8],          // 4k smallest banks
-    pub wram_bank_lookup: [Bank; 2],         // 4k smallest banks
+    pub wram_bank_lookup: [Bank; 1],         // 8k smallest banks
     pub chr_bank_lookup: [Bank; 8],          // 1k smallest banks
     pub nametable_bank_lookup: [Bank; 4],    // 1k smallest banks
 }
@@ -349,7 +348,7 @@ impl Context {
             vram: vec![0; SIZE_4K],
             work_ram: None,
             prg_bank_lookup: [Bank::new(0, 0); 8],
-            wram_bank_lookup: [Bank::new(0, 0); 2],
+            wram_bank_lookup: [Bank::new(0, 0); 1],
             chr_bank_lookup: [Bank::new(0, 0); 8],
             nametable_bank_lookup: [Bank::new(0, 0); 4],
         }
