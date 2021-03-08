@@ -30,7 +30,7 @@ fn read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinou
 }
 
 fn write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.ctrl.set(Ctrl::RD, false);
+    pinout.ctrl.set(Ctrl::WR, false);
     pinout.ctrl.set(Ctrl::RD, true);
     match pinout.address {
         0x0000..=0x03ff => { pinout = mapper.write_ppu_0000_03ff(pinout); }
@@ -49,7 +49,7 @@ fn write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pino
         0x3400..=0x37ff => { pinout = mapper.write_ppu_2400_27ff(pinout); }
         0x3800..=0x3bff => { pinout = mapper.write_ppu_2800_2bff(pinout); }
         0x3c00..=0x3fff => { pinout = mapper.write_ppu_2c00_2fff(pinout); }
-        _ => panic!("ppu read {:#X} - should be able to read 0x3fff", pinout.address)
+        _ => panic!("ppu write {:#X} - should be able to read 0x3fff", pinout.address)
     }
     pinout
 }
