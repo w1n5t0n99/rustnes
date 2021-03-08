@@ -47,10 +47,17 @@ impl<'a> CpuBus<'a> {
 impl<'a> mos::bus::Bus for CpuBus<'a> {
     fn read(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         match pinout.address {
-            0x8000..=0xFFFF => { pinout = self.mapper.read_prg(pinout); }
-            0x0000..=0x1FFF => { pinout = self.mapper.read_internal_ram(pinout); }
-            0x4020..=0x5FFF => { pinout = self.mapper.read_expansion_rom(pinout); }
-            0x6000..=0x7FFF => { pinout = self.mapper.read_wram(pinout); }
+            0x0000..=0x1fff => { pinout = self.mapper.read_cpu_0000_1fff(pinout); }
+            0x4020..=0x5fff => { pinout = self.mapper.read_cpu_4020_5fff(pinout); }
+            0x6000..=0x7fff => { pinout = self.mapper.read_cpu_6000_7fff(pinout); }
+            0x8000..=0x8fff => { pinout = self.mapper.read_cpu_8000_8fff(pinout); }
+            0x9000..=0x9fff => { pinout = self.mapper.read_cpu_9000_9fff(pinout); }
+            0xa000..=0xafff => { pinout = self.mapper.read_cpu_a000_afff(pinout); }
+            0xb000..=0xbfff => { pinout = self.mapper.read_cpu_b000_bfff(pinout); }
+            0xc000..=0xcfff => { pinout = self.mapper.read_cpu_c000_cfff(pinout); }
+            0xd000..=0xdfff => { pinout = self.mapper.read_cpu_d000_dfff(pinout); }
+            0xe000..=0xefff => { pinout = self.mapper.read_cpu_e000_efff(pinout); }
+            0xf000..=0xffff => { pinout = self.mapper.read_cpu_f000_ffff(pinout); }
             0x2000..=0x3FFF => {
                 match pinout.address & 0x07 {
                     0 => { pinout = self.ppu.read_port(pinout); }
@@ -86,10 +93,17 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
 
     fn write(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         match pinout.address {
-            0x8000..=0xFFFF => { pinout = self.mapper.write_prg(pinout); }
-            0x0000..=0x1FFF => { pinout = self.mapper.write_internal_ram(pinout); }
-            0x4020..=0x5FFF => { pinout = self.mapper.write_expansion_rom(pinout); }
-            0x6000..=0x7FFF => { pinout = self.mapper.write_wram(pinout); }
+            0x0000..=0x1fff => { pinout = self.mapper.write_cpu_0000_1fff(pinout); }
+            0x4020..=0x5fff => { pinout = self.mapper.write_cpu_4020_5fff(pinout); }
+            0x6000..=0x7fff => { pinout = self.mapper.write_cpu_6000_7fff(pinout); }
+            0x8000..=0x8fff => { pinout = self.mapper.write_cpu_8000_8fff(pinout); }
+            0x9000..=0x9fff => { pinout = self.mapper.write_cpu_9000_9fff(pinout); }
+            0xa000..=0xafff => { pinout = self.mapper.write_cpu_a000_afff(pinout); }
+            0xb000..=0xbfff => { pinout = self.mapper.write_cpu_b000_bfff(pinout); }
+            0xc000..=0xcfff => { pinout = self.mapper.write_cpu_c000_cfff(pinout); }
+            0xd000..=0xdfff => { pinout = self.mapper.write_cpu_d000_dfff(pinout); }
+            0xe000..=0xefff => { pinout = self.mapper.write_cpu_e000_efff(pinout); }
+            0xf000..=0xffff => { pinout = self.mapper.write_cpu_f000_ffff(pinout); }
             0x4014 => { self.dma.oam_execute(pinout.data) },
             0x2000..=0x3FFF => {
                 match pinout.address & 0x07 {
@@ -144,10 +158,17 @@ impl<'a> DmaBus<'a> {
 impl<'a> mos::bus::Bus for DmaBus<'a> {
     fn read(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         match pinout.address {
-            0x8000..=0xFFFF => { pinout = self.mapper.read_prg(pinout); }
-            0x0000..=0x1FFF => { pinout = self.mapper.read_internal_ram(pinout); }
-            0x4020..=0x5FFF => { pinout = self.mapper.read_expansion_rom(pinout); }
-            0x6000..=0x7FFF => { pinout = self.mapper.read_wram(pinout); }
+            0x0000..=0x1fff => { pinout = self.mapper.read_cpu_0000_1fff(pinout); }
+            0x4020..=0x5fff => { pinout = self.mapper.read_cpu_4020_5fff(pinout); }
+            0x6000..=0x7fff => { pinout = self.mapper.read_cpu_6000_7fff(pinout); }
+            0x8000..=0x8fff => { pinout = self.mapper.read_cpu_8000_8fff(pinout); }
+            0x9000..=0x9fff => { pinout = self.mapper.read_cpu_9000_9fff(pinout); }
+            0xa000..=0xafff => { pinout = self.mapper.read_cpu_a000_afff(pinout); }
+            0xb000..=0xbfff => { pinout = self.mapper.read_cpu_b000_bfff(pinout); }
+            0xc000..=0xcfff => { pinout = self.mapper.read_cpu_c000_cfff(pinout); }
+            0xd000..=0xdfff => { pinout = self.mapper.read_cpu_d000_dfff(pinout); }
+            0xe000..=0xefff => { pinout = self.mapper.read_cpu_e000_efff(pinout); }
+            0xf000..=0xffff => { pinout = self.mapper.read_cpu_f000_ffff(pinout); }
             0x2000..=0x3FFF => {
                 match pinout.address & 0x07 {
                     0 => { pinout = self.ppu.read_port(pinout); }
@@ -175,10 +196,17 @@ impl<'a> mos::bus::Bus for DmaBus<'a> {
 
     fn write(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
         match pinout.address {
-            0x8000..=0xFFFF => { pinout = self.mapper.write_prg(pinout); }
-            0x0000..=0x1FFF => { pinout = self.mapper.write_internal_ram(pinout); }
-            0x4020..=0x5FFF => { pinout = self.mapper.write_expansion_rom(pinout); }
-            0x6000..=0x7FFF => { pinout = self.mapper.write_wram(pinout); }
+            0x0000..=0x1fff => { pinout = self.mapper.write_cpu_0000_1fff(pinout); }
+            0x4020..=0x5fff => { pinout = self.mapper.write_cpu_4020_5fff(pinout); }
+            0x6000..=0x7fff => { pinout = self.mapper.write_cpu_6000_7fff(pinout); }
+            0x8000..=0x8fff => { pinout = self.mapper.write_cpu_8000_8fff(pinout); }
+            0x9000..=0x9fff => { pinout = self.mapper.write_cpu_9000_9fff(pinout); }
+            0xa000..=0xafff => { pinout = self.mapper.write_cpu_a000_afff(pinout); }
+            0xb000..=0xbfff => { pinout = self.mapper.write_cpu_b000_bfff(pinout); }
+            0xc000..=0xcfff => { pinout = self.mapper.write_cpu_c000_cfff(pinout); }
+            0xd000..=0xdfff => { pinout = self.mapper.write_cpu_d000_dfff(pinout); }
+            0xe000..=0xefff => { pinout = self.mapper.write_cpu_e000_efff(pinout); }
+            0xf000..=0xffff => { pinout = self.mapper.write_cpu_f000_ffff(pinout); }
             0x2000..=0x3FFF => {
                 match pinout.address & 0x07 {
                     0 => { pinout = self.ppu.write_ppuctrl(pinout); }

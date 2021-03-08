@@ -30,6 +30,7 @@ impl Default for Ctrl {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Pinout {
+    pub ctrl: Ctrl,
     pub address: u16,
     pub data: u8,
 }
@@ -37,6 +38,7 @@ pub struct Pinout {
 impl Pinout {
     pub fn new() -> Self {
         Pinout {
+            ctrl: Ctrl::default(),
             address: 0,
             data: 0,
         }
@@ -49,13 +51,6 @@ impl fmt::Display for Pinout {
         write!(f, "AB:{:#06X} - Data:{:#04X} [{}]", self.address, self.data, self.data)
         
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Ppu2007State {
-    Idle,
-    Read,
-    Write,
 }
 
 #[derive(Clone, Copy)]
@@ -75,9 +70,8 @@ pub struct Context {
     pub oam_addr_reg: u8,
     pub monochrome_mask: u8,
     pub io_db: u8,                                      // Simulate latch created by long traces of data bus
-    pub ppu_2007_rd_buffer: u8,
-    pub ppu_2007_wr_buffer: u8,
-    pub ppu_2007_state: Ppu2007State,
+    pub ppu_2007_rd_buffer: Option<u8>,
+    pub ppu_2007_wr_buffer: Option<u8>,
     pub odd_frame: bool,
 }
 
@@ -99,9 +93,8 @@ impl Context {
             oam_addr_reg: 0,
             monochrome_mask: 0xFF,
             io_db: 0,
-            ppu_2007_rd_buffer: 0,
-            ppu_2007_wr_buffer: 0,
-            ppu_2007_state: Ppu2007State::Idle,
+            ppu_2007_rd_buffer: None,
+            ppu_2007_wr_buffer: None,
             odd_frame: true,
         }
     }

@@ -415,3 +415,17 @@ pub trait Mapper {
     // no side effects from reading (e.g. mappers with memory mapped regs) used for debugging
     //fn peek_ppu(&mut self, addr: u16) -> u8;
 }
+
+pub fn create_mapper_null() -> Box<dyn Mapper> {
+    Box::new(MapperNull {})
+}
+
+pub fn create_mapper(rom: &ines::Ines) -> Box<dyn Mapper> {
+    match rom.mapper {
+        0 => {
+            Box::new(MapperNrom::from_ines(rom))
+        }
+        // TODO: add error handling instead of panicking like a monster
+        _ => { panic!("mapper {} implementation not found", rom.mapper); }
+    }
+}
