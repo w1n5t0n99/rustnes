@@ -254,51 +254,51 @@ pub fn set_chr1k_1c00_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
 
 // ppu 2k bank switching
 pub fn set_chr2k_0000_07ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 10);
+    let bank_mask = 0x7FF;
+    bank_lookup[0] = Bank::new(bank_mask, bank_index << 11);
+    bank_lookup[1] = Bank::new(bank_mask, bank_index << 11);
 }
 
 pub fn set_chr2k_0800_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 10);
+    let bank_mask = 0x7FF;
+    bank_lookup[2] = Bank::new(bank_mask, bank_index << 11);
+    bank_lookup[3] = Bank::new(bank_mask, bank_index << 11);
 }
 
 pub fn set_chr2k_1000_17ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 10);
+    let bank_mask = 0x7FF;
+    bank_lookup[4] = Bank::new(bank_mask, bank_index << 11);
+    bank_lookup[5] = Bank::new(bank_mask, bank_index << 11);
 }
 
 pub fn set_chr2k_1800_1fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 10);
+    let bank_mask = 0x7FF;
+    bank_lookup[6] = Bank::new(bank_mask, bank_index << 11);
+    bank_lookup[7] = Bank::new(bank_mask, bank_index << 11);
 }
 
 // ppu 4k bank switching
 pub fn set_chr4k_0000_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 10);
+    let bank_mask = 0xFFF;
+    bank_lookup[0] = Bank::new(bank_mask, bank_index << 12);
+    bank_lookup[1] = Bank::new(bank_mask, bank_index << 12);
+    bank_lookup[2] = Bank::new(bank_mask, bank_index << 12);
+    bank_lookup[3] = Bank::new(bank_mask, bank_index << 12);
 }
 
 pub fn set_chr4k_1000_1fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 10);
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 10);
+    let bank_mask = 0xFFF;
+    bank_lookup[4] = Bank::new(bank_mask, bank_index << 12);
+    bank_lookup[5] = Bank::new(bank_mask, bank_index << 12);
+    bank_lookup[6] = Bank::new(bank_mask, bank_index << 12);
+    bank_lookup[7] = Bank::new(bank_mask, bank_index << 12);
 }
 
 // ppu 8k bank switching
 pub fn set_chr8k_0000_1fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
+    let bank_mask = 0x1FFF;
     for i in 0..8 {
-        bank_lookup[i] = Bank::new(bank_mask, bank_index << 10);
+        bank_lookup[i] = Bank::new(bank_mask, bank_index << 13);
     }
 }
 
