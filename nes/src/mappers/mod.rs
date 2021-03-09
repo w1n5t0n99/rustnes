@@ -4,6 +4,7 @@ mod mapper1;
 
 use super::ppu;
 use mapper_nrom::MapperNrom;
+use mapper1::Mapper1;
 use mapper_null::MapperNull;
 use ::nes_rom::ines;
 
@@ -67,11 +68,18 @@ pub fn set_nametable_vertical(bank_lookup: &mut[Bank]) {
     set_vram_2c00_2fff(bank_lookup, 1);
 }
 
-pub fn set_nametable_single_screen(bank_lookup: &mut[Bank]) {
+pub fn set_nametable_single_screen_lower(bank_lookup: &mut[Bank]) {
     set_vram_2000_23ff(bank_lookup, 0);
     set_vram_2400_27ff(bank_lookup, 0);
     set_vram_2800_2bff(bank_lookup, 0);
     set_vram_2c00_2fff(bank_lookup, 0);
+}
+
+pub fn set_nametable_single_screen_upper(bank_lookup: &mut[Bank]) {
+    set_vram_2000_23ff(bank_lookup, 1);
+    set_vram_2400_27ff(bank_lookup, 1);
+    set_vram_2800_2bff(bank_lookup, 1);
+    set_vram_2c00_2fff(bank_lookup, 1);
 }
 
 pub fn set_nametable_four_screen(bank_lookup: &mut[Bank]) {
@@ -424,6 +432,9 @@ pub fn create_mapper(rom: &ines::Ines) -> Box<dyn Mapper> {
     match rom.mapper {
         0 => {
             Box::new(MapperNrom::from_ines(rom))
+        }
+        1 => {
+            Box::new(Mapper1::from_ines(rom))
         }
         // TODO: add error handling instead of panicking like a monster
         _ => { panic!("mapper {} implementation not found", rom.mapper); }

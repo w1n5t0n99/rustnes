@@ -23,6 +23,7 @@ pub struct Mapper1 {
     pub shift_count: u8,
     pub cpu_cycle: u64,
     pub last_write_cpu_cycle: u64,
+    pub ram_enable: bool,
 }
 
 impl Mapper1 {
@@ -35,6 +36,7 @@ impl Mapper1 {
             shift_count: 0,
             cpu_cycle: 0,
             last_write_cpu_cycle: 0,
+            ram_enable: false,
         }
     }
 
@@ -54,29 +56,77 @@ impl Mapper1 {
         mapper1
     }
 
-    pub fn apply_shift(&mut self, reg_index: u8, data: u8) {
-         
-    }
-
     pub fn clear_shift(&mut self) {
         self.shift_register = 0;
         self.shift_count = 0;
     }
 
-    pub fn shift(&mut self, pinout: mos::Pinout) {
-        match self.shift_count {
-            0..=3 => {
-                self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
-                self.shift_count += 1; 
-            }
-            4 => {
-                self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
-                let index = ((pinout.address & 0x6000) >> 12) as u8;
-                self.apply_shift(index, self.shift_register);
-                self.clear_shift();
-            }
-            _ => panic!("mapper1 shift register out of bounds")
+    pub fn handle_ctrl(&mut self, data: u8) {
+        // mirroring
+        match data & 0x03 {
+            0 => set_nametable_single_screen_lower(&mut self.context.nametable_bank_lookup),
+            1 => set_nametable_single_screen_upper(&mut self.context.nametable_bank_lookup),
+            2 => set_nametable_vertical(&mut self.context.nametable_bank_lookup),
+            3 => set_nametable_horizontal(&mut self.context.nametable_bank_lookup),
+            _ => panic!("mapper 1 mirroring out of bounds")
         }
+
+        // prg bank mode
+        match (data & 0xC0) >> 2 {
+            0 | 1 => { self.prg_bank_mode = PrgBankMode::Switch32K; }
+            2 => { self.prg_bank_mode = PrgBankMode::FixFirst; }
+            3 => { self.prg_bank_mode = PrgBankMode::FixLast; }
+            _ => panic!("mapper 1 prg bank mode out of bounds")
+        }
+
+        match (data & 0x10) {
+            0 => { self.chr_bank_mode = ChrBankMode::Switch8K; }
+            0x10 => { self.chr_bank_mode = ChrBankMode::Switch4K; }
+            _ => panic!("mapper 1 chr bank mode out of bounds")
+        }
+    }
+
+    pub fn handle_chr_bank0(&mut self, data: u8) {
+        match self.chr_bank_mode {
+            ChrBankMode::Switch8K => {
+                set_chr8k_0000_1fff(&mut self.context.chr_bank_lookup, (data >> 1) as usize);
+            }
+            ChrBankMode::Switch4K => {
+                set_chr4k_0000_0fff(&mut self.context.chr_bank_lookup, data as usize);
+            }
+        }
+    }
+
+    pub fn handle_chr_bank1(&mut self, data: u8) {
+        match self.chr_bank_mode {
+            ChrBankMode::Switch8K => {
+                // ignored in 8kb mode
+            }
+            ChrBankMode::Switch4K => {
+                set_chr4k_1000_1fff(&mut self.context.chr_bank_lookup, data as usize);
+            }
+        }
+    }
+
+    pub fn handle_prg_bank(&mut self, data: u8) {
+        let bank = (data & 0x0F) as usize;
+        let ram_enable = data & 0x10;
+
+        match self.prg_bank_mode {
+            PrgBankMode::Switch32K => {
+                set_prg32k_8000_ffff(&mut self.context.prg_bank_lookup, bank >> 1);
+            }
+            PrgBankMode::FixFirst => {
+                set_prg16k_8000_bfff(&mut self.context.prg_bank_lookup, 0);
+                set_prg16k_c000_ffff(&mut self.context.prg_bank_lookup, bank);
+            }
+            PrgBankMode::FixLast => {
+                set_prg16k_8000_bfff(&mut self.context.prg_bank_lookup, bank);
+                set_prg16k_c000_ffff(&mut self.context.prg_bank_lookup, get_last_bank_index(SIZE_32K, self.context.prg_rom.len()));
+            }
+        }
+
+        if ram_enable == 0x10 { self.ram_enable = true; }
     }
 
     pub fn write_handler(&mut self, pinout: mos::Pinout) {
@@ -84,9 +134,27 @@ impl Mapper1 {
             self.clear_shift();
         }
 
-        self.shift(pinout);
+        match self.shift_count {
+            0..=3 => {
+                self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
+                self.shift_count += 1; 
+            }
+            4 => {
+                self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
+                // index is bit 14 and 13 of address
+                let index = ((pinout.address & 0x6000) >> 13) as u8;
+                match index {
+                    0 => { self.handle_ctrl(self.shift_register); }
+                    1 => { self.handle_chr_bank0(self.shift_register); }
+                    2 => { self.handle_chr_bank1(self.shift_register); }
+                    3 => { self.handle_prg_bank(self.shift_register); }
+                    _ => panic!("mmc1 register out of bounds")
+                }
 
-        
+                self.clear_shift();
+            }
+            _ => panic!("mapper1 shift register out of bounds")
+        }
     }
 }
 
@@ -202,34 +270,66 @@ impl Mapper for Mapper1 {
     }
 
     fn write_cpu_8000_8fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
 
     fn write_cpu_9000_9fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
     
     fn write_cpu_a000_afff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
 
     fn write_cpu_b000_bfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
 
     fn write_cpu_c000_cfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
 
     fn write_cpu_d000_dfff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
 
     fn write_cpu_e000_efff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+
         pinout
     }
 
     fn write_cpu_f000_ffff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+        if self.cpu_cycle > self.last_write_cpu_cycle {
+            self.write_handler(pinout);
+        }
+        
         pinout
     }
 
@@ -368,6 +468,7 @@ impl Mapper for Mapper1 {
             //check if this is a write cycle
             self.last_write_cpu_cycle = self.cpu_cycle;
         }
+
         pinout
     }
 
