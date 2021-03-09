@@ -1,5 +1,6 @@
 mod mapper_null;
 mod mapper_nrom;
+mod mapper1;
 
 use super::ppu;
 use mapper_nrom::MapperNrom;

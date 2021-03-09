@@ -85,10 +85,6 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout:
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.vram_address() & 0x2FFF;
 
-    if  pinout.address >0x27FF &&  pinout.address <0x3000 {
-        println!("vram write: {:#X}", pinout.address);
-    }
-
     if ppu.ppu_2007_wr_buffer.is_some() {
         let buffer = ppu.ppu_2007_wr_buffer.take();
         if ppu.addr_reg.vram_address() > 0x2FFF {

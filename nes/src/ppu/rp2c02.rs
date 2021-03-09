@@ -168,7 +168,7 @@ impl Rp2c02 {
             }
             0x0000..=0x3EFF => {
                 let rdbuffer = self.context.ppu_2007_rd_buffer.take();
-                pinout.data = rdbuffer.unwrap_or(0);
+                pinout.data = rdbuffer.unwrap();
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
