@@ -314,8 +314,8 @@ pub fn get_last_bank_index(bank_size: usize, data_size: usize) -> usize {
 pub fn set_nametable_from_mirroring_type(bank_lookup: &mut[Bank], mirror_type: ines::NametableMirroring) {
     // TODO update nes_rom crate to support other mirroring types
     match mirror_type {
-        ines::NametableMirroring::Horizontal =>  set_nametable_horizontal(bank_lookup),
-        ines::NametableMirroring::Vertical => set_nametable_vertical(bank_lookup),
+        ines::NametableMirroring::Horizontal =>  set_nametable_vertical(bank_lookup),
+        ines::NametableMirroring::Vertical => set_nametable_horizontal(bank_lookup),
         //ines::NametableMirroring::SingleScreen => set_nametable_single_screen(bank_lookup),
         ines::NametableMirroring::FourScreens => set_nametable_four_screen(bank_lookup),
         //ines::NametableMirroring::Diagonal => set_nametable_diagonal(bank_lookup),

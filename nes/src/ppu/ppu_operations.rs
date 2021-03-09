@@ -85,8 +85,18 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout:
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.vram_address() & 0x2FFF;
 
+    if  pinout.address >0x27FF &&  pinout.address <0x3000 {
+        println!("vram write: {:#X}", pinout.address);
+    }
+
     if ppu.ppu_2007_wr_buffer.is_some() {
         let buffer = ppu.ppu_2007_wr_buffer.take();
+        if ppu.addr_reg.vram_address() > 0x2FFF {
+            // write to palette doesn't write to mirror ... as far as I know
+            ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
+            return pinout;
+        }
+
         pinout.data = buffer.unwrap();
         pinout = write(ppu, mapper, pinout);
         ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
@@ -94,7 +104,6 @@ pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: P
     }
 
     if ppu.ppu_2007_rd_buffer.is_none() {
-        ppu.ppu_2007_rd_buffer = Some(pinout.data);
         pinout = read(ppu, mapper, pinout);
         ppu.ppu_2007_rd_buffer = Some(pinout.data);
         ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
