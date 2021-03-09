@@ -21,6 +21,8 @@ pub struct Mapper1 {
     pub chr_bank_mode: ChrBankMode,
     pub shift_register: u8,
     pub shift_count: u8,
+    pub cpu_cycle: u64,
+    pub last_write_cpu_cycle: u64,
 }
 
 impl Mapper1 {
@@ -31,6 +33,8 @@ impl Mapper1 {
             chr_bank_mode: ChrBankMode::Switch8K,
             shift_register: 0,
             shift_count: 0,
+            cpu_cycle: 0,
+            last_write_cpu_cycle: 0,
         }
     }
 
@@ -51,7 +55,7 @@ impl Mapper1 {
     }
 
     pub fn apply_shift(&mut self, reg_index: u8, data: u8) {
-
+         
     }
 
     pub fn clear_shift(&mut self) {
@@ -67,12 +71,22 @@ impl Mapper1 {
             }
             4 => {
                 self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
-                let index = ((pinout.address & 0x6000) >> 13) as u8;
+                let index = ((pinout.address & 0x6000) >> 12) as u8;
                 self.apply_shift(index, self.shift_register);
                 self.clear_shift();
             }
             _ => panic!("mapper1 shift register out of bounds")
         }
+    }
+
+    pub fn write_handler(&mut self, pinout: mos::Pinout) {
+        if (pinout.data & 0x80) > 0 {
+            self.clear_shift();
+        }
+
+        self.shift(pinout);
+
+        
     }
 }
 
@@ -348,7 +362,12 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn cpu_tick(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    fn cpu_tick(&mut self, pinout: mos::Pinout) -> mos::Pinout {
+        self.cpu_cycle += 1;
+        if !pinout.ctrl.contains(mos::Ctrl::RW) {
+            //check if this is a write cycle
+            self.last_write_cpu_cycle = self.cpu_cycle;
+        }
         pinout
     }
 
