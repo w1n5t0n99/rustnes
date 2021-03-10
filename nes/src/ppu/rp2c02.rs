@@ -207,21 +207,13 @@ impl Rp2c02 {
         self.context.prev_scanline_dot = self.context.scanline_dot;
 
         match self.context.scanline_index {
-            261 => {
-                if self.context.mask_reg.rendering_enabled() { self.scanline_prerender(mapper) } else { self.scanline_prerender_nonvisible(mapper) };
-            }
-            0..=239 => {
-                if self.context.mask_reg.rendering_enabled() { self.scanline_render(fb, mapper) } else { self.scanline_render_nonvisible(fb, mapper) };
-            }
-            240 => {
-                self.scanline_postrender(mapper);
-            }
-            241..=260 => {
-                cpu_pinout = self.scanline_vblank(mapper, cpu_pinout);
-            }
-            _ => {
-                panic!("Scanline index out of bounds");
-            }
+            261 if self.context.mask_reg.rendering_enabled() => { self.scanline_prerender(mapper); }
+            261 => { self.scanline_prerender_nonvisible(mapper) }
+            0..=239 if self.context.mask_reg.rendering_enabled() => { self.scanline_render(fb, mapper); }
+            0..=239 => { self.scanline_render_nonvisible(fb, mapper); }
+            240 => { self.scanline_postrender(mapper); }
+            241..=260 => { cpu_pinout = self.scanline_vblank(mapper, cpu_pinout); }
+            _ => { panic!("Scanline index out of bounds"); }
         }
 
 

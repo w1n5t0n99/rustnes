@@ -76,6 +76,40 @@ impl AddrReg {
     }
 
     pub fn y_increment(&mut self) {
+
+        // y scroll still wraps from 31, but without flipping bit 11
+        if (self.v & 0x7000) == 0x7000 {
+            // tile Y wraps from 7 -> 0
+            let mut vaddr = self.v & 0x0FFF;
+            // now check the y scroll
+            match vaddr & 0x03E0 {
+                0x03a0 => {
+                    // y scroll is 29
+                    vaddr &= !0x03E0;
+                    vaddr ^= 0x0800;
+                }
+                0x03E0 => {
+                    // y scroll is 31
+                    vaddr &= !0x03E0;
+                }
+                _ => {
+                    // increment the bitfield 9-5
+			        // NOTE: while it may seem like we need to concern ourselves with
+			        // this 5-bit field overflowing into bit 10. There is nothing
+			        //  to worry about :-). That is handled by the case for $03e0
+			        //  above.
+                    vaddr += 20;
+                }
+            }
+
+            self.v = vaddr;
+        }
+        else {
+             // increment fine y
+            self.v += 0x1000;
+        }
+
+        /* 
         if (self.v & 0x7000) != 0x7000 {                // If fine y < 7
             self.v += 0x1000;                           // Increment fine y
         }
@@ -95,6 +129,7 @@ impl AddrReg {
 
             self.v = (self.v & !0x03E0) | (y << 5);     // Put coarse Y back into v
         }
+        */
     }
 
     pub fn update_x_scroll(&mut self) {
