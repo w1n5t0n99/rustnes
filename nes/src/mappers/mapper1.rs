@@ -54,7 +54,7 @@ impl Mapper1 {
         }
 
         set_prg16k_8000_bfff(&mut mapper1.context.prg_bank_lookup, 0);
-        set_prg16k_c000_ffff(&mut mapper1.context.prg_bank_lookup, get_last_bank_index(SIZE_32K, mapper1.context.prg_rom.len()));
+        set_prg16k_c000_ffff(&mut mapper1.context.prg_bank_lookup, get_last_bank_index(SIZE_16K, mapper1.context.prg_rom.len()));
         set_chr8k_0000_1fff(&mut mapper1.context.chr_bank_lookup, 0);
         set_wram8k_6000_7fff(&mut mapper1.context.wram_bank_lookup, 0);
         set_nametable_from_mirroring_type(&mut mapper1.context.nametable_bank_lookup, rom.nametable_mirroring);
@@ -67,7 +67,8 @@ impl Mapper1 {
         self.shift_count = 0;
     }
 
-    pub fn handle_ctrl(&mut self, data: u8) {
+    pub fn ctrl_handler(&mut self, data: u8) {
+        println!("ctrl handler: {:#X}", data);
         // mirroring
         match data & 0x03 {
             0 => set_nametable_single_screen_lower(&mut self.context.nametable_bank_lookup),
@@ -78,21 +79,22 @@ impl Mapper1 {
         }
 
         // prg bank mode
-        match (data & 0xC0) >> 2 {
+        match (data & 0x0C) >> 2 {
             0 | 1 => { self.prg_bank_mode = PrgBankMode::Switch32K; }
             2 => { self.prg_bank_mode = PrgBankMode::FixFirst; }
             3 => { self.prg_bank_mode = PrgBankMode::FixLast; }
             _ => panic!("mapper 1 prg bank mode out of bounds")
         }
 
-        match (data & 0x10) {
+        match (data & 0x10) >> 4 {
             0 => { self.chr_bank_mode = ChrBankMode::Switch8K; }
-            0x10 => { self.chr_bank_mode = ChrBankMode::Switch4K; }
+            1 => { self.chr_bank_mode = ChrBankMode::Switch4K; }
             _ => panic!("mapper 1 chr bank mode out of bounds")
         }
     }
 
-    pub fn handle_chr_bank0(&mut self, data: u8) {
+    pub fn chr_bank0_handler(&mut self, data: u8) {
+        println!("chr bank0 handler: {:#X}", data);
         match self.chr_bank_mode {
             ChrBankMode::Switch8K => {
                 set_chr8k_0000_1fff(&mut self.context.chr_bank_lookup, (data >> 1) as usize);
@@ -103,7 +105,8 @@ impl Mapper1 {
         }
     }
 
-    pub fn handle_chr_bank1(&mut self, data: u8) {
+    pub fn chr_bank1_handler(&mut self, data: u8) {
+        println!("chr bank 1 handler: {:#X}", data);
         match self.chr_bank_mode {
             ChrBankMode::Switch8K => {
                 // ignored in 8kb mode
@@ -114,7 +117,8 @@ impl Mapper1 {
         }
     }
 
-    pub fn handle_prg_bank(&mut self, data: u8) {
+    pub fn prg_bank_handler(&mut self, data: u8) {
+        println!("prg bank handler: {:#X}", data);
         let bank = (data & 0x0F) as usize;
         let ram_enable = data & 0x10;
 
@@ -139,27 +143,24 @@ impl Mapper1 {
         if (pinout.data & 0x80) > 0 {
             self.clear_shift();
         }
+        else {
+            println!("data shift: {:#X}", pinout.data);
+            self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
+            self.shift_count += 1; 
+        }
 
-        match self.shift_count {
-            0..=3 => {
-                self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
-                self.shift_count += 1; 
-            }
-            4 => {
-                self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
-                // index is bit 14 and 13 of address
-                let index = ((pinout.address & 0x6000) >> 13) as u8;
-                match index {
-                    0 => { self.handle_ctrl(self.shift_register); }
-                    1 => { self.handle_chr_bank0(self.shift_register); }
-                    2 => { self.handle_chr_bank1(self.shift_register); }
-                    3 => { self.handle_prg_bank(self.shift_register); }
-                    _ => panic!("mmc1 register out of bounds")
-                }
+        // every fifth write
+        if self.shift_count == 5 {
+            let reg_index = ((pinout.address & 0x6000) >> 13) as u8 & 0x0F;
+            self.clear_shift();
 
-                self.clear_shift();
+            match reg_index {
+                0 => { self.ctrl_handler(self.shift_register); }
+                1 => { self.chr_bank0_handler(self.shift_register); }
+                2 => { self.chr_bank1_handler(self.shift_register); }
+                3 => { self.prg_bank_handler(self.shift_register); }
+                _ => panic!("mmc1 register out of bounds")
             }
-            _ => panic!("mapper1 shift register out of bounds")
         }
     }
 }
