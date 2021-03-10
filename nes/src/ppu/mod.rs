@@ -95,7 +95,7 @@ impl Context {
             io_db: 0,
             ppu_2007_rd_buffer: None,
             ppu_2007_wr_buffer: None,
-            odd_frame: true,
+            odd_frame: false,
         }
     }
 }

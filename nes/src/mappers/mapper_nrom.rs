@@ -6,12 +6,14 @@ use super::ppu;
 
 pub struct MapperNrom {
     pub context: Context,
+    pub uses_chr_ram: bool,
 }
 
 impl MapperNrom {
     pub fn new() -> MapperNrom {
         MapperNrom {
             context: Context::new(),
+            uses_chr_ram: false,
         }
     }
 
@@ -20,6 +22,12 @@ impl MapperNrom {
 
         mapper_nrom.context.prg_rom = rom.prg_data.clone();
         mapper_nrom.context.chr_rom = rom.chr_data.clone();
+
+        if mapper_nrom.context.chr_rom.len() == 0 {
+            // set chr ram
+            mapper_nrom.context.chr_rom = vec![0; SIZE_8K];
+            mapper_nrom.uses_chr_ram = true;
+        }
 
         match rom.prg_rom_size as usize {
             SIZE_16K => {
@@ -33,13 +41,7 @@ impl MapperNrom {
             _ => panic!("prg rom size is invalid - {:#X}", rom.prg_rom_size)
         };
 
-        match rom.chr_rom_size as usize {
-            SIZE_8K => {
-                set_chr8k_0000_1fff(&mut mapper_nrom.context.chr_bank_lookup, 0);
-            }
-            _ => panic!("chr rom size is invalid - {:#X}", rom.chr_rom_size)
-        }
-
+        set_chr8k_0000_1fff(&mut mapper_nrom.context.chr_bank_lookup, 0);
         set_wram8k_6000_7fff(&mut mapper_nrom.context.wram_bank_lookup, 0);
         set_nametable_from_mirroring_type(&mut mapper_nrom.context.nametable_bank_lookup, rom.nametable_mirroring);
 
@@ -249,34 +251,74 @@ impl Mapper for MapperNrom {
     }
 
     fn  write_ppu_0000_03ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[0];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_0400_07ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[1];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_0800_0bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[2];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_0c00_0fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[3];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1000_13ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[4];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1400_17ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[5];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1800_1bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[6];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1c00_1fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[7];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 

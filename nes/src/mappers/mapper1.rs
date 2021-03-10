@@ -68,7 +68,6 @@ impl Mapper1 {
     }
 
     pub fn ctrl_handler(&mut self, data: u8) {
-        println!("ctrl handler: {:#X}", data);
         // mirroring
         match data & 0x03 {
             0 => set_nametable_single_screen_lower(&mut self.context.nametable_bank_lookup),
@@ -94,7 +93,6 @@ impl Mapper1 {
     }
 
     pub fn chr_bank0_handler(&mut self, data: u8) {
-        println!("chr bank0 handler: {:#X}", data);
         match self.chr_bank_mode {
             ChrBankMode::Switch8K => {
                 set_chr8k_0000_1fff(&mut self.context.chr_bank_lookup, (data >> 1) as usize);
@@ -106,7 +104,6 @@ impl Mapper1 {
     }
 
     pub fn chr_bank1_handler(&mut self, data: u8) {
-        println!("chr bank 1 handler: {:#X}", data);
         match self.chr_bank_mode {
             ChrBankMode::Switch8K => {
                 // ignored in 8kb mode
@@ -118,7 +115,6 @@ impl Mapper1 {
     }
 
     pub fn prg_bank_handler(&mut self, data: u8) {
-        println!("prg bank handler: {:#X}", data);
         let bank = (data & 0x0F) as usize;
         let ram_enable = data & 0x10;
 
@@ -144,7 +140,6 @@ impl Mapper1 {
             self.clear_shift();
         }
         else {
-            println!("data shift: {:#X}", pinout.data);
             self.shift_register = (self.shift_register << 1) | (pinout.data & 0x01);
             self.shift_count += 1; 
         }
@@ -152,7 +147,6 @@ impl Mapper1 {
         // every fifth write
         if self.shift_count == 5 {
             let reg_index = ((pinout.address & 0x6000) >> 13) as u8 & 0x0F;
-            self.clear_shift();
 
             match reg_index {
                 0 => { self.ctrl_handler(self.shift_register); }
@@ -161,6 +155,8 @@ impl Mapper1 {
                 3 => { self.prg_bank_handler(self.shift_register); }
                 _ => panic!("mmc1 register out of bounds")
             }
+
+            self.clear_shift();
         }
     }
 }
@@ -192,8 +188,11 @@ impl Mapper for Mapper1 {
     }
 
     fn read_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        let bank = &self.context.wram_bank_lookup[0];
-        pinout.data = self.context.work_ram[get_mem_address(bank, pinout.address)];
+        if self.ram_enable {
+            let bank = &self.context.wram_bank_lookup[0];
+            pinout.data = self.context.work_ram[get_mem_address(bank, pinout.address)];
+        }
+    
         pinout
     }
 
@@ -256,8 +255,11 @@ impl Mapper for Mapper1 {
     }
 
     fn write_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        let bank = &self.context.wram_bank_lookup[0];
-        self.context.work_ram[get_mem_address(bank, pinout.address)] = pinout.data;
+        if self.ram_enable {
+            let bank = &self.context.wram_bank_lookup[0];
+            pinout.data = self.context.work_ram[get_mem_address(bank, pinout.address)];
+        }
+
         pinout
     }
 
@@ -321,7 +323,7 @@ impl Mapper for Mapper1 {
         if self.cpu_cycle > self.last_write_cpu_cycle {
             self.write_handler(pinout);
         }
-        
+
         pinout
     }
 
@@ -399,34 +401,74 @@ impl Mapper for Mapper1 {
     }
 
     fn  write_ppu_0000_03ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[0];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_0400_07ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[1];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_0800_0bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[2];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_0c00_0fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[3];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1000_13ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[4];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1400_17ff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[5];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1800_1bff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[6];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 
     fn  write_ppu_1c00_1fff(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+        if self.uses_chr_ram {
+            let bank = &self.context.chr_bank_lookup[7];
+            self.context.chr_rom[get_mem_address(bank, pinout.address)] = pinout.data;
+        }
+
         pinout
     }
 

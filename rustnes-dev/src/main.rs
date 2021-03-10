@@ -76,5 +76,5 @@ fn main() {
     //debug_run("test_roms\\Super Mario Bros (JU) (PRG 0).nes");
     //debug_run("test_roms\\color_test.nes");
     //debug_run("test_roms\\Mario Bros. (U) [!].nes");
-    debug_run("test_roms\\scroll.nes");
+    debug_run("test_roms\\demo_ntsc.nes");
 }
