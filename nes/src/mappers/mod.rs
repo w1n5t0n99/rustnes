@@ -341,7 +341,7 @@ pub struct Context {
     pub chr_rom: Vec<u8>,
     pub sys_ram: Vec<u8>,
     pub vram: Vec<u8>,
-    pub work_ram: Option<Vec<u8>>,           
+    pub work_ram: Vec<u8>,                   // 8k smallest bank ... i think   
     pub prg_bank_lookup: [Bank; 8],          // 4k smallest banks
     pub wram_bank_lookup: [Bank; 1],         // 8k smallest banks
     pub chr_bank_lookup: [Bank; 8],          // 1k smallest banks
@@ -355,7 +355,8 @@ impl Context {
             chr_rom: Vec::new(),
             sys_ram: vec![0; SIZE_2K],
             vram: vec![0; SIZE_4K],
-            work_ram: None,
+            // if a mapper has an option for wram we should assume it does thanks to the abmigiousness of ines
+            work_ram: vec![0; SIZE_8K],
             prg_bank_lookup: [Bank::new(0, 0); 8],
             wram_bank_lookup: [Bank::new(0, 0); 1],
             chr_bank_lookup: [Bank::new(0, 0); 8],

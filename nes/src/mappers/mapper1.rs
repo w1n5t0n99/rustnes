@@ -24,19 +24,21 @@ pub struct Mapper1 {
     pub cpu_cycle: u64,
     pub last_write_cpu_cycle: u64,
     pub ram_enable: bool,
+    pub uses_chr_ram: bool,
 }
 
 impl Mapper1 {
     pub fn new() -> Mapper1 {
         Mapper1 {
             context: Context::new(),
-            prg_bank_mode: PrgBankMode::Switch32K,
+            prg_bank_mode: PrgBankMode::FixLast,
             chr_bank_mode: ChrBankMode::Switch8K,
             shift_register: 0,
             shift_count: 0,
             cpu_cycle: 0,
             last_write_cpu_cycle: 0,
             ram_enable: false,
+            uses_chr_ram: false,
         }
     }
 
@@ -45,10 +47,14 @@ impl Mapper1 {
 
         mapper1.context.prg_rom = rom.prg_data.clone();
         mapper1.context.chr_rom = rom.chr_data.clone();
-        // lets 8k wram
-        mapper1.context.work_ram = Some(vec![0; SIZE_8K]);
+        if mapper1.context.chr_rom.len() == 0 {
+            // set chr ram
+            mapper1.context.chr_rom = vec![0; SIZE_8K];
+            mapper1.uses_chr_ram = true;
+        }
 
-        set_prg32k_8000_ffff(&mut mapper1.context.prg_bank_lookup, get_last_bank_index(SIZE_32K, mapper1.context.prg_rom.len()));
+        set_prg16k_8000_bfff(&mut mapper1.context.prg_bank_lookup, 0);
+        set_prg16k_c000_ffff(&mut mapper1.context.prg_bank_lookup, get_last_bank_index(SIZE_32K, mapper1.context.prg_rom.len()));
         set_chr8k_0000_1fff(&mut mapper1.context.chr_bank_lookup, 0);
         set_wram8k_6000_7fff(&mut mapper1.context.wram_bank_lookup, 0);
         set_nametable_from_mirroring_type(&mut mapper1.context.nametable_bank_lookup, rom.nametable_mirroring);
@@ -185,16 +191,8 @@ impl Mapper for Mapper1 {
     }
 
     fn read_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        // open bus
-        match self.context.work_ram {
-            Some(ref wram) => {
-                let bank = &self.context.wram_bank_lookup[0];
-                pinout.data = wram[get_mem_address(bank, pinout.address)];
-            }
-            None => {
-
-            }
-        }
+        let bank = &self.context.wram_bank_lookup[0];
+        pinout.data = self.context.work_ram[get_mem_address(bank, pinout.address)];
         pinout
     }
 
@@ -257,15 +255,8 @@ impl Mapper for Mapper1 {
     }
 
     fn write_cpu_6000_7fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        match self.context.work_ram {
-            Some(ref mut wram) => {
-                let bank = &self.context.wram_bank_lookup[0];
-                wram[get_mem_address(bank, pinout.address)] = pinout.data;
-            }
-            None => {
-
-            }
-        }
+        let bank = &self.context.wram_bank_lookup[0];
+        self.context.work_ram[get_mem_address(bank, pinout.address)] = pinout.data;
         pinout
     }
 
