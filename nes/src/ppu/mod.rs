@@ -73,6 +73,7 @@ pub struct Context {
     pub ppu_2007_rd_buffer: Option<u8>,
     pub ppu_2007_wr_buffer: Option<u8>,
     pub odd_frame: bool,
+    pub write_block: bool,
 }
 
 impl Context {
@@ -96,6 +97,7 @@ impl Context {
             ppu_2007_rd_buffer: None,
             ppu_2007_wr_buffer: None,
             odd_frame: false,
+            write_block: true,
         }
     }
 }

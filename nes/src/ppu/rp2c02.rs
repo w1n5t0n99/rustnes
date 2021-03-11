@@ -7,6 +7,8 @@ use crate::mappers::Mapper;
 
 use std::fmt;
 
+const WRITE_BLOCK_CYCLES: u64 = 29658 * 3;
+
 #[derive(Clone, Copy)]
 pub struct Rp2c02 {
     context: Context,
@@ -53,6 +55,10 @@ impl Rp2c02 {
 
     pub fn write_ppuctrl(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
+        if self.context.write_block {
+            return pinout;
+        }
+
         self.context.control_reg.io_write(pinout.data);
         self.context.addr_reg.io_write_2000(pinout.data);
         pinout
@@ -60,6 +66,10 @@ impl Rp2c02 {
 
     pub fn write_ppumask(&mut self, pinout: mos::Pinout) -> mos::Pinout{
         self.context.io_db = pinout.data;
+        if self.context.write_block {
+            return pinout;
+        }
+
         self.context.mask_reg.io_write(pinout.data);
 
         self.context.monochrome_mask = if self.context.mask_reg.contains(MaskRegister::GREYSCALE) { 0x30 } else { 0xFF };
@@ -146,14 +156,21 @@ impl Rp2c02 {
 
     pub fn write_ppuscroll(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
+        if self.context.write_block {
+            return pinout;
+        }
+
         self.context.addr_reg.io_write_2005(pinout.data);
         pinout
     }
 
     pub fn write_ppuaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
-        self.context.addr_reg.io_write_2006(pinout.data);
+        if self.context.write_block {
+            return pinout;
+        }
 
+        self.context.addr_reg.io_write_2006(pinout.data);
         pinout
     }
 
@@ -202,7 +219,11 @@ impl Rp2c02 {
     pub fn tick(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
         self.last_frame_cycle = false;
         self.last_scanline_cycle = false;
-        // TODO add power on write block
+        
+        if self.context.cycle == WRITE_BLOCK_CYCLES {
+            self.context.write_block = false;
+        }
+        
         self.context.prev_scanline_index = self.context.scanline_index;
         self.context.prev_scanline_dot = self.context.scanline_dot;
 
@@ -216,8 +237,6 @@ impl Rp2c02 {
             _ => { panic!("Scanline index out of bounds"); }
         }
 
-
-        
         self.context.cycle += 1;
         self.pinout = mapper.ppu_tick(self.pinout);
         cpu_pinout
