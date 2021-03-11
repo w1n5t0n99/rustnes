@@ -223,9 +223,22 @@ pub fn enter_vblank(ppu: &mut Context, mut pinout: mos::Pinout) -> mos::Pinout {
         _ => {
             ppu.status_reg.set(StatusRegister::VBLANK_STARTED, true);
             if ppu.control_reg.contains(ControlRegister::GENERATE_NMI) {
+                ppu.prev_control_reg = ppu.control_reg;
                 pinout.ctrl.set(mos::Ctrl::NMI, false);
             }
         }
+    }
+
+    pinout
+}
+
+#[inline(always)]
+pub fn vblank_nmi_update(ppu: &mut Context, mut pinout: mos::Pinout) -> mos::Pinout {
+    // during vblank if gen_nmi toggled and status reg not read generate another NMI
+    if ppu.control_reg.contains(ControlRegister::GENERATE_NMI) &&
+        ppu.status_reg.contains(StatusRegister::VBLANK_STARTED) &&
+        !ppu.prev_control_reg.contains(ControlRegister::GENERATE_NMI) {
+        pinout.ctrl.set(mos::Ctrl::NMI, false);
     }
 
     pinout

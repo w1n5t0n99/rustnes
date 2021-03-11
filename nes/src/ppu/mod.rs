@@ -61,6 +61,7 @@ pub struct Context {
     pub read_2002_cycle: u64,                           // Used to track NMI race condition
     pub addr_reg: ppu_registers::AddrReg,
     pub control_reg: ppu_registers::ControlRegister,
+    pub prev_control_reg: ppu_registers::ControlRegister,   // used to trigger multiple NMI during vblank
     pub mask_reg: ppu_registers::MaskRegister,
     pub status_reg: ppu_registers::StatusRegister,
     pub scanline_index: u16,
@@ -85,6 +86,7 @@ impl Context {
             read_2002_cycle: 0,
             addr_reg: ppu_registers::AddrReg::new(),
             control_reg: ppu_registers::ControlRegister::new(),
+            prev_control_reg: ppu_registers::ControlRegister::new(),
             mask_reg: ppu_registers::MaskRegister::new(),
             status_reg: ppu_registers::StatusRegister::new(),
             scanline_index: 0,

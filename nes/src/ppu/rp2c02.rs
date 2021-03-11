@@ -59,6 +59,7 @@ impl Rp2c02 {
             return pinout;
         }
 
+        self.context.prev_control_reg = self.context.control_reg;
         self.context.control_reg.io_write(pinout.data);
         self.context.addr_reg.io_write_2000(pinout.data);
         pinout
@@ -782,11 +783,13 @@ impl Rp2c02 {
                 self.context.scanline_dot += 1;
             }
             2..=339 => {
+                cpu_pinout = vblank_nmi_update(&mut self.context, cpu_pinout);
                 self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
                 self.context.scanline_dot += 1;
             }
             340 => {
                 self.last_scanline_cycle = true;
+                cpu_pinout = vblank_nmi_update(&mut self.context, cpu_pinout);
                 self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
                 self.context.scanline_index += 1;
                 self.context.scanline_dot = 0;
