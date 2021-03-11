@@ -187,6 +187,7 @@ impl Rp2c02 {
             0x0000..=0x3EFF => {
                 let rdbuffer = self.context.ppu_2007_rd_buffer.take();
                 pinout.data = rdbuffer.unwrap();
+                println!("ppu data read: {:#X} - cycle: {}", pinout.data, self.context.cycle);
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
@@ -489,20 +490,26 @@ impl Rp2c02 {
     }
 
     fn scanline_prerender_nonvisible(&mut self, mapper: &mut dyn Mapper) {
-        self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
-
-        if self.context.scanline_dot == 1 {
-            self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
-            self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
-            self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
-            self.context.scanline_dot += 1;
+        match self.context.scanline_dot {
+            0 => {
+                self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
+                self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
+                self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
+                self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
+            }
+            1..=340 => {
+                self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
+            }
+            _ => {
+                panic!("PPU prerender nonvisible 0-340 out of bounds");
+            }
         }
-        else if self.context.scanline_dot == 340 {
+
+        if self.context.scanline_dot == 340 {
             self.last_scanline_cycle = true;
             self.last_frame_cycle = true;
-            // no sprite eval during prerender so nothing to render first render scanline
             self.context.scanline_index = 0;
-            // no skipped frame if rendering is disabled
+            // render idle cycle is not skipped if rendering disabled
             self.context.scanline_dot = 0;
         }
         else {

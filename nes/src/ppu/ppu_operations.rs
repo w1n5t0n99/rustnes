@@ -101,8 +101,10 @@ pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: P
 
     if ppu.ppu_2007_rd_buffer.is_none() {
         pinout = read(ppu, mapper, pinout);
+        let old_address = pinout.address;
         ppu.ppu_2007_rd_buffer = Some(pinout.data);
         ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
+        println!("ppu nonrender read: {:#X} - cycle: {} address: {:#X} address inc: {:#X}", pinout.data, ppu.cycle,  old_address, ppu.addr_reg.vram_address() & 0x2FFF);
         return pinout;
     }
 
