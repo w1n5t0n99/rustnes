@@ -16,4 +16,5 @@ pub trait Console {
     fn execute_cycle(&mut self);
     fn set_joypad1_state(&mut self, joypad: JoypadInput);
     fn set_joypad2_state(&mut self, joypad: JoypadInput);
+    fn get_frame_number(&mut self) -> u64;
 }

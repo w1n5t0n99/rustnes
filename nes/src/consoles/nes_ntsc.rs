@@ -156,6 +156,10 @@ impl Console for NesNtsc {
     fn set_joypad2_state(&mut self, controller: JoypadInput) {
         self.controllers.set_joypad2_state(controller);
     }
+
+    fn get_frame_number(&mut self) -> u64 {
+        self.ppu.frame_number()
+    }
 }
 
 impl fmt::Display for NesNtsc {

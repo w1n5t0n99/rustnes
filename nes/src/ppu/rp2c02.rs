@@ -31,8 +31,8 @@ impl Rp2c02 {
         }
     }
 
-    pub fn is_odd_frame(&mut self) -> bool {
-        self.context.odd_frame
+    pub fn frame_number(&mut self) -> u64 {
+        self.context.frame
     }
 
     pub fn is_end_of_frame(&mut self) -> bool {
@@ -72,8 +72,6 @@ impl Rp2c02 {
         }
 
         self.context.mask_reg.io_write(pinout.data);
-
-        self.context.monochrome_mask = if self.context.mask_reg.contains(MaskRegister::GREYSCALE) { 0x30 } else { 0xFF };
         pinout
     }
 
@@ -224,9 +222,6 @@ impl Rp2c02 {
         if self.context.cycle == WRITE_BLOCK_CYCLES {
             self.context.write_block = false;
         }
-        
-        self.context.prev_scanline_index = self.context.scanline_index;
-        self.context.prev_scanline_dot = self.context.scanline_dot;
 
         match self.context.scanline_index {
             261 if self.context.mask_reg.rendering_enabled() => { self.scanline_prerender(mapper); }
@@ -246,10 +241,10 @@ impl Rp2c02 {
     pub fn select_blank_pixel(&mut self) -> u8 {
         let v = self.context.addr_reg.vram_address();
         if (v & 0x3F00) == 0x3F00 {
-            read_palette_nonrender(&mut self.context, v) & self.context.monochrome_mask
+            read_palette_nonrender(&mut self.context, v) & self.context.mask_reg.monochrome_mask()
         }
         else {
-            read_palette_nonrender(&mut self.context, 0x00) & self.context.monochrome_mask
+            read_palette_nonrender(&mut self.context, 0x00) & self.context.mask_reg.monochrome_mask()
         }
     }
 
@@ -259,7 +254,7 @@ impl Rp2c02 {
         let mut pixel = self.bg.select_background_pixel(&mut self.context);
         pixel = self.sp.select_sprite_pixel(&mut self.context, pixel);
         
-        read_palette_rendering(&mut self.context, pixel as u16) & self.context.monochrome_mask
+        read_palette_rendering(&mut self.context, pixel as u16) & self.context.mask_reg.monochrome_mask()
     }
 
     fn scanline_prerender(&mut self, mapper: &mut dyn Mapper) {
@@ -480,6 +475,7 @@ impl Rp2c02 {
         if self.context.scanline_dot == 340 {
             self.last_scanline_cycle = true;
             self.last_frame_cycle = true;
+            self.context.frame += 1;
             self.context.scanline_index = 0;
             self.context.scanline_dot = if self.context.odd_frame { 1 } else { 0 };
         }
@@ -507,6 +503,7 @@ impl Rp2c02 {
         if self.context.scanline_dot == 340 {
             self.last_scanline_cycle = true;
             self.last_frame_cycle = true;
+            self.context.frame += 1;
             self.context.scanline_index = 0;
             // render idle cycle is not skipped if rendering disabled
             self.context.scanline_dot = 0;
@@ -814,8 +811,8 @@ impl Rp2c02 {
 impl fmt::Display for Rp2c02 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} BG {} SPR: {}",
-        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.prev_scanline_index,
-        self.context.prev_scanline_dot, self.pinout, self.bg, self.sp)
+        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.scanline_index,
+        self.context.scanline_dot, self.pinout, self.bg, self.sp)
     }
 }
 

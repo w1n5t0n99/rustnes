@@ -261,6 +261,10 @@ impl MaskRegister {
             return false;
         }
     }
+
+    pub fn monochrome_mask(&self) -> u8 {
+        if self.contains(MaskRegister::GREYSCALE) { 0x30 } else { 0xFF }
+    }
 }
 
 bitflags! {
