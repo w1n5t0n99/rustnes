@@ -109,11 +109,11 @@ impl Console for NesNtsc {
     
             {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_frame() { break; }
+                if self.ppu.is_end_of_scanline() { break; }
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_frame() { break; }
+                if self.ppu.is_end_of_scanline() { break; }
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_frame() { break; }
+                if self.ppu.is_end_of_scanline() { break; }
             }
 
             {

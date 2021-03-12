@@ -2,7 +2,7 @@ use nes::consoles::{Console, nes_ntsc::NesNtsc,};
 use nes::{JoypadInput, utils};
 use std::path::Path;
 use std::time::{Instant, Duration};
-use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode};
+use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode, KeyRepeat};
 
 const WIDTH: usize = 240;
 const HEIGHT: usize = 256;
@@ -18,9 +18,9 @@ enum DebugMode {
 
 fn normal_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut utils::AvgDuration, frame_limit: &utils::FrameLimit, fb: &mut [u32]) {
     avg_frame_execution.begin();
+    let mut jp1 = JoypadInput::from_bits_truncate(0x0);
     nes.execute_frame(fb);
 
-    let mut jp1 = JoypadInput::from_bits_truncate(0x0);
     window.get_keys().map(|keys| {
         for t in keys {
             match t {
@@ -46,21 +46,30 @@ fn normal_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut 
     frame_limit.end_of_frame(avg_frame_execution.get_current_duration());
 }
 
-fn single_frame_run(nes: &mut NesNtsc, window: &mut Window, fb: &mut [u32]) {
+fn single_frame_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut utils::AvgDuration, frame_limit: &utils::FrameLimit, fb: &mut [u32]) {
+    avg_frame_execution.begin();
     let mut jp1 = JoypadInput::from_bits_truncate(0x0);
 
-    window.get_keys().map(|keys| {
+    window.get_keys_pressed(KeyRepeat::No).map(|keys| {
         for t in keys {
             match t {
-                Key::Up => jp1.set(JoypadInput::UP, true),
-                Key::Down => jp1.set(JoypadInput::DOWN, true),
-                Key::Left => jp1.set(JoypadInput::LEFT, true),
-                Key::Right => jp1.set(JoypadInput::RIGHT, true),
-                Key::Enter =>  jp1.set(JoypadInput::START, true),
-                Key::Backspace =>  jp1.set(JoypadInput::SELECT, true),
-                Key::A =>  jp1.set(JoypadInput::A, true),
-                Key::B =>  jp1.set(JoypadInput::B, true),
                 Key::NumPadPlus => {
+                    window.get_keys().map(|keys| {
+                        for t in keys {
+                            match t {
+                                Key::Up => jp1.set(JoypadInput::UP, true),
+                                Key::Down => jp1.set(JoypadInput::DOWN, true),
+                                Key::Left => jp1.set(JoypadInput::LEFT, true),
+                                Key::Right => jp1.set(JoypadInput::RIGHT, true),
+                                Key::Enter =>  jp1.set(JoypadInput::START, true),
+                                Key::Backspace =>  jp1.set(JoypadInput::SELECT, true),
+                                Key::A =>  jp1.set(JoypadInput::A, true),
+                                Key::B =>  jp1.set(JoypadInput::B, true),
+                                _ => (),
+                            }
+                        }
+                    });  
+                    
                     nes.execute_frame(fb);
                     // update controller state for last frame
                     nes.set_joypad1_state(jp1);
@@ -72,8 +81,10 @@ fn single_frame_run(nes: &mut NesNtsc, window: &mut Window, fb: &mut [u32]) {
     });
 
     window.update_with_buffer(fb, 256, 240).unwrap();
-    window.set_title(format!("RUSTNES --- frame {} us", nes.get_frame_number()).as_str());
+    avg_frame_execution.end();
 
+    window.set_title(format!("RUSTNES --- frame {}", nes.get_frame_number()).as_str());
+    frame_limit.end_of_frame(avg_frame_execution.get_current_duration());
 }
 
 fn main() {
@@ -144,7 +155,7 @@ fn main() {
                 normal_run(&mut nes, &mut window, &mut avg_frame_execution, &frame_limit, &mut fb);
             }
             DebugMode::SingleFrame => {
-                single_frame_run(&mut nes, &mut window, &mut fb);
+                single_frame_run(&mut nes, &mut window, &mut avg_frame_execution, &frame_limit, &mut fb);
             }
         }
     }
