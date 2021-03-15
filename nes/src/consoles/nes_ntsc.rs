@@ -161,9 +161,3 @@ impl Console for NesNtsc {
         self.ppu.frame_number()
     }
 }
-
-impl fmt::Display for NesNtsc {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {  
-        write!(f, "[ {} ] [ {} ] [ {} ] [ {} ]\n",self.cpu, self.dma, self.cpu_pinout, self.ppu)
-    }
-}

@@ -1150,7 +1150,7 @@ pub fn php_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 }
 
 pub fn php_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
-    cpu.ops.dl = cpu.p.push_without_b();
+    cpu.ops.dl = cpu.p.push_with_b();
     write_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp), cpu.ops.dl);
     // decrement stack pointer
     cpu.sp = cpu.sp.wrapping_sub(1);
@@ -1245,8 +1245,8 @@ pub fn pla_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     read_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp));
     cpu.a = cpu.ops.dl;
 
-    cpu.p.zero = if cpu.a == 0 { true } else {false };
-    cpu.p.negative = if (cpu.a & 0x80) == 0x80 { true } else { false };
+    if cpu.a == 0 { cpu.p.set(StatusRegister::ZERO, true) } else {cpu.p.set(StatusRegister::ZERO, false) };
+    if (cpu.a & 0x80) == 0x80 { cpu.p.set(StatusRegister::NEGATIVE, true) } else { cpu.p.set(StatusRegister::NEGATIVE, false) };
 
     last_cycle!(cpu, pinout);
     pinout
@@ -1332,7 +1332,7 @@ pub fn rti_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 pub fn rti_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     read_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp));
-    cpu.p = FlagsRegister::pull(cpu.ops.dl);
+    cpu.p = StatusRegister::from_bits_truncate(cpu.ops.dl);
     cpu.sp = cpu.sp.wrapping_add(1);
     
     pinout

@@ -705,18 +705,8 @@ impl Instruction for Dcp {
 pub struct Isc {}
 impl Instruction for Isc {
     fn execute(cpu: &mut Context) {
-        cpu.ops.dl = cpu.ops.dl.wrapping_add(1);
-        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
-        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
-        
-        let dl = cpu.ops.dl ^ 0xFF;
-        let sum = (cpu.a as u16) + (dl as u16) + cpu.p.contains(StatusRegister::CARRY) as u16;
-        let result = (sum & 0xFF) as u8;
-        if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
-        if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::ZERO, false) };
-        cpu.a = result;
-        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
-        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        Inc::execute(cpu);
+        SbcNoDec::execute(cpu);
     }
 }
 
