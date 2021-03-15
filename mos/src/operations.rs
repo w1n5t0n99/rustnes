@@ -16,7 +16,7 @@ fn poll_interrupts(cpu: &mut Context, pinout: Pinout) {
         cpu.nmi_detected = false;
     }
     // irq is level detected and must be held every cycle until handled
-    else if pinout.ctrl.contains(Ctrl::IRQ) == false && cpu.p.interrupt_disable == false {
+    else if pinout.ctrl.contains(Ctrl::IRQ) == false && cpu.p.contains(StatusRegister::INT_DISABLE) == false {
         cpu.ints = InterruptState::Irq;
         cpu.ops.reset();
         cpu.ir.reset(0x00);
@@ -94,7 +94,7 @@ macro_rules! write_cycle {
 //====================================================
 pub fn rst_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     cpu.a = 0xAA;
-    cpu.p = FlagsRegister::from(0x24);
+    cpu.p = StatusRegister::from_power_on();
     cpu.pc = ProgramCounter::from(0x00FF);
     read_cycle!(cpu, bus, pinout, 0x00FF);
 
@@ -197,11 +197,11 @@ pub fn brk_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     // write status reg to stack
     let status_reg = match cpu.ints {
         // if no interupts, must be brk instruction
-        InterruptState::None => cpu.p.push_with_b_set(),
-        InterruptState::BrkHijack => cpu.p.push_with_b_set(),
-        InterruptState::Irq => cpu.p.push_with_b_clear(),
-        InterruptState::IrqHijack => cpu.p.push_with_b_clear(),
-        InterruptState::Nmi => cpu.p.push_with_b_clear(),
+        InterruptState::None => cpu.p.push_with_b(),
+        InterruptState::BrkHijack => cpu.p.push_with_b(),
+        InterruptState::Irq => cpu.p.push_without_b(),
+        InterruptState::IrqHijack => cpu.p.push_without_b(),
+        InterruptState::Nmi => cpu.p.push_without_b(),
     };
 
     write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), status_reg);
@@ -223,7 +223,7 @@ pub fn brk_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     read_cycle!(cpu, bus, pinout, addr);
     cpu.pc.pcl = cpu.ops.dl;
     // set i flag
-    cpu.p.interrupt_disable = true;
+    cpu.p.set(StatusRegister::INT_DISABLE, true);
     pinout
 }
 

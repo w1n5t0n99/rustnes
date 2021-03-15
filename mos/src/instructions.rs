@@ -211,27 +211,27 @@ impl Instruction for Clv {
 pub struct Cmp {}
 impl Instruction for Cmp {
     fn execute(cpu: &mut Context) {
-        cpu.p.carry = if cpu.a >= cpu.ops.dl { true } else { false };
-        cpu.p.zero = if cpu.a == cpu.ops.dl { true } else {false };
-        cpu.p.negative = set_negative(cpu.a.wrapping_sub(cpu.ops.dl));
+        if cpu.a >= cpu.ops.dl { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+        if cpu.a == cpu.ops.dl { cpu.p.set(StatusRegister::ZERO, true) } else {cpu.p.set(StatusRegister::ZERO, false) };
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a.wrapping_sub(cpu.ops.dl)));
     }
 }
 
 pub struct Cpx {}
 impl Instruction for Cpx {
     fn execute(cpu: &mut Context) {
-        cpu.p.carry = if cpu.x >= cpu.ops.dl { true } else { false };
-        cpu.p.zero = if cpu.x == cpu.ops.dl { true } else {false };
-        cpu.p.negative = set_negative(cpu.x.wrapping_sub(cpu.ops.dl));
+        if cpu.x >= cpu.ops.dl { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+        if cpu.x == cpu.ops.dl { cpu.p.set(StatusRegister::ZERO, true) } else {cpu.p.set(StatusRegister::ZERO, false) };
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x.wrapping_sub(cpu.ops.dl)));
     }
 }
 
 pub struct Cpy {}
 impl Instruction for Cpy {
     fn execute(cpu: &mut Context) {
-        cpu.p.carry = if cpu.y >= cpu.ops.dl { true } else { false };
-        cpu.p.zero = if cpu.y == cpu.ops.dl { true } else {false };
-        cpu.p.negative = set_negative(cpu.y.wrapping_sub(cpu.ops.dl));
+        if cpu.y >= cpu.ops.dl { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+        if cpu.y == cpu.ops.dl { cpu.p.set(StatusRegister::ZERO, true) } else {cpu.p.set(StatusRegister::ZERO, false) };
+        cpu.p.set(StatusRegister::NEGATIVE,set_negative(cpu.y.wrapping_sub(cpu.ops.dl)));
     }
 }
 
@@ -239,8 +239,8 @@ pub struct Dec {}
 impl Instruction for Dec {
     fn execute(cpu: &mut Context) {
         cpu.ops.dl = cpu.ops.dl.wrapping_sub(1);
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE,set_negative(cpu.ops.dl));
     }
 }
 
@@ -248,8 +248,8 @@ pub struct Dex {}
 impl Instruction for Dex {
     fn execute(cpu: &mut Context) {
         cpu.x = cpu.x.wrapping_sub(1);
-        cpu.p.zero = set_zero(cpu.x);
-        cpu.p.negative = set_negative(cpu.x);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        cpu.p.set(StatusRegister::NEGATIVE,set_negative(cpu.x));
     }
 }
 
@@ -257,8 +257,8 @@ pub struct Dey {}
 impl Instruction for Dey {
     fn execute(cpu: &mut Context) {
         cpu.y = cpu.y.wrapping_sub(1);
-        cpu.p.zero = set_zero(cpu.y);
-        cpu.p.negative = set_negative(cpu.y);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.y));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.y));
     }
 }
 
@@ -266,8 +266,8 @@ pub struct Eor {}
 impl Instruction for Eor {
     fn execute(cpu: &mut Context) {
         cpu.a = cpu.a ^ cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -275,8 +275,8 @@ pub struct Inc {}
 impl Instruction for Inc {
     fn execute(cpu: &mut Context) {
         cpu.ops.dl = cpu.ops.dl.wrapping_add(1);
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
     }
 }
 
@@ -284,8 +284,8 @@ pub struct Inx {}
 impl Instruction for Inx {
     fn execute(cpu: &mut Context) {
         cpu.x = cpu.x.wrapping_add(1);
-        cpu.p.zero = set_zero(cpu.x);
-        cpu.p.negative = set_negative(cpu.x);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
     }
 }
 
@@ -293,8 +293,8 @@ pub struct Iny {}
 impl Instruction for Iny {
     fn execute(cpu: &mut Context) {
         cpu.y = cpu.y.wrapping_add(1);
-        cpu.p.zero = set_zero(cpu.y);
-        cpu.p.negative = set_negative(cpu.y);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.y));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.y));
     }
 }
 
@@ -302,8 +302,8 @@ pub struct Lda {}
 impl Instruction for Lda {
     fn execute(cpu: &mut Context) {
         cpu.a = cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -311,8 +311,8 @@ pub struct Ldx {}
 impl Instruction for Ldx {
     fn execute(cpu: &mut Context) {
         cpu.x = cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.x);
-        cpu.p.negative = set_negative(cpu.x);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
     }
 }
 
@@ -320,8 +320,8 @@ pub struct Ldy {}
 impl Instruction for Ldy {
     fn execute(cpu: &mut Context) {
         cpu.y = cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.y);
-        cpu.p.negative = set_negative(cpu.y);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.y));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.y));
     }
 }
 
@@ -334,9 +334,9 @@ impl Instruction for Lsr {
         // clear bit 7
         cpu.ops.dl &= 0b01111111;
 
-        cpu.p.carry = old_carry;
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, old_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
     }
 }
 
@@ -349,9 +349,9 @@ impl Instruction for LsrAccum {
         // clear bit 7
         cpu.a &= 0b01111111;
 
-        cpu.p.carry = old_carry;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::CARRY, old_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -366,8 +366,8 @@ pub struct Ora {}
 impl Instruction for Ora {
     fn execute(cpu: &mut Context) {
         cpu.a = cpu.a | cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -376,11 +376,11 @@ impl Instruction for Rol {
     fn execute(cpu: &mut Context) {
         let new_carry = if (cpu.ops.dl & 0x80) > 0 { true } else { false };
         cpu.ops.dl = cpu.ops.dl.wrapping_mul(2);
-        cpu.ops.dl |= cpu.p.carry as u8;
+        cpu.ops.dl |= cpu.p.contains(StatusRegister::CARRY) as u8;
 
-        cpu.p.carry = new_carry;
-        cpu.p.negative = set_negative(cpu.ops.dl);
-        cpu.p.zero = set_zero(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
     }
 }
 
@@ -389,11 +389,11 @@ impl Instruction for RolAccum {
     fn execute(cpu: &mut Context) {
         let new_carry = if (cpu.a & 0x80) > 0 { true } else { false };
         cpu.a = cpu.a.wrapping_mul(2);
-        cpu.a |= cpu.p.carry as u8;
+        cpu.a |= cpu.p.contains(StatusRegister::CARRY) as u8;
 
-        cpu.p.carry = new_carry;
-        cpu.p.negative = set_negative(cpu.a);
-        cpu.p.zero = set_zero(cpu.a);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
     }
 }
 
@@ -403,11 +403,11 @@ impl Instruction for Ror {
         let new_carry = if (cpu.ops.dl & 0x01) > 0 { true } else { false };
 
         cpu.ops.dl = cpu.ops.dl.wrapping_div(2);
-        cpu.ops.dl |= (cpu.p.carry as u8) << 7;
+        cpu.ops.dl |= (cpu.p.contains(StatusRegister::CARRY) as u8) << 7;
 
-        cpu.p.carry = new_carry;
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
     }
 }
 
@@ -417,11 +417,11 @@ impl Instruction for RorAccum {
         let new_carry = if (cpu.a & 0x01) > 0 { true } else { false };
 
         cpu.a = cpu.a.wrapping_div(2);
-        cpu.a |= (cpu.p.carry as u8) << 7;
+        cpu.a |= (cpu.p.contains(StatusRegister::CARRY) as u8) << 7;
 
-        cpu.p.carry = new_carry;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -430,37 +430,26 @@ impl Instruction for SbcNoDec {
     fn execute(cpu: &mut Context) {
         let dl = cpu.ops.dl ^ 0xFF;
         //let sum = cpu.a.wrapping_add(dl).wrapping_add(cpu.p.carry as u8);
-        let sum = (cpu.a as u16) + (dl as u16) + cpu.p.carry as u16;
+        let sum = (cpu.a as u16) + (dl as u16) + cpu.p.contains(StatusRegister::CARRY) as u16;
         let result = (sum & 0xFF) as u8;
-        cpu.p.carry = if sum > 255 { true } else { false };
-        cpu.p.overflow = if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { true } else { false };
+        if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+        if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
         cpu.a = result;
-        cpu.p.negative = set_negative(cpu.a);
-        cpu.p.zero = set_zero(cpu.a);  
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));  
     }
 }
 
 pub struct Sbc {}
 impl Instruction for Sbc {
     fn execute(cpu: &mut Context) {
-        if cpu.p.decimal == false {
-            let dl = cpu.ops.dl ^ 0xFF;
-            //let sum = cpu.a.wrapping_add(dl).wrapping_add(cpu.p.carry as u8);
-            let sum = (cpu.a as u16) + (dl as u16) + cpu.p.carry as u16;
-            let result = (sum & 0xFF) as u8;
-            cpu.p.carry = if sum > 255 { true } else { false };
-            cpu.p.overflow = if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { true } else { false };
-            cpu.a = result;
-            cpu.p.negative = set_negative(cpu.a);
-            cpu.p.zero = set_zero(cpu.a);
-        }
-        else {
+        if cpu.p.contains(StatusRegister::DECIMAL) {
             // decimal mode (MAME implementation)
-            let c: u8 = if cpu.p.carry == true {1} else {0};
-            cpu.p.carry = false;
-            cpu.p.overflow = false;
-            cpu.p.negative = false;
-            cpu.p.zero = false;
+            let c: u8 = cpu.p.contains(StatusRegister::CARRY) as u8;
+            cpu.p.set(StatusRegister::CARRY, false);
+            cpu.p.set(StatusRegister::OVERFLOW, false);
+            cpu.p.set(StatusRegister::NEGATIVE, false);
+            cpu.p.set(StatusRegister::ZERO, false);
 
             let diff: u16 = ((cpu.a as u16).wrapping_sub(cpu.ops.dl as u16)).wrapping_sub(c as u16);
             let mut al = ((cpu.a & 0x0F).wrapping_sub(cpu.ops.dl & 0x0F)).wrapping_sub(c);
@@ -472,20 +461,31 @@ impl Instruction for Sbc {
             let mut ah = ((cpu.a >> 4).wrapping_sub(cpu.ops.dl >> 4)).wrapping_sub(((al as i8) < 0) as u8);
 
             if (diff as u8) == 0 {
-                cpu.p.zero = true;
+                cpu.p.set(StatusRegister::ZERO, true);
             }
             else if (diff & 0x80) > 0 {
-                cpu.p.negative = true;
+                cpu.p.set(StatusRegister::NEGATIVE, true);
             }
 
             if ((cpu.a as u16 ^ cpu.ops.dl as u16) & (cpu.a as u16 ^ diff) & 0x80) > 0 {
-                cpu.p.overflow = true;
+                cpu.p.set(StatusRegister::OVERFLOW, true);
             }
 
-            if (!(diff & 0xFF00)) > 0 { cpu.p.carry = true; }
+            if (!(diff & 0xFF00)) > 0 { cpu.p.set(StatusRegister::CARRY, true); }
             if (ah & 0x80) > 0 { ah -= 6; }
 
             cpu.a = (ah << 4) | (al & 0x0F);
+        }
+        else {
+            let dl = cpu.ops.dl ^ 0xFF;
+            //let sum = cpu.a.wrapping_add(dl).wrapping_add(cpu.p.carry as u8);
+            let sum = (cpu.a as u16) + (dl as u16) + cpu.p.contains(StatusRegister::CARRY) as u16;
+            let result = (sum & 0xFF) as u8;
+            if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+            if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+            cpu.a = result;
+            cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
+            cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a)); 
         }    
     }
 }
@@ -493,21 +493,21 @@ impl Instruction for Sbc {
 pub struct Sec {}
 impl Instruction for Sec {
     fn execute(cpu: &mut Context) {
-        cpu.p.carry = true;
+        cpu.p.set(StatusRegister::CARRY, true);
     }
 }
 
 pub struct Sed {}
 impl Instruction for Sed {
     fn execute(cpu: &mut Context) {
-        cpu.p.decimal = true;
+        cpu.p.set(StatusRegister::DECIMAL, true)
     }
 }
 
 pub struct Sei {}
 impl Instruction for Sei {
     fn execute(cpu: &mut Context) {
-        cpu.p.interrupt_disable = true;
+        cpu.p.set(StatusRegister::INT_DISABLE, true)
     }
 }
 
@@ -537,8 +537,8 @@ impl Instruction for Tax {
     fn execute(cpu: &mut Context) {
         cpu.x = cpu.a;
 
-        cpu.p.zero = set_zero(cpu.x);
-        cpu.p.negative = set_negative(cpu.x);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
     }
 }
 
@@ -547,8 +547,8 @@ impl Instruction for Tay {
     fn execute(cpu: &mut Context) {
         cpu.y = cpu.a;
 
-        cpu.p.zero = set_zero(cpu.y);
-        cpu.p.negative = set_negative(cpu.y);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.y));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.y));
     }
 }
 
@@ -557,8 +557,8 @@ impl Instruction for Tsx {
     fn execute(cpu: &mut Context) {
         cpu.x = cpu.sp;
 
-        cpu.p.zero = set_zero(cpu.x);
-        cpu.p.negative = set_negative(cpu.x);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
     }
 }
 
@@ -567,8 +567,8 @@ impl Instruction for Txa {
     fn execute(cpu: &mut Context) {
         cpu.a = cpu.x;
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -584,8 +584,8 @@ impl Instruction for Tya {
     fn execute(cpu: &mut Context) {
         cpu.a = cpu.y;
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -597,9 +597,9 @@ impl Instruction for Aac {
     fn execute(cpu: &mut Context) {
         cpu.a &= cpu.ops.dl;
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
-        cpu.p.carry = if cpu.p.negative == true { true } else { false };
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
+        if cpu.p.contains(StatusRegister::NEGATIVE) { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
     }
 }
 
@@ -608,8 +608,8 @@ impl Instruction for Aax {
     fn execute(cpu: &mut Context) {
         cpu.ops.dl = cpu.a & cpu.x;
         
-        //cpu.p.zero = set_zero(cpu.ops.dl);
-        //cpu.p.negative = set_negative(cpu.ops.dl);
+        //cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl);
+        //cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl);
     }
 }
 
@@ -619,25 +619,25 @@ impl Instruction for Arr {
         cpu.a &= cpu.ops.dl;
         // rotate right
         cpu.a = cpu.a.wrapping_div(2);
-        cpu.a |= (cpu.p.carry as u8) << 7;
+        cpu.a |= (cpu.p.contains(StatusRegister::CARRY) as u8) << 7;
 
         let mask = cpu.a & 0b01100000;
         match mask {
             0b01100000 => {
-                cpu.p.carry = true;
-                cpu.p.overflow = false;
+                cpu.p.set(StatusRegister::CARRY, true);
+                cpu.p.set(StatusRegister::OVERFLOW, false);
             }
             0b00000000 => {
-                cpu.p.carry = false;
-                cpu.p.overflow = false;
+                cpu.p.set(StatusRegister::CARRY, false);
+                cpu.p.set(StatusRegister::OVERFLOW, false);
             }
             0b00100000 => {
-                cpu.p.carry = false;
-                cpu.p.overflow = true;
+                cpu.p.set(StatusRegister::CARRY, false);
+                cpu.p.set(StatusRegister::OVERFLOW, true);
             }
             0b01000000 => {
-                cpu.p.carry = true;
-                cpu.p.overflow = true;
+                cpu.p.set(StatusRegister::CARRY, true);
+                cpu.p.set(StatusRegister::OVERFLOW, true);
             }
             _ => panic!("Arr instruction"),
         }
@@ -653,9 +653,9 @@ impl Instruction for Asr {
         // rotate right
         cpu.a = cpu.a.wrapping_div(2);
 
-        cpu.p.carry = old_carry;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::CARRY, old_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -665,8 +665,8 @@ impl Instruction for Atx {
         cpu.a &= cpu.ops.dl;
         cpu.x = cpu.a;
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -675,8 +675,8 @@ impl Instruction for Axa {
     fn execute(cpu: &mut Context) {
         cpu.ops.dl = cpu.a & cpu.x & (cpu.ops.adh.wrapping_add(1));
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -686,7 +686,7 @@ impl Instruction for Axs {
         cpu.x = cpu.a & cpu.x;
         let (x, c) = cpu.x.overflowing_sub(cpu.ops.dl);
         cpu.x = x;
-        cpu.p.carry = c;
+        cpu.p.set(StatusRegister::CARRY, c);
     }
 }
 
@@ -696,9 +696,9 @@ impl Instruction for Dcp {
         let (x, _c) = cpu.ops.dl.overflowing_sub(1);
         cpu.ops.dl = x;
         let result = cpu.a.wrapping_sub(cpu.ops.dl);
-        cpu.p.carry = if cpu.a >= cpu.ops.dl { true } else { false };
-        cpu.p.zero = if cpu.a == cpu.ops.dl { true } else { false }; 
-        cpu.p.negative = set_negative(result);
+        if cpu.a >= cpu.ops.dl { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+        if cpu.a == cpu.ops.dl { cpu.p.set(StatusRegister::ZERO, true) } else { cpu.p.set(StatusRegister::ZERO, false) }; 
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(result));
     }
 }
 
@@ -706,17 +706,17 @@ pub struct Isc {}
 impl Instruction for Isc {
     fn execute(cpu: &mut Context) {
         cpu.ops.dl = cpu.ops.dl.wrapping_add(1);
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
         
         let dl = cpu.ops.dl ^ 0xFF;
-        let sum = (cpu.a as u16) + (dl as u16) + cpu.p.carry as u16;
+        let sum = (cpu.a as u16) + (dl as u16) + cpu.p.contains(StatusRegister::CARRY) as u16;
         let result = (sum & 0xFF) as u8;
-        cpu.p.carry = if sum > 255 { true } else { false };
-        cpu.p.overflow = if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { true } else { false };
+        if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
+        if ((cpu.a ^ result) & (dl ^ result) & 0x80) != 0 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::ZERO, false) };
         cpu.a = result;
-        cpu.p.negative = set_negative(cpu.a);
-        cpu.p.zero = set_zero(cpu.a);
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
     }
 }
 
@@ -737,8 +737,8 @@ impl Instruction for Lar {
         cpu.x = cpu.a;
         cpu.sp = cpu.a;
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -748,8 +748,8 @@ impl Instruction for Lax {
         cpu.a = cpu.ops.dl;
         cpu.x = cpu.ops.dl;
 
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -758,15 +758,15 @@ impl Instruction for Rla {
     fn execute(cpu: &mut Context) {
         let new_carry = if (cpu.ops.dl & 0x80) > 0 { true } else { false };
         cpu.ops.dl = cpu.ops.dl.wrapping_mul(2);
-        cpu.ops.dl |= cpu.p.carry as u8;
+        cpu.ops.dl |= cpu.p.contains(StatusRegister::CARRY) as u8;
 
-        cpu.p.carry = new_carry;
-        cpu.p.negative = set_negative(cpu.ops.dl);
-        cpu.p.zero = set_zero(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
 
         cpu.a = cpu.a & cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -776,21 +776,21 @@ impl Instruction for Rra {
         let new_carry = if (cpu.ops.dl & 0x01) > 0 { true } else { false };
 
         cpu.ops.dl = cpu.ops.dl.wrapping_div(2);
-        cpu.ops.dl |= (cpu.p.carry as u8) << 7;
+        cpu.ops.dl |= (cpu.p.contains(StatusRegister::CARRY) as u8) << 7;
 
-        cpu.p.carry = new_carry;
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
 
-        let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.carry as u16); 
-        cpu.p.carry = if sum > 255 { true } else {false };
+        let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
+        if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else { cpu.p.set(StatusRegister::CARRY, false) };
 
         let result = sum as u8;
         cpu.a = result;
        // cpu.p.overflow =  if (signed_sum < -128) || (signed_sum > 127) { true } else { false };
-        cpu.p.overflow =  if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { true } else { false };
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
 
     }
 }
@@ -801,13 +801,13 @@ impl Instruction for Slo {
         let new_carry = if (cpu.ops.dl & 0x80) > 0 { true } else { false };
         cpu.ops.dl = cpu.ops.dl.wrapping_mul(2);
 
-        cpu.p.carry = new_carry;
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
 
         cpu.a = cpu.a | cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -820,13 +820,13 @@ impl Instruction for Sre {
         // clear bit 7
         cpu.ops.dl &= 0b01111111;
 
-        cpu.p.carry = old_carry;
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, old_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
 
         cpu.a = cpu.a ^ cpu.ops.dl;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);    
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));    
     }
 }
 
