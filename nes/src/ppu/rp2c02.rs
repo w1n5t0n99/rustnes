@@ -808,14 +808,6 @@ impl Rp2c02 {
     }
 }
 
-impl fmt::Display for Rp2c02 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CYC: {} V:{:#06X}  T:{:#06X} Index:{} Dot:{} - Pinout {} BG {} SPR: {}",
-        self.context.cycle, self.context.addr_reg.v, self.context.addr_reg.t, self.context.scanline_index,
-        self.context.scanline_dot, self.pinout, self.bg, self.sp)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.

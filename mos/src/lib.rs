@@ -79,18 +79,6 @@ impl Pinout {
     }
 }
 
-impl fmt::Display for Pinout {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.ctrl.contains(Ctrl::RW) {
-            return write!(f, "{:#X} -R-> {:#X}", self.address, self.data);
-        }
-        else {
-            return write!(f, "{:#X} <-W- {:#X}", self.address, self.data);
-        }
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::{rp2a03, Ctrl};

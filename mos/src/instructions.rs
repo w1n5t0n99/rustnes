@@ -21,15 +21,15 @@ pub trait Instruction {
 pub struct AdcNoDec {}
 impl Instruction for AdcNoDec {
     fn execute(cpu: &mut Context) {
-        let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.carry as u16); 
-        cpu.p.carry = if sum > 255 { true } else {false };
+        let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
+        if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else {cpu.p.set(StatusRegister::CARRY, false) };
 
         let result = sum as u8;
         cpu.a = result;
-       // cpu.p.overflow =  if (signed_sum < -128) || (signed_sum > 127) { true } else { false };
-        cpu.p.overflow =  if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { true } else { false };
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        // cpu.p.overflow =  if (signed_sum < -128) || (signed_sum > 127) { true } else { false };
+        if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
 
     }
 }
@@ -37,23 +37,13 @@ impl Instruction for AdcNoDec {
 pub struct Adc {}
 impl Instruction for Adc {
     fn execute(cpu: &mut Context) {
-        if cpu.p.decimal == false {
-            let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.carry as u16); 
-            cpu.p.carry = if sum > 255 { true } else {false };
-
-            let result = sum as u8;
-            cpu.a = result;
-            cpu.p.overflow =  if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { true } else { false };
-            cpu.p.zero = set_zero(cpu.a);
-            cpu.p.negative = set_negative(cpu.a);
-        }
-        else {
+        if cpu.p.contains(StatusRegister::DECIMAL) {
             // decimal mode (MAME implementation)
-            let c: u8 = if cpu.p.carry == true {1} else {0};
-            cpu.p.carry = false;
-            cpu.p.overflow = false;
-            cpu.p.negative = false;
-            cpu.p.zero = false;
+            let c: u8 = cpu.p.contains(StatusRegister::CARRY) as u8;
+            cpu.p.set(StatusRegister::CARRY, false);
+            cpu.p.set(StatusRegister::OVERFLOW, false);
+            cpu.p.set(StatusRegister::NEGATIVE, false);
+            cpu.p.set(StatusRegister::ZERO, false);
 
             let mut al = (cpu.a & 0x0F) + (cpu.ops.dl & 0x0F) + c;
             if al > 9 { al += 6; }
@@ -61,20 +51,31 @@ impl Instruction for Adc {
             let mut ah = (cpu.a >> 4) + (cpu.ops.dl >> 4) + ((al > 0x0F) as u8);
 
             if (cpu.a.wrapping_add(cpu.ops.dl)).wrapping_add(c) == 0 {
-                cpu.p.zero = true;
+                cpu.p.set(StatusRegister::ZERO, true);
             }
             else if (ah & 0x8) > 0 {
-                cpu.p.negative = true;
+                cpu.p.set(StatusRegister::NEGATIVE, true);
             }
 
             if (!(cpu.a ^ cpu.ops.dl) & (cpu.a ^ (ah << 4)) & 0x80) > 0 {
-                cpu.p.overflow = true;
+                cpu.p.set(StatusRegister::OVERFLOW, true);
             }
 
             if ah > 9 { ah += 6; }
-            if ah > 15 { cpu.p.carry = true; }
+            if ah > 15 { cpu.p.set(StatusRegister::CARRY, true); }
 
             cpu.a = (ah << 4) | (al & 0x0F);
+        }
+        else {
+            let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
+            if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else {cpu.p.set(StatusRegister::CARRY, false) };
+
+            let result = sum as u8;
+            cpu.a = result;
+
+            if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+            cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+            cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
         }
     }
 }
@@ -84,8 +85,8 @@ impl Instruction for And {
     fn execute(cpu: &mut Context) {
         let a = cpu.a & cpu.ops.dl;
         cpu.a = a;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
@@ -95,9 +96,9 @@ impl Instruction for Asl {
         let new_carry = if (cpu.ops.dl & 0x80) > 0 { true } else { false };
         cpu.ops.dl = cpu.ops.dl.wrapping_mul(2);
 
-        cpu.p.carry = new_carry;
-        cpu.p.zero = set_zero(cpu.ops.dl);
-        cpu.p.negative = set_negative(cpu.ops.dl);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.ops.dl));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.ops.dl));
     }
 }
 
@@ -107,30 +108,30 @@ impl Instruction for AslAccum {
         let new_carry = if (cpu.a & 0x80) > 0 { true } else { false };
         cpu.a = cpu.a.wrapping_mul(2);
 
-        cpu.p.carry = new_carry;
-        cpu.p.zero = set_zero(cpu.a);
-        cpu.p.negative = set_negative(cpu.a);
+        cpu.p.set(StatusRegister::CARRY, new_carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
 pub struct Bcc {}
 impl Instruction for Bcc {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.carry == false { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::CARRY) { false } else { true };
     }
 }
 
 pub struct Bcs {}
 impl Instruction for Bcs {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.carry == true { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::CARRY) { true } else { false };
     }
 }
 
 pub struct Beq {}
 impl Instruction for Beq {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.zero == true { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::ZERO) { true } else { false };
     }
 }
 
@@ -138,72 +139,72 @@ pub struct Bit {}
 impl Instruction for Bit {
     fn execute(cpu: &mut Context) {
         let x = cpu.a & cpu.ops.dl;
-        cpu.p.negative = if (cpu.ops.dl & 0x80) == 0x80 { true } else { false };
-        cpu.p.overflow = if (cpu.ops.dl & 0x40) == 0x40 { true } else { false };
-        cpu.p.zero = if x == 0 { true } else { false };
+        if (cpu.ops.dl & 0x80) == 0x80 { cpu.p.set(StatusRegister::NEGATIVE, true) } else { cpu.p.set(StatusRegister::NEGATIVE, false) };
+        if (cpu.ops.dl & 0x40) == 0x40 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+        if x == 0 { cpu.p.set(StatusRegister::ZERO, true) } else { cpu.p.set(StatusRegister::ZERO, false) };
     }
 }
 
 pub struct Bmi {}
 impl Instruction for Bmi {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.negative == true { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::NEGATIVE) { true } else { false };
     }
 }
 
 pub struct Bne {}
 impl Instruction for Bne {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.zero == false { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::ZERO) { false } else { true };
     }
 }
 
 pub struct Bpl {}
 impl Instruction for Bpl {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.negative == false { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::NEGATIVE) { false } else { true };
     }
 }
 
 pub struct Bvc {}
 impl Instruction for Bvc {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.overflow == false { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::OVERFLOW) { false } else { true };
     }
 }
 
 pub struct Bvs {}
 impl Instruction for Bvs {
     fn execute(cpu: &mut Context) {
-        cpu.ops.branch_taken = if cpu.p.overflow == true { true } else { false };
+        cpu.ops.branch_taken = if cpu.p.contains(StatusRegister::OVERFLOW) { true } else { false };
     }
 }
 
 pub struct Clc {}
 impl Instruction for Clc {
     fn execute(cpu: &mut Context) {
-        cpu.p.carry = false;
+        cpu.p.set(StatusRegister::CARRY, false);
     }
 }
 
 pub struct Cld {}
 impl Instruction for Cld {
     fn execute(cpu: &mut Context) {
-        cpu.p.decimal = false;
+        cpu.p.set(StatusRegister::DECIMAL, false);
     }
 }
 
 pub struct Cli {}
 impl Instruction for Cli {
     fn execute(cpu: &mut Context) {
-        cpu.p.interrupt_disable = false;
+        cpu.p.set(StatusRegister::INT_DISABLE, false);
     }
 }
 
 pub struct Clv {}
 impl Instruction for Clv {
     fn execute(cpu: &mut Context) {
-        cpu.p.overflow = false;
+        cpu.p.set(StatusRegister::OVERFLOW, false);
     }
 }
 

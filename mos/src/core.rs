@@ -1,64 +1,39 @@
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct FlagsRegister {
-    pub carry: bool,
-    pub zero: bool,
-    pub interrupt_disable: bool,
-    pub decimal: bool,
-    pub overflow: bool,
-    pub negative: bool,
-}
-
-impl FlagsRegister {
-    pub fn push_with_b_set(&mut self) -> u8{
-        let mut p = u8::from(*self);
-        p = p | (1 << 4);
-        p
-    }
-
-    pub fn push_with_b_clear(&mut self) -> u8{
-        let p = u8::from(*self);
-        // bit 5 is always 1 when pushed
-        p
-    }
-
-    pub fn pull(p: u8) -> FlagsRegister {
-        let p = p & 0b11101111;
-        let fr = FlagsRegister::from(p);
-        fr
+bitflags! {
+    // 7  bit  0
+    // ---- ----
+    // NVss DIZC
+    // |||| ||||
+    // |||| |||+- Carry
+    // |||| ||+-- Zero
+    // |||| |+--- Interrupt Disable
+    // |||| +---- Decimal
+    // ||++------ No CPU effect, see: the B flag
+    // |+-------- Overflow
+    // +--------- Negative
+    pub struct StatusRegister: u8 {
+        const CARRY              = 0b00000001; 
+        const ZERO               = 0b00000010;
+        const INT_DISABLE        = 0b00000100;
+        const DECIMAL            = 0b00001000;
+        const OVERFLOW           = 0b01000000;
+        const NEGATIVE           = 0b10000000;
     }
 }
 
-impl std::convert::From<FlagsRegister> for u8 {
-    fn from(flag: FlagsRegister) -> u8 {
-        (if flag.carry              { 1 } else { 0 }) << 0 |
-        (if flag.zero               { 1 } else { 0 }) << 1 |
-        (if flag.interrupt_disable  { 1 } else { 0 }) << 2 |
-        (if flag.decimal            { 1 } else { 0 }) << 3 |
-        (if flag.overflow           { 1 } else { 0 }) << 6 | 
-        (if flag.negative           { 1 } else { 0 }) << 7 |
-        1 << 5
+impl StatusRegister {
+    pub fn from_power_on() -> StatusRegister {
+        // IRQ disabled
+        StatusRegister::INT_DISABLE
     }
-}
 
-impl std::convert::From<u8> for FlagsRegister {
-    fn from(byte: u8) -> FlagsRegister {
-        let carry = ((byte >> 0) & 0b1) != 0;
-        let zero = ((byte >> 1) & 0b1) != 0;
-        let interrupt_disable = ((byte >> 2) & 0b1) != 0;
-        let decimal = ((byte >> 3) & 0b1) != 0;
-        let overflow = ((byte >> 6) & 0b1) != 0;
-        let negative = ((byte >> 7) & 0b1) != 0;
+    pub fn push_with_b(&mut self) -> u8 {
+        self.bits() | 0b00110000
+    }
 
-        FlagsRegister {
-            carry,
-            zero,
-            interrupt_disable,
-            decimal,
-            overflow,
-            negative,
-        }
-    }    
+    pub fn push_without_b(&mut self) -> u8 {
+        self.bits() | 0b00100000
+    }
 }
 
 /*
@@ -216,7 +191,7 @@ pub struct Context
     pub ops: OpState,
     pub ints: InterruptState,
     pub ir: InstructionRegister,
-    pub p: FlagsRegister,
+    pub p: StatusRegister,
     pub pc: ProgramCounter,
     pub a: u8,
     pub x: u8,
@@ -238,8 +213,8 @@ impl Context
             sp: 0,
             cycle: 0,
             ir: InstructionRegister::new(),
-            p: FlagsRegister::from(0),
-            pc: ProgramCounter::from(0),
+            p: StatusRegister::from_power_on(),
+            pc: ProgramCounter::new(),
             ops: OpState::new(),
             ints: InterruptState::None,
             nmi_detected: false,
@@ -254,7 +229,7 @@ impl Context
         self.sp = 0;
         self.cycle = 0;
         self.ir = InstructionRegister::new();
-        self.p = FlagsRegister::from(0);
+        self.p = self.p | StatusRegister::INT_DISABLE;
         self.ops = OpState::new();
         self.ints = InterruptState::None;
         self.nmi_detected = false;

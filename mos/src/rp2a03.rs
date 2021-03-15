@@ -1611,11 +1611,3 @@ impl Rp2a03 {
         }
     }
 }
-
-impl fmt::Display for Rp2a03 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#X}  IR:{:#X} TM:{:#X} SYNC:{} {} - A:{:#X} X:{:#X} Y:{:#X} P:{:#X} SP:{:#X} CYC: {}",
-        u16::from(self.cpu.pc), self.cpu.ir.opcode, self.cpu.ir.tm, self.cpu.first_cycle, self.mnemonic_lookup(), self.cpu.a,
-        self.cpu.x, self.cpu.y, u8::from(self.cpu.p), self.cpu.sp, self.cpu.cycle)
-    }
-}
