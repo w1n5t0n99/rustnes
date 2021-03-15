@@ -1150,7 +1150,7 @@ pub fn php_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 }
 
 pub fn php_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
-    cpu.ops.dl = u8::from(cpu.p);
+    cpu.ops.dl = cpu.p.push_without_b();
     write_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp), cpu.ops.dl);
     // decrement stack pointer
     cpu.sp = cpu.sp.wrapping_sub(1);
@@ -1210,7 +1210,7 @@ pub fn plp_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     cpu.sp = cpu.sp.wrapping_add(1);
     read_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp));
-    cpu.p = FlagsRegister::from(cpu.ops.dl);
+    cpu.p = StatusRegister::from_bits_truncate(cpu.ops.dl);
 
     last_cycle!(cpu, pinout);
     pinout
