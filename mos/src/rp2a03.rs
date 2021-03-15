@@ -5,7 +5,6 @@ use super::{Ctrl, Pinout};
 use super::bus::Bus;
 use std::fmt;
 
-
 pub struct Rp2a03 {
     cpu: Context,
 }
@@ -18,7 +17,7 @@ impl Rp2a03 {
 
         let cpu = Rp2a03 { cpu: cpu_context };
         let cpu_pinout = Pinout::new();
-
+        
         (cpu, cpu_pinout)
     }
 

@@ -4,8 +4,8 @@ use std::path::Path;
 use std::time::{Instant, Duration};
 use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode, KeyRepeat};
 
-const WIDTH: usize = 240;
-const HEIGHT: usize = 256;
+const WIDTH: usize = 256;
+const HEIGHT: usize = 240;
 
 const EMU_MODE: usize = 1;
 const NORMAL: usize = 2;
@@ -53,7 +53,7 @@ fn single_frame_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution:
     window.get_keys_pressed(KeyRepeat::No).map(|keys| {
         for t in keys {
             match t {
-                Key::NumPadPlus => {
+                Key::RightShift => {
                     window.get_keys().map(|keys| {
                         for t in keys {
                             match t {
@@ -134,7 +134,7 @@ fn main() {
     let frame_limit = utils::FrameLimit::new(60);
 
     let mut nes = NesNtsc::new();
-    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
+    nes.load_rom("test_roms\\donkey_kong.nes");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // check menu
