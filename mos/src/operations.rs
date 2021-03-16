@@ -24,14 +24,12 @@ fn poll_interrupts(cpu: &mut Context, pinout: Pinout) {
         cpu.ops.reset();
         cpu.ir.reset_to_nmi();
         cpu.int_vec_low = NMI_VEC_LOW;
-        cpu.p.set(StatusRegister::INT_DISABLE, true);
     }
     // irq is level detected and must be held every cycle until handled
     else if is_irq_asserted(cpu, pinout) {
         cpu.ops.reset();
         cpu.ir.reset_to_irq();
         cpu.int_vec_low = IRQ_BRK_VEC_LOW;
-        cpu.p.set(StatusRegister::INT_DISABLE, true);
     }
 }
 
@@ -281,6 +279,8 @@ pub fn irq_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 pub fn irq_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     // write status reg to stack
     write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.p.push_without_b());
+    // after status write set I flag
+    cpu.p.set(StatusRegister::INT_DISABLE, true);
 
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
@@ -347,6 +347,8 @@ pub fn nmi_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 pub fn nmi_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     // write status reg to stack
     write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.p.push_without_b());
+    // after status write set I flag
+    cpu.p.set(StatusRegister::INT_DISABLE, true);
 
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
@@ -413,9 +415,8 @@ pub fn immediate_read_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pin
 
 pub fn immediate_read_c1<B: Bus, T: Instruction>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
-    last_cycle!(cpu, pinout);
-    // instruction executed after polling
     T::execute(cpu);
+    last_cycle!(cpu, pinout);
     // if no interrupt do first cycle
     first_cycle!(cpu, bus, pinout);
     pinout
