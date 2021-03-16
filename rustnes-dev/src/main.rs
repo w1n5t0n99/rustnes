@@ -134,7 +134,7 @@ fn main() {
     let frame_limit = utils::FrameLimit::new(60);
 
     let mut nes = NesNtsc::new();
-    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
+    nes.load_rom("test_roms\\Super Mario Bros (JU) (PRG 0).nes");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // check menu

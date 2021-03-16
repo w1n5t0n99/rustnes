@@ -7,19 +7,31 @@ const fn to_address(hb: u8, lb: u8) -> u16 {
     (hb as u16) << 8 | (lb as u16) 
 }
 
+#[inline]
+fn is_nmi_asserted(cpu: &mut Context) -> bool {
+    cpu.nmi_detected
+}
+
+#[inline]
+fn is_irq_asserted(cpu: &mut Context, pinout: Pinout) -> bool {
+    pinout.ctrl.contains(Ctrl::IRQ) == false && cpu.p.contains(StatusRegister::INT_DISABLE) == false
+}
+
 fn poll_interrupts(cpu: &mut Context, pinout: Pinout) {
     // nmi is edge detected, only needs to be held one cycle to set flag
-    if cpu.nmi_detected == true {
-        cpu.ints = InterruptState::Nmi;
-        cpu.ops.reset();
-        cpu.ir.reset(0x00);
+    if is_nmi_asserted(cpu) {
         cpu.nmi_detected = false;
+        cpu.ops.reset();
+        cpu.ir.reset_to_nmi();
+        cpu.int_vec_low = NMI_VEC_LOW;
+        cpu.p.set(StatusRegister::INT_DISABLE, true);
     }
     // irq is level detected and must be held every cycle until handled
-    else if pinout.ctrl.contains(Ctrl::IRQ) == false && cpu.p.contains(StatusRegister::INT_DISABLE) == false {
-        cpu.ints = InterruptState::Irq;
+    else if is_irq_asserted(cpu, pinout) {
         cpu.ops.reset();
-        cpu.ir.reset(0x00);
+        cpu.ir.reset_to_irq();
+        cpu.int_vec_low = IRQ_BRK_VEC_LOW;
+        cpu.p.set(StatusRegister::INT_DISABLE, true);
     }
 }
 
@@ -59,7 +71,8 @@ macro_rules! second_cycle {
 macro_rules! last_cycle {
     ($cpu:ident, $pinout:ident) => {
         poll_interrupts($cpu, $pinout);
-        if $cpu.ints != InterruptState::None {
+        // instruction don't have more than 7 cycles so must've been set to interrupt
+        if $cpu.ir.tm > 0xF {
             return $pinout;
         }
     }
@@ -181,30 +194,22 @@ pub fn brk_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
     // check for hijack
-    cpu.ints = match cpu.ints {
-        InterruptState::None if cpu.nmi_detected == true => { InterruptState::BrkHijack },
-        InterruptState::Irq if cpu.nmi_detected == true => { InterruptState::IrqHijack },
-        _ => cpu.ints,
-    };
-
-    // if nmi hijack occurred during it should be ok to clear flag 
-    cpu.nmi_detected = false;
+    if is_nmi_asserted(cpu) {
+        cpu.int_vec_low = NMI_VEC_LOW;
+        cpu.nmi_detected = false;
+        cpu.p.set(StatusRegister::INT_DISABLE, true);
+    }
+    else if is_irq_asserted(cpu, pinout) {
+        cpu.int_vec_low = IRQ_BRK_VEC_LOW;
+        cpu.p.set(StatusRegister::INT_DISABLE, true);
+    }
 
     pinout
 }
 
 pub fn brk_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     // write status reg to stack
-    let status_reg = match cpu.ints {
-        // if no interupts, must be brk instruction
-        InterruptState::None => cpu.p.push_with_b(),
-        InterruptState::BrkHijack => cpu.p.push_with_b(),
-        InterruptState::Irq => cpu.p.push_without_b(),
-        InterruptState::IrqHijack => cpu.p.push_without_b(),
-        InterruptState::Nmi => cpu.p.push_without_b(),
-    };
-
-    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), status_reg);
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.p.push_with_b());
 
     // decrement sp
     cpu.sp = cpu.sp.wrapping_sub(1);
@@ -214,11 +219,7 @@ pub fn brk_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 pub fn brk_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     // set to_address to fetch pcl
-    let addr = match cpu.ints {
-        InterruptState::None => to_address(0xFF, 0xFE),
-        InterruptState::Irq => to_address(0xFF, 0xFE),
-        InterruptState::Nmi | InterruptState::BrkHijack | InterruptState::IrqHijack => to_address(0xFF, 0xFA),
-    };
+    let addr = to_address(0xFF, cpu.int_vec_low);
 
     read_cycle!(cpu, bus, pinout, addr);
     cpu.pc.pcl = cpu.ops.dl;
@@ -230,19 +231,153 @@ pub fn brk_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
 pub fn brk_c5<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     // set to_address to fetch pch
-    let addr = match cpu.ints {
-        InterruptState::None => to_address(0xFF, 0xFF),
-        InterruptState::Irq =>to_address(0xFF, 0xFF),
-        InterruptState::Nmi | InterruptState::BrkHijack | InterruptState::IrqHijack => to_address(0xFF, 0xFB),
-    };
+    let addr = to_address(0xFF, cpu.int_vec_low + 1);
 
-    cpu.ints = InterruptState::None;
     read_cycle!(cpu, bus, pinout, addr);
     cpu.pc.pch = cpu.ops.dl;
+    // set the interrupt vector back to the default with is the BRK vec
+    cpu.int_vec_low = IRQ_BRK_VEC_LOW;
     pinout
 }
 
 pub fn brk_c6<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    first_cycle!(cpu, bus, pinout);
+    pinout
+}
+
+//===================================================
+// IRQ
+//====================================================
+pub fn irq_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    // read instruction byte (discarded)
+    second_cycle!(cpu, bus, pinout);
+    pinout
+}
+
+pub fn irq_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    // write pch to stack
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.pc.pch);
+    // decrement sp
+    cpu.sp = cpu.sp.wrapping_sub(1);
+    pinout
+}
+
+pub fn irq_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    // write pcl  to stack
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.pc.pcl);
+    // decrement sp
+    cpu.sp = cpu.sp.wrapping_sub(1);
+    // check for hijack
+    if is_nmi_asserted(cpu) {
+        cpu.int_vec_low = NMI_VEC_LOW;
+        cpu.nmi_detected = false;
+    }
+
+    pinout
+}
+
+pub fn irq_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    // write status reg to stack
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.p.push_without_b());
+
+    // decrement sp
+    cpu.sp = cpu.sp.wrapping_sub(1);
+    pinout
+}
+
+pub fn irq_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    // set to_address to fetch pcl
+    let addr = to_address(0xFF, cpu.int_vec_low);
+
+    read_cycle!(cpu, bus, pinout, addr);
+    cpu.pc.pcl = cpu.ops.dl;
+    // set i flag
+    cpu.p.set(StatusRegister::INT_DISABLE, true);
+    pinout
+}
+
+pub fn irq_c5<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    // set to_address to fetch pch
+    let addr = to_address(0xFF, cpu.int_vec_low + 1);
+
+    read_cycle!(cpu, bus, pinout, addr);
+    cpu.pc.pch = cpu.ops.dl;
+    // set the interrupt vector back to the default with is the BRK vec
+    cpu.int_vec_low = IRQ_BRK_VEC_LOW;
+    pinout
+}
+
+pub fn irq_c6<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    first_cycle!(cpu, bus, pinout);
+    pinout
+}
+
+//===================================================
+// NMI
+//====================================================
+pub fn nmi_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    // read instruction byte (discarded)
+    second_cycle!(cpu, bus, pinout);
+    pinout
+}
+
+pub fn nmi_c1<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    // write pch to stack
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.pc.pch);
+    // decrement sp
+    cpu.sp = cpu.sp.wrapping_sub(1);
+    pinout
+}
+
+pub fn nmi_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    // write pcl  to stack
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.pc.pcl);
+    // decrement sp
+    cpu.sp = cpu.sp.wrapping_sub(1);
+
+    pinout
+}
+
+pub fn nmi_c3<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    // write status reg to stack
+    write_cycle!(cpu, bus, pinout, to_address(0x01, cpu.sp), cpu.p.push_without_b());
+
+    // decrement sp
+    cpu.sp = cpu.sp.wrapping_sub(1);
+    pinout
+}
+
+pub fn nmi_c4<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    // set to_address to fetch pcl
+    let addr = to_address(0xFF, cpu.int_vec_low);
+
+    read_cycle!(cpu, bus, pinout, addr);
+    cpu.pc.pcl = cpu.ops.dl;
+    // set i flag
+    cpu.p.set(StatusRegister::INT_DISABLE, true);
+    pinout
+}
+
+pub fn nmi_c5<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
+    if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    // set to_address to fetch pch
+    let addr = to_address(0xFF, cpu.int_vec_low + 1);
+
+    read_cycle!(cpu, bus, pinout, addr);
+    cpu.pc.pch = cpu.ops.dl;
+    // set the interrupt vector back to the default with is the BRK vec
+    cpu.int_vec_low = IRQ_BRK_VEC_LOW;
+    pinout
+}
+
+pub fn nmi_c6<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     first_cycle!(cpu, bus, pinout);
     pinout

@@ -3,7 +3,6 @@ use super::operations::*;
 use super::instructions::*;
 use super::{Ctrl, Pinout};
 use super::bus::Bus;
-use std::fmt;
 
 pub struct Rp2a03 {
     cpu: Context,
@@ -48,6 +47,22 @@ impl Rp2a03 {
             0x0004 => pinout = brk_c4( &mut self.cpu, bus, pinout),
             0x0005 => pinout = brk_c5( &mut self.cpu, bus, pinout),
             0x0006 => pinout = brk_c6( &mut self.cpu, bus, pinout),
+            // nmi
+            0x0020 => pinout = nmi_c0( &mut self.cpu, bus, pinout),
+            0x0021 => pinout = nmi_c1( &mut self.cpu, bus, pinout),
+            0x0022 => pinout = nmi_c2( &mut self.cpu, bus, pinout),
+            0x0023 => pinout = nmi_c3( &mut self.cpu, bus, pinout),
+            0x0024 => pinout = nmi_c4( &mut self.cpu, bus, pinout),
+            0x0025 => pinout = nmi_c5( &mut self.cpu, bus, pinout),
+            0x0026 => pinout = nmi_c6( &mut self.cpu, bus, pinout),
+            // irq
+            0x0030 => pinout = irq_c0( &mut self.cpu, bus, pinout),
+            0x0031 => pinout = irq_c1( &mut self.cpu, bus, pinout),
+            0x0032 => pinout = irq_c2( &mut self.cpu, bus, pinout),
+            0x0033 => pinout = irq_c3( &mut self.cpu, bus, pinout),
+            0x0034 => pinout = irq_c4( &mut self.cpu, bus, pinout),
+            0x0035 => pinout = irq_c5( &mut self.cpu, bus, pinout),
+            0x0036 => pinout = irq_c6( &mut self.cpu, bus, pinout),
             // jmp absolute
             0x4C00 =>  pinout = jmp_absolute_c0(&mut self.cpu, bus, pinout),
             0x4C01 =>  pinout = jmp_absolute_c1(&mut self.cpu, bus, pinout),
@@ -1430,21 +1445,18 @@ impl Rp2a03 {
 
     pub fn reset(&mut self) {
         self.cpu = Context::new();
-
-        self.cpu.ir.opcode = 0x00;
-        self.cpu.ir.tm = 0x10;
+        self.cpu.ir.reset_to_rst();
     }
 
     fn mnemonic_lookup(&self) -> &str {
         match self.cpu.ir.opcode {
             0x00 => {
-                match self.cpu.ints {
-                    InterruptState::None if self.cpu.ir.tm > 0x9 => "RST",
-                    InterruptState::None => "BRK",
-                    InterruptState::BrkHijack => "BRK Hijacked",
-                    InterruptState::IrqHijack => "IRQ Hijacked",
-                    InterruptState::Irq => "IRQ",
-                    InterruptState::Nmi => "NMI",
+                match self.cpu.ir.tm {
+                    0x10..=0x18 => "RST",
+                    0x00..=0x06 => "BRK",
+                    0x30..=0x36 => "IRQ",
+                    0x20..=0x26 => "NMI",
+                    _ => panic!("interrupt timing out of bounds"),
                 }
             }
             // AdcNoDec

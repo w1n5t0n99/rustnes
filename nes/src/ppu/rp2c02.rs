@@ -5,8 +5,6 @@ use super::ppu_registers::*;
 use super::ppu_operations::*;
 use crate::mappers::Mapper;
 
-use std::fmt;
-
 const WRITE_BLOCK_CYCLES: u64 = 29658 * 3;
 
 #[derive(Clone, Copy)]

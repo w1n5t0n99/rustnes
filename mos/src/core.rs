@@ -1,3 +1,10 @@
+pub const RST_VEC_LOW: u8 = 0xFC;
+pub const NMI_VEC_LOW: u8 = 0xFA;
+pub const IRQ_BRK_VEC_LOW: u8 = 0xFE;
+
+const RST_TM: u8 = 0x10;
+const NMI_TM: u8 = 0x20;
+const IRQ_TM: u8 = 0x30;
 
 bitflags! {
     // 7  bit  0
@@ -98,6 +105,24 @@ impl InstructionRegister {
     }
 
     #[inline]
+    pub fn reset_to_rst(&mut self) {
+        self.opcode = 0x00;
+        self.tm = RST_TM;
+    }
+
+    #[inline]
+    pub fn reset_to_nmi(&mut self) {
+        self.opcode = 0x00;
+        self.tm = NMI_TM;
+    }
+
+    #[inline]
+    pub fn reset_to_irq(&mut self) {
+        self.opcode = 0x00;
+        self.tm = IRQ_TM;
+    }
+
+    #[inline]
     pub fn increment(&mut self) {
         self.tm = self.tm.wrapping_add(1);
     }
@@ -116,15 +141,6 @@ impl std::convert::From<u16> for InstructionRegister {
             opcode: (b >> 8) as u8,
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum InterruptState {
-    None,
-    BrkHijack,
-    IrqHijack,
-    Irq,
-    Nmi,
 }
 
 /*
@@ -189,14 +205,14 @@ pub struct Context
 {
     pub cycle: u64,
     pub ops: OpState,
-    pub ints: InterruptState,
     pub ir: InstructionRegister,
     pub p: StatusRegister,
     pub pc: ProgramCounter,
     pub a: u8,
     pub x: u8,
     pub y: u8,
-    pub sp: u8,    
+    pub sp: u8,   
+    pub int_vec_low: u8, 
     pub nmi_detected: bool,
     pub first_cycle: bool,
 }
@@ -216,7 +232,7 @@ impl Context
             p: StatusRegister::from_power_on(),
             pc: ProgramCounter::new(),
             ops: OpState::new(),
-            ints: InterruptState::None,
+            int_vec_low: IRQ_BRK_VEC_LOW,
             nmi_detected: false,
             first_cycle: false,
         }
@@ -231,7 +247,7 @@ impl Context
         self.ir = InstructionRegister::new();
         self.p = self.p | StatusRegister::INT_DISABLE;
         self.ops = OpState::new();
-        self.ints = InterruptState::None;
+        self.int_vec_low = IRQ_BRK_VEC_LOW;
         self.nmi_detected = false;
     }
 }

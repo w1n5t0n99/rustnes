@@ -2,8 +2,6 @@
 use super::Context;
 use super::ppu_registers::*;
 
-use std::fmt;
-
 const PATTERN0_OFFSET: u16 = 0;
 const PATTERN1_OFFSET: u16 = 8;
 const PATTERN0_INDEX: usize = 0;
@@ -82,14 +80,6 @@ impl Background {
 
     pub fn pattern1_address(&mut self, ppu: &mut Context) -> u16 {
         (ppu.control_reg.background_table_address() | (self.next_tile_index << 4)  | PATTERN1_OFFSET | ppu.addr_reg.tile_line()) & 0xFFFF
-    }
-}
-
-impl fmt::Display for Background {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-        write!(f, "Shift 0:{:#06X}  Shift 1:{:#06X} Attribute 0:{:#04X} Attribute 1:{:#04X}",
-        self.pattern_queue[0], self.pattern_queue[1], self.attribute_queue[0], self.attribute_queue[1])
     }
 }
 
