@@ -413,8 +413,9 @@ pub fn immediate_read_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pin
 
 pub fn immediate_read_c1<B: Bus, T: Instruction>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
-    T::execute(cpu);
     last_cycle!(cpu, pinout);
+    // instruction executed after polling
+    T::execute(cpu);
     // if no interrupt do first cycle
     first_cycle!(cpu, bus, pinout);
     pinout
