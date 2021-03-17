@@ -33,6 +33,24 @@ fn poll_interrupts(cpu: &mut Context, pinout: Pinout) {
     }
 }
 
+// interrupts are really polled on the second to last cycle
+// this really only matters for SEI, CLI, PLP
+fn delayed_poll_interrupts(cpu: &mut Context, irq_detected: bool) {
+    // nmi is edge detected, only needs to be held one cycle to set flag
+    if is_nmi_asserted(cpu) {
+        cpu.nmi_detected = false;
+        cpu.ops.reset();
+        cpu.ir.reset_to_nmi();
+        cpu.int_vec_low = NMI_VEC_LOW;
+    }
+    // irq is level detected and must be held every cycle until handled
+    else if irq_detected {
+        cpu.ops.reset();
+        cpu.ir.reset_to_irq();
+        cpu.int_vec_low = IRQ_BRK_VEC_LOW;
+    }
+}
+
 //====================================================
 // helper macros
 //====================================================
@@ -69,6 +87,16 @@ macro_rules! second_cycle {
 macro_rules! last_cycle {
     ($cpu:ident, $pinout:ident) => {
         poll_interrupts($cpu, $pinout);
+        // instruction don't have more than 7 cycles so must've been set to interrupt
+        if $cpu.ir.tm > 0xF {
+            return $pinout;
+        }
+    }
+}
+
+macro_rules! delayed_int_last_cycle {
+    ($cpu:ident, $irq_detected:ident,  $pinout:ident) => {
+        delayed_poll_interrupts($cpu, $irq_detected);
         // instruction don't have more than 7 cycles so must've been set to interrupt
         if $cpu.ir.tm > 0xF {
             return $pinout;
@@ -396,8 +424,11 @@ pub fn single_byte_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout
 
 pub fn single_byte_c1<B: Bus, T: Instruction>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pinout {
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
+    let irq_detected = is_irq_asserted(cpu, pinout);
+
     T::execute(cpu);
-    last_cycle!(cpu, pinout);
+    
+    delayed_int_last_cycle!(cpu, irq_detected, pinout);
     // if no interrupt do first cycle
     first_cycle!(cpu, bus, pinout);
     pinout
@@ -1347,9 +1378,12 @@ pub fn plp_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     cpu.sp = cpu.sp.wrapping_add(1);
     read_cycle!(cpu, bus, pinout, to_address(0x1, cpu.sp));
+
+    let irq_detected = is_irq_asserted(cpu, pinout);
+
     cpu.p = StatusRegister::from_bits_truncate(cpu.ops.dl);
 
-    last_cycle!(cpu, pinout);
+    delayed_int_last_cycle!(cpu, irq_detected, pinout);
     pinout
 }
 

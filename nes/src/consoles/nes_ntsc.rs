@@ -85,6 +85,10 @@ impl Console for NesNtsc {
             }
 
             {
+                // APU
+            }
+
+            {
                 self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
             }
         }
