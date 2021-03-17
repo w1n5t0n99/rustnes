@@ -214,7 +214,6 @@ pub struct Context
     pub sp: u8,   
     pub int_vec_low: u8, 
     pub nmi_detected: bool,
-    pub first_cycle: bool,
 }
 
 impl Context
@@ -234,7 +233,6 @@ impl Context
             ops: OpState::new(),
             int_vec_low: IRQ_BRK_VEC_LOW,
             nmi_detected: false,
-            first_cycle: false,
         }
     }
 

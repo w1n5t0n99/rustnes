@@ -56,13 +56,13 @@ fn delayed_poll_interrupts(cpu: &mut Context, irq_detected: bool) {
 //====================================================
 macro_rules! first_cycle {
     ($cpu:ident, $bus:ident, $pinout:ident) => {
+        // sync used to track first cycle of instruction
         $pinout.ctrl.set(Ctrl::SYNC, true);
         $pinout.ctrl.set(Ctrl::RW, true);
         $pinout.address = u16::from($cpu.pc);
         // always fetch opcode
         $pinout = $bus.read($pinout);
         // set instruction register to new opcode
-        $cpu.first_cycle = true;
         $cpu.ir.reset($pinout.data);
         $cpu.ops.reset();
         $cpu.pc.increment();
@@ -78,7 +78,6 @@ macro_rules! second_cycle {
         // always fetch byte after opcode
         $pinout = $bus.read($pinout);
         $cpu.ops.dl = $pinout.data;
-        $cpu.first_cycle = false;
 
         $cpu.ir.increment();
     }
