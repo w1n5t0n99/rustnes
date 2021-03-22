@@ -1,5 +1,5 @@
 use nes::consoles::{Console, nes_ntsc::NesNtsc,};
-use nes::{JoypadInput, utils};
+use nes::{JoypadInput, utils::time};
 use std::path::Path;
 use std::time::{Instant, Duration};
 use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode, KeyRepeat};
@@ -16,7 +16,7 @@ enum DebugMode {
     SingleFrame,
 }
 
-fn normal_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut utils::AvgDuration, frame_limit: &utils::FrameLimit, fb: &mut [u32]) {
+fn normal_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut time::AvgDuration, frame_limit: &time::FrameLimit, fb: &mut [u32]) {
     avg_frame_execution.begin();
     let mut jp1 = JoypadInput::from_bits_truncate(0x0);
     nes.execute_frame(fb);
@@ -46,7 +46,7 @@ fn normal_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut 
     frame_limit.end_of_frame(avg_frame_execution.get_current_duration());
 }
 
-fn single_frame_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut utils::AvgDuration, frame_limit: &utils::FrameLimit, fb: &mut [u32]) {
+fn single_frame_run(nes: &mut NesNtsc, window: &mut Window, avg_frame_execution: &mut time::AvgDuration, frame_limit: &time::FrameLimit, fb: &mut [u32]) {
     avg_frame_execution.begin();
     let mut jp1 = JoypadInput::from_bits_truncate(0x0);
 
@@ -130,8 +130,8 @@ fn main() {
 
     let mut fb: Vec<u32> = vec![0; 256*240];
     let mut debug_mode = DebugMode::Normal;
-    let mut avg_frame_execution = utils::AvgDuration::new();
-    let frame_limit = utils::FrameLimit::new(60);
+    let mut avg_frame_execution = time::AvgDuration::new();
+    let frame_limit = time::FrameLimit::new(60);
 
     let mut nes = NesNtsc::new();
     nes.load_rom("test_roms\\test_ppu_read_buffer.nes");

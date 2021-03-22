@@ -31,8 +31,7 @@ impl Mapper3 {
                 set_prg16k_c000_ffff(&mut mapper3.context.prg_bank_lookup, 0);
              }
             SIZE_32K => {
-                set_prg16k_8000_bfff(&mut mapper3.context.prg_bank_lookup, 0);
-                set_prg16k_c000_ffff(&mut mapper3.context.prg_bank_lookup, 1);
+                set_prg32k_8000_ffff(&mut mapper3.context.prg_bank_lookup, 0);
              }
             _ => panic!("prg rom size is invalid - {:#X}", rom.prg_rom_size)
         };

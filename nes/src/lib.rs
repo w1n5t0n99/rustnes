@@ -1,4 +1,3 @@
-pub mod error;
 pub mod consoles;
 pub mod utils;
 

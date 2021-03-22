@@ -1,13 +1,11 @@
 #[macro_use]
 extern crate bitflags;
 
-mod core;
+pub mod core;
 mod instructions;
 mod operations;
 pub mod bus;
 pub mod rp2a03;
-
-use std::fmt;
 
 /*
 Mos 6502
