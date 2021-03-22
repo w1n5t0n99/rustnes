@@ -1,10 +1,12 @@
 mod mapper_null;
 mod mapper_nrom;
 mod mapper1;
+mod mapper3;
 
 use super::ppu;
 use mapper_nrom::MapperNrom;
 use mapper1::Mapper1;
+use mapper3::Mapper3;
 use mapper_null::MapperNull;
 use ::nes_rom::ines;
 
@@ -366,8 +368,6 @@ impl Context {
 }
 
 pub trait Mapper {
-    // mainly to run emulator test roms that have a diffrent entry point
-    fn change_rst_vector(&mut self, addr: u16);
     // CPU
     fn read_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   // sys ram
     fn read_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   //expansion space
@@ -436,6 +436,9 @@ pub fn create_mapper(rom: &ines::Ines) -> Box<dyn Mapper> {
         }
         1 => {
             Box::new(Mapper1::from_ines(rom))
+        }
+        3 => {
+            Box::new(Mapper3::from_ines(rom))
         }
         // TODO: add error handling instead of panicking like a monster
         _ => { panic!("mapper {} implementation not found", rom.mapper); }

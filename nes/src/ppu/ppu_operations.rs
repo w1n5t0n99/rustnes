@@ -101,7 +101,6 @@ pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: P
 
     if ppu.ppu_2007_rd_buffer.is_none() {
         pinout = read(ppu, mapper, pinout);
-        let old_address = pinout.address;
         ppu.ppu_2007_rd_buffer = Some(pinout.data);
         ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
         return pinout;

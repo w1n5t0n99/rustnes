@@ -1,5 +1,4 @@
 use ::nes_rom::ines;
-use std::ptr;
 
 use super::*;
 use super::ppu;
@@ -50,19 +49,6 @@ impl MapperNrom {
 }
 
 impl Mapper for MapperNrom {
-
-    fn change_rst_vector(&mut self, addr: u16) {
-        let hb = (addr >> 8) as u8;
-        let lb = addr as u8;
-
-        let bank = &self.context.prg_bank_lookup[7];
-
-        let mut rst_vec = get_mem_address(bank, 0xFFFD);
-        self.context.prg_rom[rst_vec as usize] = hb;
-
-        rst_vec = get_mem_address(bank, 0xFFFC);
-        self.context.prg_rom[rst_vec as usize] = lb;
-    }
 
     // cpu 
     fn read_cpu_0000_1fff(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {

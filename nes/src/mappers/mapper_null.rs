@@ -5,8 +5,6 @@ use super::*;
 pub struct MapperNull;
 
 impl Mapper for MapperNull {
-      // mainly to run emulator test roms that have a diffrent entry point
-      fn change_rst_vector(&mut self, addr: u16) { unimplemented!(); }
       // CPU
       fn read_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); }
       fn read_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout { unimplemented!(); } 
