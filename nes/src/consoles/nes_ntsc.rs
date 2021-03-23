@@ -130,7 +130,7 @@ impl Console for NesNtsc {
         }
     }
 
-    fn execute_cycle(&mut self) {
+    fn execute_cycle(&mut self, frame_buffer: &mut [u32]) {
         {
             let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
             self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
@@ -149,6 +149,11 @@ impl Console for NesNtsc {
 
         {
             self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
+        }
+
+        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
+            let (fi, pi) = it;
+            *fi = PALETTE[(*pi) as usize];
         }
     }
 

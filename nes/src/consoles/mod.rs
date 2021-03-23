@@ -13,7 +13,7 @@ pub trait Console {
     fn restart_console(& mut self);
     fn execute_frame(&mut self, frame_buffer: &mut [u32]);
     fn execute_scanline(&mut self, frame_buffer: &mut [u32]);
-    fn execute_cycle(&mut self);
+    fn execute_cycle(&mut self, frame_buffer: &mut [u32]);
     fn set_joypad1_state(&mut self, joypad: JoypadInput);
     fn set_joypad2_state(&mut self, joypad: JoypadInput);
     fn get_frame_number(&mut self) -> u64;

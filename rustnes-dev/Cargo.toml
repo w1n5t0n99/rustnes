@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 nes = { path = "../nes" }
 minifb = "0.17"
+itertools = "0.10.0"
 
 [profile.release]
 lto = "fat"
