@@ -6,13 +6,12 @@ use crate::mappers::Mapper;
 use crate::controllers::{NesControllers, JoypadInput};
 use crate::palette::*;
 use crate::bus::*;
+use crate::utils::trace_logger::CpuLogger;
 use mos::{Pinout, rp2a03::Rp2a03};
 
 use std::fs::File;
 use std::path::Path;
-use std::io::Write;
 use ::nes_rom::ines;
-use std::fmt;
 
 pub struct NesNtsc {
     cpu: Rp2a03,

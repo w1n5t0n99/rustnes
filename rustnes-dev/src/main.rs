@@ -95,6 +95,7 @@ fn main() {
     //debug_run("test_roms\\Super Mario Bros (JU) (PRG 0).nes");
     //debug_run("test_roms\\color_test.nes");
     //debug_run("test_roms\\Mario Bros. (U) [!].nes");
+    //debug_run("test_roms\\test_ppu_read_buffer.nes");
 
     // window init code ============================
     let window_options = WindowOptions {
@@ -134,7 +135,7 @@ fn main() {
     let frame_limit = time::FrameLimit::new(60);
 
     let mut nes = NesNtsc::new();
-    nes.load_rom("test_roms\\test_ppu_read_buffer.nes");
+    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         // check menu
