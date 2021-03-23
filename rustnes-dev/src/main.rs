@@ -110,8 +110,8 @@ fn main() {
 
     let mut window = Window::new(
         "NES Test - ESC to exit",
-        256,
-        240,
+        WIDTH,
+        HEIGHT,
         window_options,
     ).unwrap_or_else(|e| {
         panic!("{}", e);
@@ -129,7 +129,7 @@ fn main() {
 
     // =============================================
 
-    let mut fb: Vec<u32> = vec![0; 256*240];
+    let mut fb: Vec<u32> = vec![0; WIDTH*HEIGHT];
     let mut debug_mode = DebugMode::Normal;
     let mut avg_frame_execution = time::AvgDuration::new();
     let frame_limit = time::FrameLimit::new(60);

@@ -56,9 +56,9 @@ impl Default for Ctrl {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Pinout {
     pub address: u16,
+    pub data: u8,
     pub opt0: u16,
     pub opt1: u8,
-    pub data: u8,
     pub io: u8,         // (io pins 6510 / controller pins rp2a03) 
     pub ctrl: Ctrl,
 }
