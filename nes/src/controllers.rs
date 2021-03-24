@@ -1,3 +1,5 @@
+use std::thread::JoinHandle;
+
 
 const NESS001_MASK: u8 = 0b11100000;
 const NESS101_MASK: u8 = 0b11100100;
@@ -15,6 +17,16 @@ bitflags! {
     }
 }
 
+impl JoypadInput {
+    pub fn new() -> JoypadInput {
+        JoypadInput::from_bits_truncate(0)
+    }
+
+    pub fn clear(&mut self) {
+        self.bits = 0;
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct NesControllers {
     joypad1: JoypadInput,
@@ -29,8 +41,8 @@ pub struct NesControllers {
 impl NesControllers {
     pub fn from_power_on() -> Self {
         NesControllers {
-            joypad1: JoypadInput::from_bits_truncate(0),
-            joypad2: JoypadInput::from_bits_truncate(0),
+            joypad1: JoypadInput::new(),
+            joypad2: JoypadInput::new(),
             shift1_count: 0,
             shift2_count: 0,
             joypad1_latch: 0,
@@ -48,8 +60,8 @@ impl NesControllers {
     }
 
     pub fn clear_joypads_state(&mut self) {
-        self.joypad1 = JoypadInput::from_bits_truncate(0x0);
-        self.joypad2 = JoypadInput::from_bits_truncate(0x0);
+        self.joypad1.clear();
+        self.joypad2.clear();
     }
 
     pub fn write_4016(&mut self, pinout: mos::Pinout) -> mos::Pinout {
