@@ -78,7 +78,7 @@ fn main() {
     //menu.add_separator();
     menu.add_sub_menu("Debug", &debug_menu);
 
-    let menu_handle = window.add_menu(&menu);
+    let _menu_handle = window.add_menu(&menu);
 
     // =============================================
 
@@ -113,6 +113,7 @@ fn main() {
         window.get_keys().map(|keys| {
             for t in keys {
                 match t {
+                    Key::P => emu_pause = !emu_pause,
                     Key::Up => jp1.set(JoypadInput::UP, true),
                     Key::Down => jp1.set(JoypadInput::DOWN, true),
                     Key::Left => jp1.set(JoypadInput::LEFT, true),
@@ -126,14 +127,14 @@ fn main() {
             }
         });  
         
-        nes.set_joypad1_state(jp1);
-
-        match emu_mode {
-            EmuMode::Normal => {
-                normal_execute(&mut window, &mut nes, jp1, &mut fb);
-            }
-            EmuMode::SingleFrame => {
-                single_frame_execute(&mut window, &mut nes, jp1, &mut fb);
+        if emu_pause == false {
+            match emu_mode {
+                EmuMode::Normal => {
+                    normal_execute(&mut window, &mut nes, jp1, &mut fb);
+                }
+                EmuMode::SingleFrame => {
+                    single_frame_execute(&mut window, &mut nes, jp1, &mut fb);
+                }
             }
         }
 
