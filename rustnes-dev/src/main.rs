@@ -2,8 +2,12 @@ use nes::consoles::{Console, nes_ntsc::NesNtsc,};
 use nes::JoypadInput;
 use nes::utils::{frame_limiter, average_duration};
 
-use std::time::{Instant, Duration};
 use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode, KeyRepeat};
+
+use std::time::{Instant, Duration};
+use std::fs::File;
+use std::path::Path; 
+use std::io::BufWriter;
 
 const WIDTH: usize = 256;
 const HEIGHT: usize = 240;
@@ -86,6 +90,8 @@ fn main() {
     let mut emu_mode = EmuMode::Normal;
     let mut emu_pause = false;
     let mut exec_frame = false;
+    let mut begin_cpu_log = false;
+    let mut end_cpu_log = false;
 
     let mut average_duration = average_duration::AverageDuration::new();
     let mut frame_limiter = frame_limiter::FrameLimiter::new(60);
@@ -94,6 +100,9 @@ fn main() {
     let mut nes = NesNtsc::new();
     nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
     let mut jp1 = JoypadInput::new();
+
+    let mut cpu_trace_file: Option<File> = None;
+    let mut cpu_trace_writer: Option<BufWriter<File>> = None;    
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         exec_frame = false;
@@ -107,6 +116,12 @@ fn main() {
                 }
                 SINGLE_FRAME => {
                     emu_mode = EmuMode::SingleFrame;
+                }
+                BEGIN_LOG => {
+                    begin_cpu_log = true;
+                }
+                END_LOG => {
+                    end_cpu_log = true;
                 }
                 _ => (),
             }

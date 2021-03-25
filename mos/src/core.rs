@@ -200,7 +200,7 @@ impl OpState {
 }
 
 //internal state of cpu
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Context
 {
     pub cycle: u64,

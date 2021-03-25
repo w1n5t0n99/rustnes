@@ -1,9 +1,7 @@
 use mos::{Pinout, Ctrl};
 use mos::core::*;
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::Path; 
 use std::io::Write;
+
 
 const CYCLES_PER_FRAME: usize = 38000;
 
@@ -40,10 +38,7 @@ impl CpuLogger {
         self.cycle_state.push((context, pinout));
     }
 
-    pub fn generate_log_file<P: AsRef<Path>>(&self, file_path: P) {
-        // pc opcode mnemonic address-bus data-bus cpu-registers cpu-clock-cycle 
-        let f = File::open(file_path).unwrap();
-        let mut f = BufWriter::new(f);
+    pub fn generate_log<W: Write>(&self, w: &mut W) {
         
         for (c, p) in self.cycle_state.iter() {
             let rw_str = match p.ctrl.contains(Ctrl::RW) {
@@ -56,14 +51,15 @@ impl CpuLogger {
                 false => "    "
             };
 
-            writeln!(f, "{:X} {:X} {} {} {:X}{}{:X} CYC: {}",
+            writeln!(w, "{} {:X} {:X} {} {:X}{}{:X} {} CYC: {}",
+                sync_str,
                 u16::from(c.pc),
                 c.ir.opcode,
                 opcode_to_mnemonic(c.ir.opcode, c.ir.tm),
-                sync_str,
                 p.address,
                 rw_str,
                 p.data,
+                address_to_device(p.address),
                 c.cycle
             ).unwrap();
         }

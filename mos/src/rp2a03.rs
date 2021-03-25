@@ -1442,6 +1442,10 @@ impl Rp2a03 {
         self.cpu.cycle
     }
 
+    pub fn get_context(&self) -> Context {
+        self.cpu
+    }
+
     pub fn reset(&mut self) {
         self.cpu = Context::new();
         self.cpu.ir.reset_to_rst();
