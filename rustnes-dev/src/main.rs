@@ -4,7 +4,7 @@ use nes::utils::{frame_limiter, average_duration};
 
 use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode, KeyRepeat};
 
-use std::time::{Instant, Duration};
+use std::{io::Write, time::{Instant, Duration}};
 use std::fs::File;
 use std::path::Path; 
 use std::io::BufWriter;
@@ -90,8 +90,8 @@ fn main() {
     let mut emu_mode = EmuMode::Normal;
     let mut emu_pause = false;
     let mut exec_frame = false;
-    let mut begin_cpu_log = false;
-    let mut end_cpu_log = false;
+    let mut enable_trace_log = false;
+    let mut old_enable_trace_log = false;
 
     let mut average_duration = average_duration::AverageDuration::new();
     let mut frame_limiter = frame_limiter::FrameLimiter::new(60);
@@ -101,11 +101,10 @@ fn main() {
     nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
     let mut jp1 = JoypadInput::new();
 
-    let mut cpu_trace_file: Option<File> = None;
-    let mut cpu_trace_writer: Option<BufWriter<File>> = None;    
-
+    let log_file = File::create("logs\\output.log").unwrap();
+    let mut log_writer = BufWriter::new(log_file);  
+ 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        exec_frame = false;
         frame_limiter.start();
 
         // check menu
@@ -118,10 +117,10 @@ fn main() {
                     emu_mode = EmuMode::SingleFrame;
                 }
                 BEGIN_LOG => {
-                    begin_cpu_log = true;
+                    enable_trace_log = true;
                 }
                 END_LOG => {
-                    end_cpu_log = true;
+                    enable_trace_log = false;
                 }
                 _ => (),
             }
@@ -167,6 +166,12 @@ fn main() {
             }
         }
 
+        if enable_trace_log {
+            nes.output_log(&mut log_writer);
+            log_writer.flush();
+        }
+
+        exec_frame = false;
         window.update_with_buffer(&fb, WIDTH, HEIGHT).unwrap();
 
         window.set_title(format!("RUSTNES --- avg frame execution {} us", average_duration.get_average_duration().as_micros()).as_str());
