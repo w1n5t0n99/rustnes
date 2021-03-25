@@ -19,6 +19,12 @@ impl AverageDuration {
         }
     }
 
+    pub fn reset(&mut self) {
+        for i in self.samples.iter_mut() {
+            *i = Duration::from_secs(0);
+        }
+    }
+
     pub fn update(&mut self, duration: Duration) {
         self.sample_sum -= self.samples[self.cur_index];
         self.samples[self.cur_index] = duration;

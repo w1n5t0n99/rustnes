@@ -1,13 +1,7 @@
-
-mod single_frame_mode;
-mod normal_mode;
-
-use single_frame_mode::*;
-use normal_mode::*;
-
 use nes::consoles::{Console, nes_ntsc::NesNtsc,};
-use nes::{JoypadInput, utils::time};
-use std::path::Path;
+use nes::JoypadInput;
+use nes::utils::{frame_limiter, average_duration};
+
 use std::time::{Instant, Duration};
 use ::minifb::{Menu, Key, Window, WindowOptions, Scale, ScaleMode, KeyRepeat};
 
@@ -24,6 +18,13 @@ const END_LOG: usize = 6;
 enum EmuMode {
     Normal,
     SingleFrame,
+}
+
+pub fn normal_execute<C: Console>(nes: &mut C, jp1: JoypadInput, fb: &mut [u32]) -> Duration {
+    let start_instant = Instant::now();
+    nes.set_joypad1_state(jp1);                 
+    nes.execute_frame(fb);
+    Instant::now() - start_instant
 }
 
 fn main() {
@@ -84,9 +85,10 @@ fn main() {
 
     let mut emu_mode = EmuMode::Normal;
     let mut emu_pause = false;
+    let mut exec_frame = false;
 
-    let mut avg_frame_execution = time::AvgDuration::new();
-    let frame_limit = time::FrameLimit::new(60);
+    let mut average_duration = average_duration::AverageDuration::new();
+    let mut frame_limiter = frame_limiter::FrameLimiter::new(60);
 
     let mut fb: Vec<u32> = vec![0; WIDTH*HEIGHT];  
     let mut nes = NesNtsc::new();
@@ -94,7 +96,8 @@ fn main() {
     let mut jp1 = JoypadInput::new();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        avg_frame_execution.begin();
+        exec_frame = false;
+        frame_limiter.start();
 
         // check menu
         window.is_menu_pressed().map(|menu_id| {
@@ -113,7 +116,6 @@ fn main() {
         window.get_keys().map(|keys| {
             for t in keys {
                 match t {
-                    Key::P => emu_pause = !emu_pause,
                     Key::Up => jp1.set(JoypadInput::UP, true),
                     Key::Down => jp1.set(JoypadInput::DOWN, true),
                     Key::Left => jp1.set(JoypadInput::LEFT, true),
@@ -125,23 +127,34 @@ fn main() {
                     _ => (),
                 }
             }
-        });  
+        }); 
+        
+        window.get_keys_pressed(KeyRepeat::No).map(|keys| {
+            for t in keys {
+                match t {
+                    Key::Period => exec_frame = true,
+                    Key::P => emu_pause = !emu_pause,
+                    _ => (),
+                }
+            }
+        });
         
         if emu_pause == false {
             match emu_mode {
                 EmuMode::Normal => {
-                    normal_execute(&mut window, &mut nes, jp1, &mut fb);
+                    average_duration.update(normal_execute(&mut nes, jp1, &mut fb));
                 }
                 EmuMode::SingleFrame => {
-                    single_frame_execute(&mut window, &mut nes, jp1, &mut fb);
+                    if exec_frame {
+                        average_duration.update(normal_execute(&mut nes, jp1, &mut fb));
+                    }
                 }
             }
         }
 
         window.update_with_buffer(&fb, WIDTH, HEIGHT).unwrap();
-        avg_frame_execution.end();
 
-        //window.set_title(format!("RUSTNES --- avg frame execution {} us", avg_frame_execution.get_average_duration().as_micros()).as_str());
-        frame_limit.end_of_frame(avg_frame_execution.get_current_duration());
+        window.set_title(format!("RUSTNES --- avg frame execution {} us", average_duration.get_average_duration().as_micros()).as_str());
+        frame_limiter.wait();
     }
 }
