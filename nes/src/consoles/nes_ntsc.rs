@@ -6,7 +6,7 @@ use crate::mappers::Mapper;
 use crate::controllers::{NesControllers, JoypadInput};
 use crate::palette::*;
 use crate::bus::*;
-use crate::utils::trace_logger::CpuLogger;
+use crate::utils::trace_logger::TraceLogger;
 use mos::{Pinout, rp2a03::Rp2a03};
 
 use std::fs::File;
@@ -24,7 +24,7 @@ pub struct NesNtsc {
     ppu: Rp2c02,
     controllers: NesControllers,
     mapper: Box<dyn Mapper>,
-    cpu_logger: CpuLogger,
+    trace_logger: TraceLogger,
     pbuffer: Vec<u16>,
 }
 
@@ -38,7 +38,7 @@ impl NesNtsc {
             ppu: Rp2c02::from_power_on(),
             controllers: NesControllers::from_power_on(),
             mapper: mappers::create_mapper_null(),
-            cpu_logger: CpuLogger::new(),
+            trace_logger: TraceLogger::new(),
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
         }
     }
@@ -69,43 +69,7 @@ impl Console for NesNtsc {
     }
 
     fn execute_frame(&mut self, frame_buffer: &mut [u32]) {
-        loop {
-            {
-                let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
-                self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
-            }
-    
-            {
-                let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu, &mut self.controllers);
-                self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
-            }
-    
-            {
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_frame() { break; }
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_frame() { break; }
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_frame() { break; }
-            }
-
-            {
-                // APU
-            }
-
-            {
-                self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
-            }
-        }
-
-        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
-            let (fi, pi) = it;
-            *fi = PALETTE[(*pi) as usize];
-        }
-    }
-
-    fn execute_frame_debug<W: Write>(&mut self , w: &mut W, frame_buffer: &mut [u32]) {
-        self.cpu_logger.clear();
+        self.trace_logger.clear();
 
         loop {
             {
@@ -135,15 +99,13 @@ impl Console for NesNtsc {
                 self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
             }
 
-            self.cpu_logger.log(self.cpu.get_context(), self.cpu_pinout);
+            self.trace_logger.log(self.cpu.get_context(), self.cpu_pinout);
         }
 
         for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
             let (fi, pi) = it;
             *fi = PALETTE[(*pi) as usize];
         }
-
-        self.cpu_logger.generate_log(w);
     }
 
     fn execute_scanline(&mut self, frame_buffer: &mut [u32]) {
@@ -215,5 +177,9 @@ impl Console for NesNtsc {
 
     fn get_frame_number(&mut self) -> u64 {
         self.ppu.frame_number()
+    }
+
+    fn output_log<W: Write>(&mut self ,w: &mut W) {
+        self.trace_logger.output_log(w);
     }
 }

@@ -21,26 +21,36 @@ fn address_to_device(addr: u16) -> &'static str {
 
 pub struct TraceLogger {
     cpu_cache: Vec<(Context, Pinout)>,
+    size: usize,
 }
 
 impl TraceLogger {
     pub fn new() -> TraceLogger {
         TraceLogger {
-            cpu_cache: Vec::with_capacity(LOG_SIZE),
+            cpu_cache: vec![(Context::new(), Pinout::new()); LOG_SIZE],
+            size: 0,
         }
     }
 
     pub fn clear(&mut self) {
-        self.cpu_cache.clear();
+        // the log cache is pod data, no reason to waste time dropping all elements
+        self.size = 0;
     }
 
     pub fn log(&mut self, context: Context, pinout: Pinout) {
-        self.cpu_cache.push((context, pinout));
+        if self.size < LOG_SIZE {
+            self.cpu_cache[self.size] = (context, pinout);
+            self.size += 1;
+        }
     }
 
     pub fn output_log<W: Write>(&self, w: &mut W) {
         
-        for (c, p) in self.cpu_cache.iter() {
+        for (i, (c, p)) in self.cpu_cache.iter().enumerate() {
+            if self.size == 0 || i >= self.size {
+                break;
+            }
+
             let rw_str = match p.ctrl.contains(Ctrl::RW) {
                 true => " <-W- ",
                 false => " -R-> "
