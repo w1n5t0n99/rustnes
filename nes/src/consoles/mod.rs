@@ -6,13 +6,17 @@ use std::io::Write;
 
 pub trait Console {
     fn load_rom<P: AsRef<Path>>(&mut self, rom_path: P);
-    fn output_log<W: Write>(&mut self ,w: &mut W);
     fn power_on_console(&mut self);
     fn restart_console(& mut self);
-    fn execute_frame(&mut self, frame_buffer: &mut [u32]);
-    fn execute_scanline(&mut self, frame_buffer: &mut [u32]);
-    fn execute_cycle(&mut self, frame_buffer: &mut [u32]);
-    fn set_joypad1_state(&mut self, joypad: JoypadInput);
-    fn set_joypad2_state(&mut self, joypad: JoypadInput);
-    fn get_frame_number(&mut self) -> u64;
+
+    fn get_frame_number(&self) -> u64;
+    fn get_index_buffer(&self) -> &[u16];
+
+    fn execute_frame(&mut self);
+
+    fn input_joypad1_state(&mut self, joypad: JoypadInput);
+    fn input_joypad2_state(&mut self, joypad: JoypadInput);
+
+    fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]);
+    fn output_log<W: Write>(&mut self , w: &mut W);    
 }

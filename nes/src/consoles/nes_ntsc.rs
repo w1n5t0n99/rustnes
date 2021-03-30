@@ -68,7 +68,15 @@ impl Console for NesNtsc {
         // TODO implement restart
     }
 
-    fn execute_frame(&mut self, frame_buffer: &mut [u32]) {
+    fn get_frame_number(&self) -> u64 {
+        self.ppu.frame_number()
+    }
+
+    fn get_index_buffer(&self) -> &[u16] {
+        self.pbuffer.as_slice()
+    }
+
+    fn execute_frame(&mut self) {
         self.trace_logger.clear();
 
         loop {
@@ -101,82 +109,21 @@ impl Console for NesNtsc {
 
             self.trace_logger.log(self.cpu.get_context(), self.cpu_pinout);
         }
-
-        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
-            let (fi, pi) = it;
-            *fi = PALETTE[(*pi) as usize];
-        }
     }
 
-    fn execute_scanline(&mut self, frame_buffer: &mut [u32]) {
-        loop {
-            {
-                let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
-                self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
-            }
-    
-            {
-                let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu, &mut self.controllers);
-                self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
-            }
-    
-            {
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_scanline() { break; }
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_scanline() { break; }
-                self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                if self.ppu.is_end_of_scanline() { break; }
-            }
-
-            {
-                self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
-            }
-        }
-
-        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
-            let (fi, pi) = it;
-            *fi = PALETTE[(*pi) as usize];
-        }
-    }
-
-    fn execute_cycle(&mut self, frame_buffer: &mut [u32]) {
-        {
-            let mut bus = CpuBus::new(&mut *self.mapper, &mut self.dma, &mut self.ppu, &mut self.controllers);
-            self.cpu_pinout = self.cpu.tick(&mut bus, self.cpu_pinout);
-        }
-
-        {
-            let mut bus = DmaBus::new(&mut *self.mapper, &mut self.ppu, &mut self.controllers);
-            self.cpu_pinout = self.dma.tick(&mut bus, self.cpu_pinout);
-        }
-
-        {
-            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-            self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-        }
-
-        {
-            self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
-        }
-
-        for it in frame_buffer.iter_mut().zip(self.pbuffer.iter_mut()) {
-            let (fi, pi) = it;
-            *fi = PALETTE[(*pi) as usize];
-        }
-    }
-
-    fn set_joypad1_state(&mut self, controller: JoypadInput) {
+    fn input_joypad1_state(&mut self, controller: JoypadInput) {
         self.controllers.set_joypad1_state(controller);
     }
 
-    fn set_joypad2_state(&mut self, controller: JoypadInput) {
+    fn input_joypad2_state(&mut self, controller: JoypadInput) {
         self.controllers.set_joypad2_state(controller);
     }
 
-    fn get_frame_number(&mut self) -> u64 {
-        self.ppu.frame_number()
+    fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]) {
+        for it in self.pbuffer.iter_mut().zip(frame_buffer.iter_mut()) {
+            let (fi, pi) = it;
+            *pi = PALETTE[(*fi) as usize];
+        }
     }
 
     fn output_log<W: Write>(&mut self ,w: &mut W) {

@@ -26,8 +26,9 @@ enum EmuMode {
 
 pub fn normal_execute<C: Console>(nes: &mut C, jp1: JoypadInput, fb: &mut [u32]) -> Duration {
     let start_instant = Instant::now();
-    nes.set_joypad1_state(jp1);                 
-    nes.execute_frame(fb);
+    nes.input_joypad1_state(jp1);                 
+    nes.execute_frame();
+    nes.output_pixel_buffer(fb);
     Instant::now() - start_instant
 }
 
@@ -100,9 +101,6 @@ fn main() {
     let mut nes = NesNtsc::new();
     nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
     let mut jp1 = JoypadInput::new();
-
-    let log_file = File::create("logs\\output.log").unwrap();
-    let mut log_writer = BufWriter::new(log_file);  
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();
@@ -161,14 +159,15 @@ fn main() {
                 EmuMode::SingleFrame => {
                     if exec_frame {
                         average_duration.update(normal_execute(&mut nes, jp1, &mut fb));
+                        // trace logs quickly grow huge, only really useful if going frame by frame
+                        if enable_trace_log {
+                            let log_file = File::create(format!("logs\\trace-frame-{}.log", nes.get_frame_number())).unwrap();
+                            let mut log_writer = BufWriter::new(log_file);  
+                            nes.output_log(&mut log_writer);
+                        }
                     }
                 }
             }
-        }
-
-        if enable_trace_log {
-            nes.output_log(&mut log_writer);
-            log_writer.flush();
         }
 
         exec_frame = false;

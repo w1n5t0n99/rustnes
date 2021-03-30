@@ -29,7 +29,7 @@ impl Rp2c02 {
         }
     }
 
-    pub fn frame_number(&mut self) -> u64 {
+    pub fn frame_number(&self) -> u64 {
         self.context.frame
     }
 
