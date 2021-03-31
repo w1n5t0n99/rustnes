@@ -19,6 +19,20 @@ impl Rp2a03 {
         (cpu, cpu_pinout)
     }
 
+    pub fn from_reset(&self) -> (Rp2a03, Pinout) {
+        let mut cpu_context = Context::new();
+        cpu_context.ir.reset_to_rst();
+        // a,x,y are unchanged
+        cpu_context.x = self.get_context().x;
+        cpu_context.y = self.get_context().y;
+        cpu_context.a = self.get_context().a;
+        
+        let cpu = Rp2a03 { cpu: cpu_context };
+        let cpu_pinout = Pinout::new();
+        
+        (cpu, cpu_pinout)
+    }
+
     pub fn tick<B: Bus>(&mut self, bus: &mut B, mut pinout: Pinout) -> Pinout {
 		//default RW pin to 1
         pinout.ctrl.set(Ctrl::RW, true);

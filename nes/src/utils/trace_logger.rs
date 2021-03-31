@@ -5,15 +5,16 @@ use std::io::Write;
 
 const LOG_SIZE: usize = 38000;
 
-fn address_to_device(addr: u16) -> &'static str {
+fn address_to_device(addr: u16, rw: bool) -> &'static str {
     match addr {
         0x0000..=0x1FFF => "RAM      ",
         0x2000..=0x3FFF => "PPU      ",
         0x4000..=0x4013 => "APU      ",
         0x4014 => "PPU-DMA  ",
         0x4015 => "APU      ",
-        0x4016 => "CTRL1   ",
-        0x4017 => "APU-CTRL2",
+        0x4016 => "CTRL1    ",
+        0x4017 if rw == true => "CTRL2    ",
+        0x4017 =>  "APU      ",
         0x4018..=0x401F => "DISABLED ",
         0x4020..=0xFFFF => "CART     ",
     }
@@ -51,9 +52,10 @@ impl TraceLogger {
                 break;
             }
 
+            let mut rw = true;
             let rw_str = match p.ctrl.contains(Ctrl::RW) {
-                true => " <-W- ",
-                false => " -R-> "
+                false =>{ rw = false; " <-W- "},
+                true => " -R-> "
             };
 
             let sync_str = match p.ctrl.contains(Ctrl::SYNC) {
@@ -61,15 +63,21 @@ impl TraceLogger {
                 false => "    "
             };
 
-            writeln!(w, "{} {:04X} {:X} {} {:04X}{}{:02X} {} CYC: {}",
+            let halt_str = match p.ctrl.contains(Ctrl::RDY) {
+                false => "RDY",
+                true => "   "
+            };
+
+            writeln!(w, "{} {} {:04X} {:X} {} {:04X}{}{:02X} {} CYC: {}",
                 sync_str,
+                halt_str,
                 u16::from(c.pc),
                 c.ir.opcode,
                 opcode_to_mnemonic(c.ir.opcode, c.ir.tm),
                 p.address,
                 rw_str,
                 p.data,
-                address_to_device(p.address),
+                address_to_device(p.address, rw),
                 c.cycle
             ).unwrap();
         }

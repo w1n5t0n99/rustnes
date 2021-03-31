@@ -12,12 +12,12 @@ use std::io::BufWriter;
 const WIDTH: usize = 256;
 const HEIGHT: usize = 240;
 
-const MODE_MENU: usize = 1;
-const NORMAL: usize = 2;
-const SINGLE_FRAME: usize = 3;
-const DEBUG_MENU: usize = 4;
-const BEGIN_LOG: usize = 5;
-const END_LOG: usize = 6;
+const MENU_NORMAL: usize = 2;
+const MENU_SINGLE_FRAME: usize = 3;
+const MENU_BEGIN_LOG: usize = 5;
+const MENU_END_LOG: usize = 6;
+const MENU_POWERON: usize = 8;
+const MENU_RESTART: usize = 9;
 
 enum EmuMode {
     Normal,
@@ -65,18 +65,19 @@ fn main() {
     let mut menu = Menu::new("Menu").unwrap();
     let mut mode_menu = Menu::new("Emulation Mode").unwrap();
     let mut debug_menu = Menu::new("Debug").unwrap();
+    let mut console_menu = Menu::new("Console").unwrap();
 
-    mode_menu.add_item("Normal", NORMAL)
+    mode_menu.add_item("Normal", MENU_NORMAL)
         .shortcut(Key::F1, 0)
         .build();
-    mode_menu.add_item("Single Frame", SINGLE_FRAME)
+    mode_menu.add_item("Single Frame", MENU_SINGLE_FRAME)
         .shortcut(Key::F2, 0)
         .build();
 
-    debug_menu.add_item("Begin Log", BEGIN_LOG)
+    debug_menu.add_item("Begin Log", MENU_BEGIN_LOG)
         .shortcut(Key::F7, 0)
         .build();
-    debug_menu.add_item("End Log", END_LOG)
+    debug_menu.add_item("End Log", MENU_END_LOG)
         .shortcut(Key::F8, 0)
         .build();
 
@@ -84,7 +85,13 @@ fn main() {
     //menu.add_separator();
     menu.add_sub_menu("Debug", &debug_menu);
 
-    let _menu_handle = window.add_menu(&menu);
+    console_menu.add_item("Power On", MENU_POWERON)
+        .build();
+    console_menu.add_item("Restart", MENU_RESTART)
+        .build();
+
+    window.add_menu(&menu);
+    window.add_menu(&console_menu);
 
     // =============================================
 
@@ -108,17 +115,23 @@ fn main() {
         // check menu
         window.is_menu_pressed().map(|menu_id| {
             match menu_id {
-                NORMAL => {
+                MENU_NORMAL => {
                     emu_mode = EmuMode::Normal;
                 }
-                SINGLE_FRAME => {
+                MENU_SINGLE_FRAME => {
                     emu_mode = EmuMode::SingleFrame;
                 }
-                BEGIN_LOG => {
+                MENU_BEGIN_LOG => {
                     enable_trace_log = true;
                 }
-                END_LOG => {
+                MENU_END_LOG => {
                     enable_trace_log = false;
+                }
+                MENU_POWERON => {
+                    nes.power_on_console();
+                }
+                MENU_RESTART => {
+                    nes.restart_console();
                 }
                 _ => (),
             }

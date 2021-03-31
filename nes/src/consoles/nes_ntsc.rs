@@ -65,7 +65,13 @@ impl Console for NesNtsc {
     }
 
     fn restart_console(&mut self) {
-        // TODO implement restart
+        let (cpu, cpu_pinout) = self.cpu.from_reset();
+        self.cpu = cpu;
+        self.cpu_pinout = cpu_pinout;
+        
+        self.ppu = self.ppu.from_reset();
+        self.dma = Dma::from_power_on();
+        self.pbuffer = vec![0; (WIDTH*HEIGHT) as usize];
     }
 
     fn get_frame_number(&self) -> u64 {
@@ -122,7 +128,7 @@ impl Console for NesNtsc {
     fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]) {
         for it in self.pbuffer.iter_mut().zip(frame_buffer.iter_mut()) {
             let (fi, pi) = it;
-            *pi = PALETTE[(*fi) as usize];
+            *pi = palette_color(*fi, PaletteSource::Ppu_2c02);
         }
     }
 

@@ -29,6 +29,22 @@ impl Rp2c02 {
         }
     }
 
+    pub fn from_reset(&self) -> Rp2c02 {
+        let mut rp2c02 = Rp2c02 {
+            context: Context::new(),
+            bg: Background::new(),
+            sp: Sprites::new(),
+            pinout: Pinout::new(),
+            last_scanline_cycle: false,
+            last_frame_cycle: false,
+        };
+
+        // ppuaddr is unchanged after reset
+        rp2c02.context.addr_reg = self.context.addr_reg;
+        rp2c02.context.addr_reg.w = false;
+        rp2c02
+    }
+
     pub fn frame_number(&self) -> u64 {
         self.context.frame
     }
