@@ -68,7 +68,7 @@ impl TraceLogger {
                 true => "   "
             };
 
-            writeln!(w, "{} {} {:04X} {:X} {} {:04X}{}{:02X} {} CYC: {}",
+            writeln!(w, "{} {} {:04X} {:02X} {} {:04X}{}{:02X} {} CYC: {}",
                 sync_str,
                 halt_str,
                 u16::from(c.pc),
