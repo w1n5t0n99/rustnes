@@ -92,15 +92,15 @@ fn main() {
     let mut emu_pause = false;
     let mut exec_frame = false;
     let mut enable_trace_log = false;
-    let mut old_enable_trace_log = false;
 
     let mut average_duration = average_duration::AverageDuration::new();
     let mut frame_limiter = frame_limiter::FrameLimiter::new(60);
 
     let mut fb: Vec<u32> = vec![0; WIDTH*HEIGHT];  
     let mut nes = NesNtsc::new();
-    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
     let mut jp1 = JoypadInput::new();
+
+    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();
