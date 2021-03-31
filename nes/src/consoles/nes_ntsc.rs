@@ -132,7 +132,7 @@ impl Console for NesNtsc {
         }
     }
 
-    fn output_log<W: Write>(&mut self ,w: &mut W) {
+    fn output_log<W: Write>(&mut self , w: &mut W) {
         self.trace_logger.output_log(w);
     }
 }

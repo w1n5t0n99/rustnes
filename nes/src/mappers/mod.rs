@@ -262,7 +262,7 @@ pub fn set_chr1k_1c00_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
     bank_lookup[7] = Bank::new(bank_mask, bank_index << 10);
 }
 
-// ppu 2k bank switching
+// ppu 2k bank switching for vram/ciram (console-internal RAM)
 pub fn set_chr2k_0000_07ff(bank_lookup: &mut[Bank], bank_index: usize) {
     let bank_mask = 0x7FF;
     bank_lookup[0] = Bank::new(bank_mask, bank_index << 11);
@@ -401,7 +401,7 @@ pub trait Mapper {
     fn read_ppu_1400_17ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
     fn read_ppu_1800_1bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
     fn read_ppu_1c00_1fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;    // vram
+    fn read_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;    // vram-ciram
     fn read_ppu_2400_27ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
     fn read_ppu_2800_2bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
     fn read_ppu_2c00_2fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
