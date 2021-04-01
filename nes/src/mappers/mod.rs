@@ -20,6 +20,13 @@ const SIZE_64K: usize = 65536;
 const SIZE_128K: usize = 131072;
 const SIZE_256K: usize = 262144;
 
+const fn num_bits<T>() -> usize { std::mem::size_of::<T>() * 8 }
+ 
+const fn log_2(x: u16) -> u16 {
+    (num_bits::<u16>() as u32 - x.leading_zeros() - 1) as u16
+}
+
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Bank {
     pub offset_mask: usize,

@@ -7,16 +7,16 @@ const LOG_SIZE: usize = 38000;
 
 fn address_to_device(addr: u16, rw: bool) -> &'static str {
     match addr {
-        0x0000..=0x1FFF => "RAM      ",
-        0x2000..=0x3FFF => "PPU      ",
-        0x4000..=0x4013 => "APU      ",
-        0x4014 => "PPU-DMA  ",
-        0x4015 => "APU      ",
-        0x4016 => "CTRL1    ",
+        0x0000..=0x1FFF =>      "RAM      ",
+        0x2000..=0x3FFF =>      "PPU      ",
+        0x4000..=0x4013 =>      "APU      ",
+        0x4014 =>               "PPU-DMA  ",
+        0x4015 =>               "APU      ",
+        0x4016 =>               "CTRL1    ",
         0x4017 if rw == true => "CTRL2    ",
-        0x4017 =>  "APU      ",
-        0x4018..=0x401F => "DISABLED ",
-        0x4020..=0xFFFF => "CART     ",
+        0x4017 =>               "APU      ",
+        0x4018..=0x401F =>      "DISABLED ",
+        0x4020..=0xFFFF =>      "CART     ",
     }
 }
 
