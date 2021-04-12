@@ -22,10 +22,24 @@ const SIZE_256K: usize = 262144;
 
 const fn num_bits<T>() -> usize { std::mem::size_of::<T>() * 8 }
  
-const fn log_2(x: u16) -> u16 {
-    (num_bits::<u16>() as u32 - x.leading_zeros() - 1) as u16
+const fn log_2(x: usize) -> usize {
+    (num_bits::<usize>() as u32 - x.leading_zeros() - 1) as usize
 }
 
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub struct Frame {
+    pub offset_mask: usize,
+    pub window: usize,
+}
+
+impl Frame {
+    pub fn new(window_size: usize, window: usize) -> Frame {
+        Frame {
+            offset_mask: log_2(window_size) - 1,
+            window: window,
+        }
+    }
+}
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Bank {
@@ -355,6 +369,8 @@ pub struct Context {
     pub wram_bank_lookup: [Bank; 1],         // 8k smallest banks
     pub chr_bank_lookup: [Bank; 8],          // 1k smallest banks
     pub nametable_bank_lookup: [Bank; 4],    // 1k smallest banks
+    pub cpu_page_table: [Frame; 16],         // cpu page table covers 0x6000-0xFFFF
+    pub ppu_page_table: [Frame; 16],         // ppu page table covers 0x0000-0x3FFF
 }
 
 impl Context {
@@ -370,6 +386,8 @@ impl Context {
             wram_bank_lookup: [Bank::new(0, 0); 1],
             chr_bank_lookup: [Bank::new(0, 0); 8],
             nametable_bank_lookup: [Bank::new(0, 0); 4],
+            cpu_page_table: [Frame::new(1024, 0); 16],
+            ppu_page_table: [Frame::new(1024, 0); 16],
         }
     }
 }
