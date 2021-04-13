@@ -36,10 +36,70 @@ impl Frame {
     pub fn new(window_size: usize, window: usize) -> Frame {
         Frame {
             offset_mask: log_2(window_size) - 1,
-            window: window,
+            window: window << log_2(window_size),
         }
     }
 }
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+struct CpuBank {
+    pub start_page_index: usize,
+    pub page_size: usize,           // in 1Kb pages
+}
+
+impl CpuBank {
+    pub const fn new(start_page_index: usize, page_size: usize) -> CpuBank {
+        CpuBank {
+            start_page_index,
+            page_size,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+struct PpuBank {
+    pub start_page_index: usize,
+    pub page_size: usize,
+}
+
+impl PpuBank {
+    pub const fn new(start_page_index: usize, page_size: usize) -> PpuBank {
+        PpuBank {
+            start_page_index,
+            page_size,
+        }
+    }
+}
+
+const CPU_BANK8k_6000_7FFF: CpuBank = CpuBank::new(0, 8);
+const CPU_BANK4k_8000_8FFF: CpuBank = CpuBank::new(8, 8);
+const CPU_BANK4k_9000_9FFF: CpuBank = CpuBank::new(12, 4);
+const CPU_BANK4k_A000_AFFF: CpuBank = CpuBank::new(16, 4);
+const CPU_BANK4k_B000_BFFF: CpuBank = CpuBank::new(20, 4);
+const CPU_BANK4k_C000_CFFF: CpuBank = CpuBank::new(24, 4);
+const CPU_BANK4k_D000_DFFF: CpuBank = CpuBank::new(28, 4);
+const CPU_BANK4k_E000_EFFF: CpuBank = CpuBank::new(32, 4);
+const CPU_BANK4k_F000_Ffff: CpuBank = CpuBank::new(36, 4);
+const CPU_BANK8k_8000_9FFF: CpuBank = CpuBank::new(8, 8);
+const CPU_BANK8k_A000_BFFF: CpuBank = CpuBank::new(16, 8);
+const CPU_BANK8k_C000_DFFF: CpuBank = CpuBank::new(24, 8);
+const CPU_BANK8k_E000_FFFF: CpuBank = CpuBank::new(32, 8);
+const CPU_BANK16k_8000_BFFF: CpuBank = CpuBank::new(8, 16);
+const CPU_BANK16k_C000_FFFF: CpuBank = CpuBank::new(24, 16);
+const CPU_BANK32k_8000_FFFF: CpuBank = CpuBank::new(8, 32);
+
+const PPU_BANK1k_0000_03FF: PpuBank = PpuBank::new(0, 1);
+const PPU_BANK1k_0400_07FF: PpuBank = PpuBank::new(1, 1);
+const PPU_BANK1k_0800_0BFF: PpuBank = PpuBank::new(2, 1);
+const PPU_BANK1k_0C00_0FFF: PpuBank = PpuBank::new(3, 1);
+const PPU_BANK1k_1000_13FF: PpuBank = PpuBank::new(4, 1);
+const PPU_BANK1k_1400_17FF: PpuBank = PpuBank::new(5, 1);
+const PPU_BANK1k_1800_1BFF: PpuBank = PpuBank::new(6, 1);
+const PPU_BANK1k_1C00_1FFF: PpuBank = PpuBank::new(7, 1);
+const PPU_BANK1k_2000_23FF: PpuBank = PpuBank::new(8, 1);
+const PPU_BANK1k_2400_27FF: PpuBank = PpuBank::new(9, 1);
+const PPU_BANK1k_2800_2BFF: PpuBank = PpuBank::new(10, 1);
+const PPU_BANK1k_2C00_2FFF: PpuBank = PpuBank::new(11, 1);
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Bank {
@@ -369,8 +429,8 @@ pub struct Context {
     pub wram_bank_lookup: [Bank; 1],         // 8k smallest banks
     pub chr_bank_lookup: [Bank; 8],          // 1k smallest banks
     pub nametable_bank_lookup: [Bank; 4],    // 1k smallest banks
-    pub cpu_page_table: [Frame; 16],         // cpu page table covers 0x6000-0xFFFF
-    pub ppu_page_table: [Frame; 16],         // ppu page table covers 0x0000-0x3FFF
+    pub cpu_page_table: [Frame; 40],         // cpu page table covers 0x6000-0xFFFF
+    pub ppu_page_table: [Frame; 12],         // ppu page table covers 0x0000-0x2FFF
 }
 
 impl Context {
@@ -386,8 +446,8 @@ impl Context {
             wram_bank_lookup: [Bank::new(0, 0); 1],
             chr_bank_lookup: [Bank::new(0, 0); 8],
             nametable_bank_lookup: [Bank::new(0, 0); 4],
-            cpu_page_table: [Frame::new(1024, 0); 16],
-            ppu_page_table: [Frame::new(1024, 0); 16],
+            cpu_page_table: [Frame::new(1024, 0); 40],
+            ppu_page_table: [Frame::new(1024, 0); 12],
         }
     }
 }
