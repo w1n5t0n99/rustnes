@@ -42,7 +42,7 @@ impl Frame {
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-struct CpuBank {
+pub struct CpuBank {
     pub start_page_index: usize,
     pub page_size: usize,           // in 1Kb pages
 }
@@ -57,7 +57,7 @@ impl CpuBank {
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-struct PpuBank {
+pub struct PpuBank {
     pub start_page_index: usize,
     pub page_size: usize,
 }
@@ -100,6 +100,18 @@ const PPU_BANK1k_2000_23FF: PpuBank = PpuBank::new(8, 1);
 const PPU_BANK1k_2400_27FF: PpuBank = PpuBank::new(9, 1);
 const PPU_BANK1k_2800_2BFF: PpuBank = PpuBank::new(10, 1);
 const PPU_BANK1k_2C00_2FFF: PpuBank = PpuBank::new(11, 1);
+const PPU_BANK2k_0000_07FF: PpuBank = PpuBank::new(0, 2);
+const PPU_BANK2k_0800_0FFF: PpuBank = PpuBank::new(2, 2);
+const PPU_BANK2k_1000_17FF: PpuBank = PpuBank::new(4, 2);
+const PPU_BANK2k_1800_1FFF: PpuBank = PpuBank::new(6, 2);
+const PPU_BANK4k_0000_0FFF: PpuBank = PpuBank::new(0, 4);
+const PPU_BANK4k_1000_1FFF: PpuBank = PpuBank::new(4, 4);
+const PPU_BANK8k_0000_1FFF: PpuBank = PpuBank::new(0, 8);
+
+pub fn set_cpu_bank(mapper: &mut Context, cpu_bank: &CpuBank, bank_index: usize) {
+
+}
+
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Bank {
