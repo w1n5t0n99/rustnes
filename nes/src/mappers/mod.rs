@@ -43,30 +43,30 @@ impl Frame {
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct CpuBank {
-    pub start_page_index: usize,
-    pub page_size: usize,           // in 1Kb pages
+    pub index: usize,
+    pub size: usize,           // in 1Kb pages
 }
 
 impl CpuBank {
-    pub const fn new(start_page_index: usize, page_size: usize) -> CpuBank {
+    pub const fn new(index: usize, size: usize) -> CpuBank {
         CpuBank {
-            start_page_index,
-            page_size,
+            index,
+            size,
         }
     }
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct PpuBank {
-    pub start_page_index: usize,
-    pub page_size: usize,
+    pub index: usize,
+    pub size: usize,
 }
 
 impl PpuBank {
-    pub const fn new(start_page_index: usize, page_size: usize) -> PpuBank {
+    pub const fn new(index: usize, size: usize) -> PpuBank {
         PpuBank {
-            start_page_index,
-            page_size,
+            index,
+            size,
         }
     }
 }
@@ -109,7 +109,9 @@ const PPU_BANK4k_1000_1FFF: PpuBank = PpuBank::new(4, 4);
 const PPU_BANK8k_0000_1FFF: PpuBank = PpuBank::new(0, 8);
 
 pub fn set_cpu_bank(mapper: &mut Context, cpu_bank: &CpuBank, bank_index: usize) {
-
+    for f in cpu_bank.index..(cpu_bank.index + cpu_bank.size) {
+        mapper.cpu_page_table[f] = Frame::new(cpu_bank.size * SIZE_1K, bank_index);
+    }
 }
 
 
