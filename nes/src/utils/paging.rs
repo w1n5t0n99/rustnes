@@ -1,3 +1,4 @@
+use std::ops::{Add, IndexMut};
 
 const SIZE_1K: usize = 1024;
 const SIZE_2K: usize = 2048;
@@ -9,42 +10,64 @@ const SIZE_64K: usize = 65536;
 const SIZE_128K: usize = 131072;
 const SIZE_256K: usize = 262144;
 
+const PAGE_SIZE: usize = SIZE_1K;
+
 const fn num_bits<T>() -> usize { std::mem::size_of::<T>() * 8 }
  
 const fn log_2(x: usize) -> usize {
     (num_bits::<usize>() as u32 - x.leading_zeros() - 1) as usize
 }
 
+const fn bank_index(address: usize, bank_size: usize) -> usize {
+    let index_shift = log_2(bank_size);
+    (address & !(bank_size - 1)) >> index_shift
+}
+
 #[derive(PartialEq, Debug, Clone, Copy)]
-struct Frame {
+struct Bank {
     pub offset_mask: usize,
-    pub window_mask: usize,
+    pub bank_mask: usize,
 }
 
-impl Frame {
-    pub fn new(window_size: usize, window: usize) -> Frame {
-        Frame {
-            offset_mask: log_2(window_size) - 1,
-            window_mask: window << log_2(window_size),
+impl Bank {
+    pub fn new(bank_size: usize, bank_index: usize) -> Bank {
+        Bank {
+            offset_mask: log_2(bank_size) - 1,
+            bank_mask: bank_index << log_2(bank_size),
         }
     }
 }
 
+// paging system to map address space to memory
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub struct PageBank {
-    pub index: usize,
-    pub size: usize,           // in 1Kb pages
+pub struct AddressMapper<const SIZE_IN_KBS: usize> {
+    page_table: [Bank; SIZE_IN_KBS],
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct PageTable<const BLOCK_SIZE: usize, const BLOCK_COUNT: usize> {
-    ptbl: [Frame; BLOCK_COUNT],  
-}
+impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
+    pub fn new() -> AddressMapper<SIZE_IN_KBS> {
+        let mut am = AddressMapper { page_table: [Bank::new(SIZE_1K, 0); SIZE_IN_KBS], };
+        for (i, bank) in am.page_table.iter_mut().enumerate() {
+            *bank = Bank::new(SIZE_1K, i);
+        }
 
-impl<const BLOCK_SIZE: usize, const BLOCK_COUNT: usize> PageTable<BLOCK_SIZE,BLOCK_COUNT> {
-    pub fn new() -> PageTable<BLOCK_SIZE,BLOCK_COUNT> {
-        PageTable {
-            ptbl: [Frame::new(BLOCK_SIZE, 0); BLOCK_COUNT],
+        am
+    }
+
+    pub fn set_banking_region(&mut self, addr_bank_index: usize, mem_bank_index: usize, bank_size: usize) {
+        let pages_per_bank = bank_size / PAGE_SIZE;
+        let start_page = addr_bank_index * pages_per_bank;
+
+        for b in start_page..(start_page+pages_per_bank) {
+            self.page_table[b] = Bank::new(bank_size, mem_bank_index);
         }
     }
+
+    pub fn translate_address(&self, address: u16) -> u16 {
+        let page_index = bank_index( address as usize, SIZE_1K);
+        let bank = &self.page_table[page_index];
+        ((address as usize & bank.offset_mask) | bank.bank_mask) as u16
+    }
 }
+
+
