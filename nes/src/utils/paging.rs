@@ -54,6 +54,12 @@ impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
         am
     }
 
+    pub fn clear(&mut self) {
+        for (i, bank) in self.page_table.iter_mut().enumerate() {
+            *bank = Bank::new(SIZE_1K, i);
+        }
+    }
+
     pub fn set_banking_region(&mut self, addr_bank_index: usize, mem_bank_index: usize, bank_size: usize) {
         let pages_per_bank = bank_size / PAGE_SIZE;
         let start_page = addr_bank_index * pages_per_bank;
