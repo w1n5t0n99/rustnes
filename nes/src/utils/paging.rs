@@ -18,7 +18,7 @@ const fn log_2(x: usize) -> usize {
     (num_bits::<usize>() as u32 - x.leading_zeros() - 1) as usize
 }
 
-const fn bank_index(address: usize, bank_size: usize) -> usize {
+const fn get_bank_index(address: usize, bank_size: usize) -> usize {
     let index_shift = log_2(bank_size);
     (address & !(bank_size - 1)) >> index_shift
 }
@@ -26,14 +26,14 @@ const fn bank_index(address: usize, bank_size: usize) -> usize {
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct Bank {
     pub offset_mask: usize,
-    pub bank_mask: usize,
+    pub index_mask: usize,
 }
 
 impl Bank {
     pub fn new(bank_size: usize, bank_index: usize) -> Bank {
         Bank {
-            offset_mask: log_2(bank_size) - 1,
-            bank_mask: bank_index << log_2(bank_size),
+            offset_mask: bank_size - 1,
+            index_mask: bank_index << log_2(bank_size),
         }
     }
 }
@@ -46,9 +46,9 @@ pub struct AddressMapper<const SIZE_IN_KBS: usize> {
 
 impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
     pub fn new() -> AddressMapper<SIZE_IN_KBS> {
-        let mut am = AddressMapper { page_table: [Bank::new(SIZE_1K, 0); SIZE_IN_KBS], };
+        let mut am = AddressMapper { page_table: [Bank::new(PAGE_SIZE, 0); SIZE_IN_KBS], };
         for (i, bank) in am.page_table.iter_mut().enumerate() {
-            *bank = Bank::new(SIZE_1K, i);
+            *bank = Bank::new(PAGE_SIZE, i);
         }
 
         am
@@ -56,7 +56,7 @@ impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
 
     pub fn clear(&mut self) {
         for (i, bank) in self.page_table.iter_mut().enumerate() {
-            *bank = Bank::new(SIZE_1K, i);
+            *bank = Bank::new(PAGE_SIZE, i);
         }
     }
 
@@ -70,10 +70,27 @@ impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
     }
 
     pub fn translate_address(&self, address: u16) -> u16 {
-        let page_index = bank_index( address as usize, SIZE_1K);
+        let page_index = get_bank_index( address as usize, PAGE_SIZE);
         let bank = &self.page_table[page_index];
-        ((address as usize & bank.offset_mask) | bank.bank_mask) as u16
+        ((address as usize & bank.offset_mask) | bank.index_mask) as u16
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn test_page_index_lookup() {
+        assert_eq!(get_bank_index(5030, SIZE_1K), 4);
+        assert_eq!(get_bank_index(800, SIZE_1K), 0);
+    }
+
+    #[test]
+    fn test_address_passthrough() {
+        let mut addr_mapper = AddressMapper::<4>::new();
+        //println!(" ##### translated address: {} address: {} #####", addr_mapper.translate_address(400), 400);
+        assert_eq!(addr_mapper.translate_address(400), 400);
+        assert_eq!(addr_mapper.translate_address(1024), 1024);
+    }
+}
