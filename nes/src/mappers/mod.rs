@@ -3,413 +3,85 @@ mod mapper_nrom;
 mod mapper1;
 mod mapper3;
 
+use std::ops::Add;
+
 use super::ppu;
+use super::utils::paging::*;
 use mapper_nrom::MapperNrom;
 use mapper1::Mapper1;
 use mapper3::Mapper3;
 use mapper_null::MapperNull;
 use ::nes_rom::ines;
 
-const SIZE_1K: usize = 1024;
-const SIZE_2K: usize = 2048;
-const SIZE_4K: usize = 4096;
-const SIZE_8K: usize = 8192;
-const SIZE_16K: usize = 16384;
-const SIZE_32K: usize = 32768;
-const SIZE_64K: usize = 65536;
-const SIZE_128K: usize = 131072;
-const SIZE_256K: usize = 262144;
-
-const fn num_bits<T>() -> usize { std::mem::size_of::<T>() * 8 }
- 
-const fn log_2(x: usize) -> usize {
-    (num_bits::<usize>() as u32 - x.leading_zeros() - 1) as usize
-}
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct Frame {
-    pub offset_mask: usize,
-    pub window: usize,
-}
-
-impl Frame {
-    pub fn new(window_size: usize, window: usize) -> Frame {
-        Frame {
-            offset_mask: log_2(window_size) - 1,
-            window: window << log_2(window_size),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct CpuBank {
-    pub index: usize,
-    pub size: usize,           // in 1Kb pages
-}
-
-impl CpuBank {
-    pub const fn new(index: usize, size: usize) -> CpuBank {
-        CpuBank {
-            index,
-            size,
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct PpuBank {
-    pub index: usize,
-    pub size: usize,
-}
-
-impl PpuBank {
-    pub const fn new(index: usize, size: usize) -> PpuBank {
-        PpuBank {
-            index,
-            size,
-        }
-    }
-}
-
-const CPU_BANK8k_6000_7FFF: CpuBank = CpuBank::new(0, 8);
-const CPU_BANK4k_8000_8FFF: CpuBank = CpuBank::new(8, 8);
-const CPU_BANK4k_9000_9FFF: CpuBank = CpuBank::new(12, 4);
-const CPU_BANK4k_A000_AFFF: CpuBank = CpuBank::new(16, 4);
-const CPU_BANK4k_B000_BFFF: CpuBank = CpuBank::new(20, 4);
-const CPU_BANK4k_C000_CFFF: CpuBank = CpuBank::new(24, 4);
-const CPU_BANK4k_D000_DFFF: CpuBank = CpuBank::new(28, 4);
-const CPU_BANK4k_E000_EFFF: CpuBank = CpuBank::new(32, 4);
-const CPU_BANK4k_F000_Ffff: CpuBank = CpuBank::new(36, 4);
-const CPU_BANK8k_8000_9FFF: CpuBank = CpuBank::new(8, 8);
-const CPU_BANK8k_A000_BFFF: CpuBank = CpuBank::new(16, 8);
-const CPU_BANK8k_C000_DFFF: CpuBank = CpuBank::new(24, 8);
-const CPU_BANK8k_E000_FFFF: CpuBank = CpuBank::new(32, 8);
-const CPU_BANK16k_8000_BFFF: CpuBank = CpuBank::new(8, 16);
-const CPU_BANK16k_C000_FFFF: CpuBank = CpuBank::new(24, 16);
-const CPU_BANK32k_8000_FFFF: CpuBank = CpuBank::new(8, 32);
-
-const PPU_BANK1k_0000_03FF: PpuBank = PpuBank::new(0, 1);
-const PPU_BANK1k_0400_07FF: PpuBank = PpuBank::new(1, 1);
-const PPU_BANK1k_0800_0BFF: PpuBank = PpuBank::new(2, 1);
-const PPU_BANK1k_0C00_0FFF: PpuBank = PpuBank::new(3, 1);
-const PPU_BANK1k_1000_13FF: PpuBank = PpuBank::new(4, 1);
-const PPU_BANK1k_1400_17FF: PpuBank = PpuBank::new(5, 1);
-const PPU_BANK1k_1800_1BFF: PpuBank = PpuBank::new(6, 1);
-const PPU_BANK1k_1C00_1FFF: PpuBank = PpuBank::new(7, 1);
-const PPU_BANK1k_2000_23FF: PpuBank = PpuBank::new(8, 1);
-const PPU_BANK1k_2400_27FF: PpuBank = PpuBank::new(9, 1);
-const PPU_BANK1k_2800_2BFF: PpuBank = PpuBank::new(10, 1);
-const PPU_BANK1k_2C00_2FFF: PpuBank = PpuBank::new(11, 1);
-const PPU_BANK2k_0000_07FF: PpuBank = PpuBank::new(0, 2);
-const PPU_BANK2k_0800_0FFF: PpuBank = PpuBank::new(2, 2);
-const PPU_BANK2k_1000_17FF: PpuBank = PpuBank::new(4, 2);
-const PPU_BANK2k_1800_1FFF: PpuBank = PpuBank::new(6, 2);
-const PPU_BANK4k_0000_0FFF: PpuBank = PpuBank::new(0, 4);
-const PPU_BANK4k_1000_1FFF: PpuBank = PpuBank::new(4, 4);
-const PPU_BANK8k_0000_1FFF: PpuBank = PpuBank::new(0, 8);
-
-pub fn set_cpu_bank(mapper: &mut Context, cpu_bank: &CpuBank, bank_index: usize) {
-    for f in cpu_bank.index..(cpu_bank.index + cpu_bank.size) {
-        mapper.cpu_page_table[f] = Frame::new(cpu_bank.size * SIZE_1K, bank_index);
-    }
-}
-
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct Bank {
-    pub offset_mask: usize,
-    pub window: usize,
-}
-
-impl Bank {
-    pub fn new(offset_mask: usize, window: usize) -> Bank {
-        Bank {
-            offset_mask,
-            window,
-        }
-    }
-}
-
 // nametable mirroring
-pub fn set_vram_2000_23ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 10);
+pub fn set_nametable_horizontal(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 1, SIZE_1K);
 }
 
-pub fn set_vram_2400_27ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 10);
+pub fn set_nametable_vertical(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 1, SIZE_1K);
 }
 
-pub fn set_vram_2800_2bff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 10);
+pub fn set_nametable_single_screen_lower(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 0, SIZE_1K);
 }
 
-pub fn set_vram_2c00_2fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 10);
+pub fn set_nametable_single_screen_upper(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 1, SIZE_1K);
 }
 
-pub fn set_nametable_horizontal(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 0);
-    set_vram_2800_2bff(bank_lookup, 1);
-    set_vram_2c00_2fff(bank_lookup, 1);
+pub fn set_nametable_four_screen(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 2, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 3, SIZE_1K);
 }
 
-pub fn set_nametable_vertical(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 0);
-    set_vram_2c00_2fff(bank_lookup, 1);
+pub fn set_nametable_diagonal(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 0, SIZE_1K);
 }
 
-pub fn set_nametable_single_screen_lower(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 0);
-    set_vram_2800_2bff(bank_lookup, 0);
-    set_vram_2c00_2fff(bank_lookup, 0);
+pub fn set_nametable_lshaped(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 1, SIZE_1K);
 }
 
-pub fn set_nametable_single_screen_upper(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 1);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 1);
-    set_vram_2c00_2fff(bank_lookup, 1);
+pub fn set_nametable_three_screen_vertical(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 2, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 2, SIZE_1K);
 }
 
-pub fn set_nametable_four_screen(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 2);
-    set_vram_2c00_2fff(bank_lookup, 3);
+pub fn set_nametable_three_screen_horizontal(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 2, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 2, SIZE_1K);
 }
 
-pub fn set_nametable_diagonal(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 1);
-    set_vram_2c00_2fff(bank_lookup, 0);
-}
-
-pub fn set_nametable_lshaped(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 1);
-    set_vram_2c00_2fff(bank_lookup, 1);
-}
-
-pub fn set_nametable_three_screen_vertical(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 2);
-    set_vram_2800_2bff(bank_lookup, 1);
-    set_vram_2c00_2fff(bank_lookup, 2);
-}
-
-pub fn set_nametable_three_screen_horizontal(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 2);
-    set_vram_2c00_2fff(bank_lookup, 2);
-}
-
-pub fn set_nametable_three_screen_diagonal(bank_lookup: &mut[Bank]) {
-    set_vram_2000_23ff(bank_lookup, 0);
-    set_vram_2400_27ff(bank_lookup, 1);
-    set_vram_2800_2bff(bank_lookup, 1);
-    set_vram_2c00_2fff(bank_lookup, 2);
-}
-
-// cpu 8k bank switching
-pub fn set_wram8k_6000_7fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x1FFF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 13);
-}
-
-// cpu 4k bank switching
-pub fn set_prg4k_8000_8fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_9000_9fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_a000_afff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_b000_bfff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_c000_cfff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_d000_dfff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_e000_efff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_prg4k_f000_ffff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x0FFF;
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 12);
-}
-
- // cpu 8k bank switching
- pub fn set_prg8k_8000_9fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x1FFF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 13);
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 13);
-}
-
-pub fn set_prg8k_a000_bfff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x1FFF;
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 13);
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 13);
-}
-
-pub fn set_prg8k_c000_dfff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x1FFF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 13);
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 13);
-}
-
-pub fn set_prg8k_e000_ffff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x1FFF;
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 13);
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 13);
-}
-
-// cpu 16k bank switching
-pub fn set_prg16k_8000_bfff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FFF;
-    for i in 0..4 {
-        bank_lookup[i] = Bank::new(bank_mask, bank_index << 14);
-    }
-}
-
-pub fn set_prg16k_c000_ffff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FFF;
-    for i in 4..8 {
-        bank_lookup[i] = Bank::new(bank_mask, bank_index << 14);
-    }
-}
-
-// cpu 32k bank switching
-pub fn set_prg32k_8000_ffff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x7FFF;
-    for i in 0..8 {
-        bank_lookup[i] = Bank::new(bank_mask, bank_index << 15);
-    }
-}
-
-// ppu 1k bank switching
-pub fn set_chr1k_0000_03ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_0400_07ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_0800_0bff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_0c00_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_1000_03ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_1400_07ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_1800_0bff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 10);
-}
-
-pub fn set_chr1k_1c00_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x3FF;
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 10);
-}
-
-// ppu 2k bank switching for vram/ciram (console-internal RAM)
-pub fn set_chr2k_0000_07ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x7FF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 11);
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 11);
-}
-
-pub fn set_chr2k_0800_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x7FF;
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 11);
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 11);
-}
-
-pub fn set_chr2k_1000_17ff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x7FF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 11);
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 11);
-}
-
-pub fn set_chr2k_1800_1fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x7FF;
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 11);
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 11);
-}
-
-// ppu 4k bank switching
-pub fn set_chr4k_0000_0fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0xFFF;
-    bank_lookup[0] = Bank::new(bank_mask, bank_index << 12);
-    bank_lookup[1] = Bank::new(bank_mask, bank_index << 12);
-    bank_lookup[2] = Bank::new(bank_mask, bank_index << 12);
-    bank_lookup[3] = Bank::new(bank_mask, bank_index << 12);
-}
-
-pub fn set_chr4k_1000_1fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0xFFF;
-    bank_lookup[4] = Bank::new(bank_mask, bank_index << 12);
-    bank_lookup[5] = Bank::new(bank_mask, bank_index << 12);
-    bank_lookup[6] = Bank::new(bank_mask, bank_index << 12);
-    bank_lookup[7] = Bank::new(bank_mask, bank_index << 12);
-}
-
-// ppu 8k bank switching
-pub fn set_chr8k_0000_1fff(bank_lookup: &mut[Bank], bank_index: usize) {
-    let bank_mask = 0x1FFF;
-    for i in 0..8 {
-        bank_lookup[i] = Bank::new(bank_mask, bank_index << 13);
-    }
-}
-
-#[inline]
-pub fn get_mem_address(bank: &Bank, address: u16) -> usize {
-    bank.window | (address as usize & bank.offset_mask)
+pub fn set_nametable_three_screen_diagonal(context: &mut Context) {
+    context.nt_addr_mapper.set_banking_region(0, 0, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(1, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(2, 1, SIZE_1K);
+    context.nt_addr_mapper.set_banking_region(3, 2, SIZE_1K);
 }
 
 #[inline]
@@ -417,13 +89,13 @@ pub fn get_last_bank_index(bank_size: usize, data_size: usize) -> usize {
     (data_size / bank_size) - 1
 }
 
-pub fn set_nametable_from_mirroring_type(bank_lookup: &mut[Bank], mirror_type: ines::NametableMirroring) {
+pub fn set_nametable_from_mirroring_type(context: &mut Context, mirror_type: ines::NametableMirroring) {
     // TODO update nes_rom crate to support other mirroring types
     match mirror_type {
-        ines::NametableMirroring::Horizontal =>  set_nametable_horizontal(bank_lookup),
-        ines::NametableMirroring::Vertical => set_nametable_vertical(bank_lookup),
+        ines::NametableMirroring::Horizontal =>  set_nametable_horizontal(context),
+        ines::NametableMirroring::Vertical => set_nametable_vertical(context),
         //ines::NametableMirroring::SingleScreen => set_nametable_single_screen(bank_lookup),
-        ines::NametableMirroring::FourScreens => set_nametable_four_screen(bank_lookup),
+        ines::NametableMirroring::FourScreens => set_nametable_four_screen(context),
         //ines::NametableMirroring::Diagonal => set_nametable_diagonal(bank_lookup),
         //ines::NametableMirroring::LShaped => set_nametable_lshaped(bank_lookup),
         //ines::NametableMirroring::ThreeScreenVertical => set_nametable_three_screen_vertical(bank_lookup),
@@ -433,95 +105,49 @@ pub fn set_nametable_from_mirroring_type(bank_lookup: &mut[Bank], mirror_type: i
     };
 }
 
-pub struct Context {
-    pub prg_rom: Vec<u8>,
-    pub chr_rom: Vec<u8>,
-    pub sys_ram: Vec<u8>,
-    pub vram: Vec<u8>,
-    pub work_ram: Vec<u8>,                   // 8k smallest bank ... i think   
-    pub prg_bank_lookup: [Bank; 8],          // 4k smallest banks
-    pub wram_bank_lookup: [Bank; 1],         // 8k smallest banks
-    pub chr_bank_lookup: [Bank; 8],          // 1k smallest banks
-    pub nametable_bank_lookup: [Bank; 4],    // 1k smallest banks
-    pub cpu_page_table: [Frame; 40],         // cpu page table covers 0x6000-0xFFFF
-    pub ppu_page_table: [Frame; 12],         // ppu page table covers 0x0000-0x2FFF
+pub struct Context {  
+    pub prg_addr_mapper: AddressMapper<32>,
+    pub wram_addr_mapper: AddressMapper<8>,
+    pub chr_addr_mapper: AddressMapper<8>,
+    pub nt_addr_mapper: AddressMapper<4>,
 }
 
 impl Context {
     pub fn new() -> Context {
         Context {
-            prg_rom: Vec::new(),
-            chr_rom: Vec::new(),
-            sys_ram: vec![0; SIZE_2K],
-            vram: vec![0; SIZE_4K],
-            // if a mapper has an option for wram we should assume it does thanks to the abmigiousness of ines
-            work_ram: vec![0; SIZE_8K],
-            prg_bank_lookup: [Bank::new(0, 0); 8],
-            wram_bank_lookup: [Bank::new(0, 0); 1],
-            chr_bank_lookup: [Bank::new(0, 0); 8],
-            nametable_bank_lookup: [Bank::new(0, 0); 4],
-            cpu_page_table: [Frame::new(1024, 0); 40],
-            ppu_page_table: [Frame::new(1024, 0); 12],
+            //prg_rom: Vec::new(),
+            //chr_rom: Vec::new(),
+            //sys_ram: vec![0; SIZE_2K],
+            //vram: vec![0; SIZE_4K],
+            //work_ram: vec![0; SIZE_8K],
+            prg_addr_mapper: AddressMapper::new(),
+            wram_addr_mapper: AddressMapper::new(),
+            chr_addr_mapper: AddressMapper::new(),
+            nt_addr_mapper: AddressMapper::new(),
         }
     }
 }
 
 pub trait Mapper {
     // CPU
-    fn read_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   // sys ram
-    fn read_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   //expansion space
-    fn read_cpu_6000_7fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   // wram
-    fn read_cpu_8000_8fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   // prg
-    fn read_cpu_9000_9fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn read_cpu_a000_afff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn read_cpu_b000_bfff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn read_cpu_c000_cfff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn read_cpu_d000_dfff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn read_cpu_e000_efff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn read_cpu_f000_ffff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
+    fn read_cpu_internal_ram(&mut self, pinout: mos::Pinout) -> mos::Pinout; 
+    fn read_cpu_exp(&mut self, pinout: mos::Pinout) -> mos::Pinout;   // 0x4020-0x6000
+    fn read_cpu_wram(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
+    fn read_cpu_prg(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
 
-    fn write_cpu_0000_1fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_4020_5fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
-    fn write_cpu_6000_7fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
-    fn write_cpu_8000_8fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
-    fn write_cpu_9000_9fff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_a000_afff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_b000_bfff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_c000_cfff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_d000_dfff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_e000_efff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
-    fn write_cpu_f000_ffff(&mut self, pinout: mos::Pinout) -> mos::Pinout;
+    fn write_cpu_internal_ram(&mut self, pinout: mos::Pinout) -> mos::Pinout; 
+    fn write_cpu_exp(&mut self, pinout: mos::Pinout) -> mos::Pinout;   // 0x4020-0x6000
+    fn write_cpu_wram(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
+    fn write_cpu_prg(&mut self, pinout: mos::Pinout) -> mos::Pinout;   
     // PPU   
-    fn read_ppu_0000_03ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;    // chr
-    fn read_ppu_0400_07ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout; 
-    fn read_ppu_0800_0bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_0c00_0fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_1000_13ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_1400_17ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_1800_1bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_1c00_1fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;    // vram-ciram
-    fn read_ppu_2400_27ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_2800_2bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn read_ppu_2c00_2fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
+    fn read_ppu_chr(&mut self, pinout: ppu::Pinout) -> ppu::Pinout; 
+    fn read_ppu_nt(&mut self, pinout: ppu::Pinout) -> ppu::Pinout; 
 
-    fn write_ppu_0000_03ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_0400_07ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_0800_0bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_0c00_0fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_1000_13ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_1400_17ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_1800_1bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_1c00_1fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_2000_23ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_2400_27ff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_2800_2bff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    fn write_ppu_2c00_2fff(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
+    fn write_ppu_chr(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
+    fn write_ppu_nt(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
     // used to monitor cpu and ppu buses for complex behaivor e.g. mmc5
     fn cpu_tick(&mut self, pinout: mos::Pinout) -> mos::Pinout;
     fn ppu_tick(&mut self, pinout: ppu::Pinout) -> ppu::Pinout;
-    // no side effects from reading (e.g. mappers with memory mapped regs) used for debugging
-    //fn peek_ppu(&mut self, addr: u16) -> u8;
 }
 
 pub fn create_mapper_null() -> Box<dyn Mapper> {

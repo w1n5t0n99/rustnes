@@ -1,15 +1,13 @@
-use std::ops::{Add, IndexMut};
 
-const SIZE_1K: usize = 1024;
-const SIZE_2K: usize = 2048;
-const SIZE_4K: usize = 4096;
-const SIZE_8K: usize = 8192;
-const SIZE_16K: usize = 16384;
-const SIZE_32K: usize = 32768;
-const SIZE_64K: usize = 65536;
-const SIZE_128K: usize = 131072;
-const SIZE_256K: usize = 262144;
-
+pub const SIZE_1K: usize = 1024;
+pub const SIZE_2K: usize = 2048;
+pub const SIZE_4K: usize = 4096;
+pub const SIZE_8K: usize = 8192;
+pub const SIZE_16K: usize = 16384;
+pub const SIZE_32K: usize = 32768;
+pub const SIZE_64K: usize = 65536;
+pub const SIZE_128K: usize = 131072;
+pub const SIZE_256K: usize = 262144;
 const PAGE_SIZE: usize = SIZE_1K;
 
 const fn num_bits<T>() -> usize { std::mem::size_of::<T>() * 8 }

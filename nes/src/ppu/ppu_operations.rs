@@ -8,23 +8,9 @@ fn read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinou
     pinout.ctrl.set(Ctrl::RD, false);
     pinout.ctrl.set(Ctrl::WR, true);
     match pinout.address {
-        0x0000..=0x03ff => { pinout = mapper.read_ppu_0000_03ff(pinout); }
-        0x0400..=0x07ff => { pinout = mapper.read_ppu_0400_07ff(pinout); }
-        0x0800..=0x0bff => { pinout = mapper.read_ppu_0800_0bff(pinout); }
-        0x0c00..=0x0fff => { pinout = mapper.read_ppu_0c00_0fff(pinout); }
-        0x1000..=0x13ff => { pinout = mapper.read_ppu_1000_13ff(pinout); }
-        0x1400..=0x17ff => { pinout = mapper.read_ppu_1400_17ff(pinout); }
-        0x1800..=0x1bff => { pinout = mapper.read_ppu_1800_1bff(pinout); }
-        0x1c00..=0x1fff => { pinout = mapper.read_ppu_1c00_1fff(pinout); }
-        0x2000..=0x23ff => { pinout = mapper.read_ppu_2000_23ff(pinout); }
-        0x2400..=0x27ff => { pinout = mapper.read_ppu_2400_27ff(pinout); }
-        0x2800..=0x2bff => { pinout = mapper.read_ppu_2800_2bff(pinout); }
-        0x2c00..=0x2fff => { pinout = mapper.read_ppu_2c00_2fff(pinout); }
-        0x3000..=0x33ff => { pinout = mapper.read_ppu_2000_23ff(pinout); }
-        0x3400..=0x37ff => { pinout = mapper.read_ppu_2400_27ff(pinout); }
-        0x3800..=0x3bff => { pinout = mapper.read_ppu_2800_2bff(pinout); }
-        0x3c00..=0x3fff => { pinout = mapper.read_ppu_2c00_2fff(pinout); }
-        _ => panic!("ppu read {:#X} - should be able to read 0x3fff", pinout.address)
+        0x0000..=0x01fff => { pinout = mapper.read_ppu_chr(pinout); }
+        0x2000..=0x2fff => { pinout = mapper.read_ppu_nt(pinout); }
+        _ => panic!("ppu read {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
     }
     pinout
 }
@@ -33,23 +19,9 @@ fn write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pino
     pinout.ctrl.set(Ctrl::WR, false);
     pinout.ctrl.set(Ctrl::RD, true);
     match pinout.address {
-        0x0000..=0x03ff => { pinout = mapper.write_ppu_0000_03ff(pinout); }
-        0x0400..=0x07ff => { pinout = mapper.write_ppu_0400_07ff(pinout); }
-        0x0800..=0x0bff => { pinout = mapper.write_ppu_0800_0bff(pinout); }
-        0x0c00..=0x0fff => { pinout = mapper.write_ppu_0c00_0fff(pinout); }
-        0x1000..=0x13ff => { pinout = mapper.write_ppu_1000_13ff(pinout); }
-        0x1400..=0x17ff => { pinout = mapper.write_ppu_1400_17ff(pinout); }
-        0x1800..=0x1bff => { pinout = mapper.write_ppu_1800_1bff(pinout); }
-        0x1c00..=0x1fff => { pinout = mapper.write_ppu_1c00_1fff(pinout); }
-        0x2000..=0x23ff => { pinout = mapper.write_ppu_2000_23ff(pinout); }
-        0x2400..=0x27ff => { pinout = mapper.write_ppu_2400_27ff(pinout); }
-        0x2800..=0x2bff => { pinout = mapper.write_ppu_2800_2bff(pinout); }
-        0x2c00..=0x2fff => { pinout = mapper.write_ppu_2c00_2fff(pinout); }
-        0x3000..=0x33ff => { pinout = mapper.write_ppu_2000_23ff(pinout); }
-        0x3400..=0x37ff => { pinout = mapper.write_ppu_2400_27ff(pinout); }
-        0x3800..=0x3bff => { pinout = mapper.write_ppu_2800_2bff(pinout); }
-        0x3c00..=0x3fff => { pinout = mapper.write_ppu_2c00_2fff(pinout); }
-        _ => panic!("ppu write {:#X} - should be able to read 0x3fff", pinout.address)
+        0x0000..=0x01fff => { pinout = mapper.write_ppu_chr(pinout); }
+        0x2000..=0x2fff => { pinout = mapper.write_ppu_nt(pinout); }
+        _ => panic!("ppu write {:#X} - should not be able to write past 0x2fff during rendering", pinout.address)
     }
     pinout
 }
