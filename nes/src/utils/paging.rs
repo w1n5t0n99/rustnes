@@ -88,9 +88,51 @@ mod tests {
 
     #[test]
     fn test_address_passthrough() {
-        let mut addr_mapper = AddressMapper::<4>::new();
+        let addr_mapper = AddressMapper::<4>::new();
         //println!(" ##### translated address: {} address: {} #####", addr_mapper.translate_address(400), 400);
         assert_eq!(addr_mapper.translate_address(400), 400);
         assert_eq!(addr_mapper.translate_address(1024), 1024);
+    }
+
+    #[test]
+    fn test_address_mirroring() {
+        let mut addr_mapper = AddressMapper::<32>::new();
+        let mut memory: [u8; SIZE_8K] = [0; SIZE_8K];
+
+        addr_mapper.set_banking_region(0, 0, SIZE_8K);
+        addr_mapper.set_banking_region(1, 0, SIZE_8K);
+        addr_mapper.set_banking_region(2, 0, SIZE_8K);
+        addr_mapper.set_banking_region(3, 0, SIZE_8K);
+
+        memory[0] = 99;
+
+        let a0 = addr_mapper.translate_address(0);
+        let a1 = addr_mapper.translate_address(8192);
+
+        assert_eq!(memory[a0 as usize], memory[a1 as usize]);
+    }
+
+    #[test]
+    fn test_multi_sized_banks() {
+        let mut addr_mapper = AddressMapper::<32>::new();
+        let mut memory: [u8; SIZE_16K] = [0; SIZE_16K];
+
+        // 1 - 8k bank and 2 - 4 kb banks
+        addr_mapper.set_banking_region(0, 0, SIZE_8K);
+        addr_mapper.set_banking_region(2, 3, SIZE_4K);
+        addr_mapper.set_banking_region(3, 3, SIZE_4K);
+
+        memory[0] = 99;
+        memory[12288] = 100;
+
+        let a1 = addr_mapper.translate_address(8192);
+        let a2 = addr_mapper.translate_address(12288);
+        let a3 = addr_mapper.translate_address(4096);
+        let a4 = addr_mapper.translate_address(16384);
+
+        assert_eq!(memory[a1 as usize], memory[a2 as usize]);
+        assert_ne!(memory[a3 as usize], memory[a2 as usize]);
+        // we havent set bankng for this region yet so it should just passthrough address
+        assert_eq!(16384, a4);
     }
 }
