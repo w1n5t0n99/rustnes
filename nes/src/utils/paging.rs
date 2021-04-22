@@ -157,4 +157,20 @@ mod tests {
         // we havent set bankng for this region yet so it should just passthrough address
         assert_eq!(16384, a4);
     }
+
+    #[test]
+    fn test_starting_address() {
+        // example NES prg rom region
+        let mut addr_mapper = AddressMapper::<32, 0x8000>::new();
+        let mut memory: [u8; SIZE_16K] = [0; SIZE_16K];
+
+        memory[1] = 99;
+
+        addr_mapper.set_banking_region(0, 0, SIZE_16K);
+        addr_mapper.set_banking_region(1, 0, SIZE_16K);
+
+        let a1 = addr_mapper.translate_address(0x8001);
+        let a2 = addr_mapper.translate_address(0x8001 + (SIZE_16K as u16));
+        assert_eq!(memory[a1 as usize], memory[a2 as usize]);
+    }
 }

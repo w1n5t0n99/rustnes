@@ -51,6 +51,7 @@ fn main() {
         scale_mode: ScaleMode::AspectRatioStretch,
         topmost: true,
         transparency: false,
+        none: false,
     };
 
     let mut window = Window::new(
@@ -107,7 +108,7 @@ fn main() {
     let mut nes = NesNtsc::new();
     let mut jp1 = JoypadInput::new();
 
-    nes.load_rom("test_roms\\test_ppu_read_buffer.nes");
+    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();

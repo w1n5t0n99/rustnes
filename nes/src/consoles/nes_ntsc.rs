@@ -14,7 +14,6 @@ use std::path::Path;
 use ::nes_rom::ines;
 
 const WIDTH: u32 = 256;
-const PADDED_WIDTH: u32 = 282;
 const HEIGHT: u32 = 240;
 
 pub struct NesNtsc {

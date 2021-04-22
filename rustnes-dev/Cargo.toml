@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 nes = { path = "../nes" }
-minifb = "0.17"
+minifb = "0.19.3"
 itertools = "0.10.0"
 
 [profile.release]

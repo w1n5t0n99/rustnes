@@ -3,8 +3,6 @@ mod mapper_nrom;
 mod mapper1;
 mod mapper3;
 
-use std::ops::Add;
-
 use super::ppu;
 use super::utils::paging::*;
 use mapper_nrom::MapperNrom;

@@ -168,7 +168,7 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn read_cpu_exp(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    fn read_cpu_exp(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         // open bus
         pinout
     }
@@ -188,17 +188,17 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn write_cpu_internal_ram(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_internal_ram(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.sys_ram[(pinout.address & 0x7FF) as usize] = pinout.data;
         pinout
     }
 
-    fn write_cpu_exp(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_exp(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         // open bus
         pinout
     }
 
-    fn write_cpu_wram(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_wram(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         if self.ram_enable {
             let internal_address = self.context.wram_addr_mapper.translate_address(pinout.address);
             self.context.prg_ram[internal_address as usize] = pinout.data;
@@ -207,7 +207,7 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn write_cpu_prg(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
+    fn write_cpu_prg(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         if self.cpu_cycle > self.last_write_cpu_cycle {
             self.write_handler(pinout);
         }
@@ -228,7 +228,7 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn  write_ppu_chr(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_chr(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
         if self.uses_chr_ram {
             let internal_address = self.context.chr_addr_mapper.translate_address(pinout.address);
             self.context.chr[internal_address as usize] = pinout.data;
@@ -237,7 +237,7 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn  write_ppu_nt(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+    fn  write_ppu_nt(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
         let internal_address = self.context.nt_addr_mapper.translate_address(pinout.address);
         self.context.vram[internal_address as usize] =pinout.data;
         pinout
@@ -253,7 +253,7 @@ impl Mapper for Mapper1 {
         pinout
     }
 
-    fn ppu_tick(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
+    fn ppu_tick(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
         pinout
     }
 }

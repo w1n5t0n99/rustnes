@@ -36,7 +36,7 @@ impl Background {
     }
 
     pub fn select_background_pixel(&mut self, ppu: &mut Context) -> u8 {
-        let mut pixel: u8 = 0;
+        let pixel: u8;
         if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_BACKGROUND) | (ppu.scanline_dot >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_BACKGROUND) {
             let mask: u16 = 0x8000 >> ppu.addr_reg.x;
 
