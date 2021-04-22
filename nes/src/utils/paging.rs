@@ -21,10 +21,16 @@ const fn get_bank_index(address: usize, bank_size: usize) -> usize {
     (address & !(bank_size - 1)) >> index_shift
 }
 
+const fn get_last_bank_index(bank_size: usize, data_size: usize) -> usize {
+    (data_size / bank_size) - 1
+}
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 struct Bank {
     pub offset_mask: usize,
     pub index_mask: usize,
+    pub size: usize,
+    pub index: usize,
 }
 
 impl Bank {
@@ -32,18 +38,20 @@ impl Bank {
         Bank {
             offset_mask: bank_size - 1,
             index_mask: bank_index << log_2(bank_size),
+            size: bank_size,
+            index: bank_index,
         }
     }
 }
 
 // paging system to map address space to memory
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub struct AddressMapper<const SIZE_IN_KBS: usize> {
+pub struct AddressMapper<const SIZE_IN_KBS: usize, const START_ADDRESS: usize> {
     page_table: [Bank; SIZE_IN_KBS],
 }
 
-impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
-    pub fn new() -> AddressMapper<SIZE_IN_KBS> {
+impl<const SIZE_IN_KBS: usize, const START_ADDRESS: usize> AddressMapper<SIZE_IN_KBS, START_ADDRESS> {
+    pub fn new() -> AddressMapper<SIZE_IN_KBS, START_ADDRESS> {
         let mut am = AddressMapper { page_table: [Bank::new(PAGE_SIZE, 0); SIZE_IN_KBS], };
         for (i, bank) in am.page_table.iter_mut().enumerate() {
             *bank = Bank::new(PAGE_SIZE, i);
@@ -67,10 +75,26 @@ impl<const SIZE_IN_KBS: usize> AddressMapper<SIZE_IN_KBS> {
         }
     }
 
+    pub fn set_banking_region_to_last_bank(&mut self, addr_bank_index: usize, bank_size: usize, data_size: usize) {
+        let pages_per_bank = bank_size / PAGE_SIZE;
+        let start_page = addr_bank_index * pages_per_bank;
+        let mem_bank_index = get_last_bank_index(bank_size, data_size);
+
+        for b in start_page..(start_page+pages_per_bank) {
+            self.page_table[b] = Bank::new(bank_size, mem_bank_index);
+        }
+    }
+
     pub fn translate_address(&self, address: u16) -> u16 {
-        let page_index = get_bank_index( address as usize, PAGE_SIZE);
+        let page_index = get_bank_index( (address as usize) - START_ADDRESS, PAGE_SIZE);
         let bank = &self.page_table[page_index];
         ((address as usize & bank.offset_mask) | bank.index_mask) as u16
+    }
+
+    pub fn address_bank_details(self, address: u16) -> (usize, usize) {
+        let page_index = get_bank_index( (address as usize) - START_ADDRESS, PAGE_SIZE);
+        let bank = &self.page_table[page_index];
+        (bank.size, bank.index)
     }
 }
 
@@ -86,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_address_passthrough() {
-        let addr_mapper = AddressMapper::<4>::new();
+        let addr_mapper = AddressMapper::<4, 0>::new();
         //println!(" ##### translated address: {} address: {} #####", addr_mapper.translate_address(400), 400);
         assert_eq!(addr_mapper.translate_address(400), 400);
         assert_eq!(addr_mapper.translate_address(1024), 1024);
@@ -94,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_address_mirroring() {
-        let mut addr_mapper = AddressMapper::<32>::new();
+        let mut addr_mapper = AddressMapper::<32, 0>::new();
         let mut memory: [u8; SIZE_8K] = [0; SIZE_8K];
 
         addr_mapper.set_banking_region(0, 0, SIZE_8K);
@@ -112,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_multi_sized_banks() {
-        let mut addr_mapper = AddressMapper::<32>::new();
+        let mut addr_mapper = AddressMapper::<32, 0>::new();
         let mut memory: [u8; SIZE_16K] = [0; SIZE_16K];
 
         // 1 - 8k bank and 2 - 4 kb banks

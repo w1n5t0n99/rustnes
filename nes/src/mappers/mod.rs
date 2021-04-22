@@ -84,11 +84,6 @@ pub fn set_nametable_three_screen_diagonal(context: &mut Context) {
     context.nt_addr_mapper.set_banking_region(3, 2, SIZE_1K);
 }
 
-#[inline]
-pub fn get_last_bank_index(bank_size: usize, data_size: usize) -> usize {
-    (data_size / bank_size) - 1
-}
-
 pub fn set_nametable_from_mirroring_type(context: &mut Context, mirror_type: ines::NametableMirroring) {
     // TODO update nes_rom crate to support other mirroring types
     match mirror_type {
@@ -106,24 +101,29 @@ pub fn set_nametable_from_mirroring_type(context: &mut Context, mirror_type: ine
 }
 
 pub struct Context {  
-    pub prg_addr_mapper: AddressMapper<32>,
-    pub wram_addr_mapper: AddressMapper<8>,
-    pub chr_addr_mapper: AddressMapper<8>,
-    pub nt_addr_mapper: AddressMapper<4>,
+    pub prg_addr_mapper: AddressMapper<32, 0x8000>,
+    pub wram_addr_mapper: AddressMapper<8, 0x6000>,
+    pub chr_addr_mapper: AddressMapper<8, 0>,
+    pub nt_addr_mapper: AddressMapper<4, 0x2000>,
+    pub prg_rom: Vec<u8>,
+    pub prg_ram: Vec<u8>,
+    pub chr: Vec<u8>,
+    pub sys_ram: Vec<u8>,
+    pub vram: Vec<u8>,
 }
 
 impl Context {
     pub fn new() -> Context {
         Context {
-            //prg_rom: Vec::new(),
-            //chr_rom: Vec::new(),
-            //sys_ram: vec![0; SIZE_2K],
-            //vram: vec![0; SIZE_4K],
-            //work_ram: vec![0; SIZE_8K],
             prg_addr_mapper: AddressMapper::new(),
             wram_addr_mapper: AddressMapper::new(),
             chr_addr_mapper: AddressMapper::new(),
             nt_addr_mapper: AddressMapper::new(),
+            prg_rom: Vec::new(),
+            prg_ram: Vec::new(),
+            chr: Vec::new(),
+            sys_ram: vec![0; SIZE_2K],
+            vram: vec![0; SIZE_4K],
         }
     }
 }
