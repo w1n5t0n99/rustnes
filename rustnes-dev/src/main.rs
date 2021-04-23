@@ -1,4 +1,4 @@
-use nes::consoles::{Console, nes_ntsc::NesNtsc,};
+use nes::consoles::{Console, nes_ntsc::NesNtsc, EmuError};
 use nes::JoypadInput;
 use nes::utils::{frame_limiter, average_duration};
 
@@ -28,7 +28,17 @@ pub fn normal_execute<C: Console>(nes: &mut C, jp1: JoypadInput, fb: &mut [u32])
     let start_instant = Instant::now();
     nes.input_joypad1_state(jp1);                 
     nes.execute_frame();
-    nes.output_pixel_buffer(fb);
+    let emu_res = nes.output_pixel_buffer(fb);
+
+    match emu_res {
+        Ok(_) => { }
+        Err(emu_err) => {
+            let log_file = File::create(format!("logs\\trace-frame-{}-error.log", nes.get_frame_number())).unwrap();
+            let mut log_writer = BufWriter::new(log_file);  
+            nes.output_log(&mut log_writer);
+        }
+    }
+
     Instant::now() - start_instant
 }
 

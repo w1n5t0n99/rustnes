@@ -124,11 +124,16 @@ impl Console for NesNtsc {
         self.controllers.set_joypad2_state(controller);
     }
 
-    fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]) {
+    fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]) -> Result<(), EmuError> {
         for it in self.pbuffer.iter_mut().zip(frame_buffer.iter_mut()) {
             let (fi, pi) = it;
+            if *fi > 63 {
+                return Err(EmuError::PixBufferError);
+            }
             *pi = palette_color(*fi, PaletteSource::Ppu_2c02);
         }
+
+        Ok(())
     }
 
     fn output_log<W: Write>(&mut self , w: &mut W) {

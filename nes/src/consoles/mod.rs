@@ -4,6 +4,12 @@ use crate::controllers::JoypadInput;
 use std::path::Path;
 use std::io::Write;
 
+pub enum EmuError {
+    LoadRomError,
+    PixBufferError,
+    LogError,
+}
+
 pub trait Console {
     fn load_rom<P: AsRef<Path>>(&mut self, rom_path: P);
     fn power_on_console(&mut self);
@@ -17,6 +23,6 @@ pub trait Console {
     fn input_joypad1_state(&mut self, joypad: JoypadInput);
     fn input_joypad2_state(&mut self, joypad: JoypadInput);
 
-    fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]);
+    fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]) -> Result<(), EmuError>;
     fn output_log<W: Write>(&mut self , w: &mut W);    
 }
