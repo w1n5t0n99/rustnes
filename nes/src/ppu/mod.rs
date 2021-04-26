@@ -3,6 +3,7 @@ mod ppu_registers;
 mod ppu_operations;
 mod background;
 mod sprites;
+mod operations;
 
 use std::fmt;
 
@@ -34,14 +35,6 @@ impl Pinout {
             address: 0,
             data: 0,
         }
-    }
-}
-
-impl fmt::Display for Pinout {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-        write!(f, "AB:{:#06X} - Data:{:#04X} [{}]", self.address, self.data, self.data)
-        
     }
 }
 
