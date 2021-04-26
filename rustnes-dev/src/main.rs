@@ -118,7 +118,7 @@ fn main() {
     let mut nes = NesNtsc::new();
     let mut jp1 = JoypadInput::new();
 
-    nes.load_rom("test_roms\\Mario Bros. (U) [!].nes");
+    nes.load_rom("test_roms\\donkey_kong.nes");
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();

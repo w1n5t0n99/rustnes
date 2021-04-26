@@ -16,7 +16,31 @@ use crate::mappers::Mapper;
 // RenderAction
 // IOAction
 
-// -- PpuBus --
+#[derive(Clone, Copy)]
+enum IOState {
+    Idle,
+    LatchWrite,
+    LatchRead,
+    Write,
+    Read,
+}
+// -- Bus --
+#[derive(Clone, Copy)]
+pub struct Bus {
+    rd_buffer: u8,
+    wr_buffer: u8,
+    latch: u8,
+}
+
+impl Bus {
+    pub fn io_read(&mut self) -> u8{
+        0
+    }
+
+    pub fn read(&mut self, pinout: Pinout) -> Pinout {
+        pinout
+    }
+}
 
 
 
