@@ -3,7 +3,7 @@ mod ppu_registers;
 mod ppu_operations;
 mod background;
 mod sprites;
-mod operations;
+mod bus;
 
 use std::fmt;
 

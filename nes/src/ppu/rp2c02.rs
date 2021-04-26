@@ -249,6 +249,7 @@ impl Rp2c02 {
 
         self.context.cycle += 1;
         self.pinout = mapper.ppu_tick(self.pinout);
+
         cpu_pinout
     }
 
