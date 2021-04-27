@@ -23,8 +23,36 @@ impl MapperDebug {
         mapper
     }
 
+    pub fn poke_internal_ram(&mut self, index: usize, data: u8) {
+        self.context.sys_ram[index] = data;
+    }
+
+    pub fn peek_internal_ram(&mut self, index: usize) -> u8{
+        self.context.sys_ram[index]
+    }
+
     pub fn poke_prg(&mut self, index: usize, data: u8) {
         self.context.prg_rom[index] = data;
+    }
+
+    pub fn peek_prg(&mut self, index: usize) -> u8{
+        self.context.prg_rom[index]
+    }
+
+    pub fn poke_chr(&mut self, index: usize, data: u8) {
+        self.context.chr[index] = data;
+    }
+
+    pub fn peek_chr(&mut self, index: usize) -> u8{
+        self.context.chr[index]
+    }
+
+    pub fn poke_nt(&mut self, index: usize, data: u8) {
+        self.context.vram[index] = data;
+    }
+
+    pub fn peek_nt(&mut self, index: usize) -> u8{
+        self.context.vram[index]
     }
 }
 
