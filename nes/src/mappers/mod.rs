@@ -2,6 +2,7 @@ mod mapper_null;
 mod mapper_nrom;
 mod mapper1;
 mod mapper3;
+mod mapper_debug;
 
 use super::ppu;
 use super::utils::paging::*;
@@ -87,13 +88,7 @@ pub fn set_nametable_from_mirroring_type(context: &mut Context, mirror_type: ine
     match mirror_type {
         ines::NametableMirroring::Horizontal =>  set_nametable_horizontal(context),
         ines::NametableMirroring::Vertical => set_nametable_vertical(context),
-        //ines::NametableMirroring::SingleScreen => set_nametable_single_screen(bank_lookup),
         ines::NametableMirroring::FourScreens => set_nametable_four_screen(context),
-        //ines::NametableMirroring::Diagonal => set_nametable_diagonal(bank_lookup),
-        //ines::NametableMirroring::LShaped => set_nametable_lshaped(bank_lookup),
-        //ines::NametableMirroring::ThreeScreenVertical => set_nametable_three_screen_vertical(bank_lookup),
-        //ines::NametableMirroring::ThreeScreenHorizontal => set_nametable_three_screen_horizontal(bank_lookup),
-        //ines::NametableMirroring::ThreeScreenDiagonal => set_nametable_three_screen_diagonal(bank_lookup),
         ines::NametableMirroring::Other => panic!("Invalid NROM nametable mirroring: {:?}", mirror_type),
     };
 }
