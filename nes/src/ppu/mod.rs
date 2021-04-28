@@ -50,12 +50,11 @@ pub struct Context {
     pub prev_control_reg: ppu_registers::ControlRegister,   // used to trigger multiple NMI during vblank
     pub mask_reg: ppu_registers::MaskRegister,
     pub status_reg: ppu_registers::StatusRegister,
+    pub bus: bus::Bus,
     pub scanline_index: u16,
     pub scanline_dot: u16, 
     pub oam_addr_reg: u8,
     pub io_db: u8,                                      // Simulate latch created by long traces of data bus
-    pub ppu_2007_rd_buffer: Option<u8>,
-    pub ppu_2007_wr_buffer: Option<u8>,
     pub odd_frame: bool,
     pub write_block: bool,
 }
@@ -73,12 +72,11 @@ impl Context {
             prev_control_reg: ppu_registers::ControlRegister::new(),
             mask_reg: ppu_registers::MaskRegister::new(),
             status_reg: ppu_registers::StatusRegister::new(),
+            bus: bus::Bus::new(),
             scanline_index: 0,
             scanline_dot: 1,
             oam_addr_reg: 0,
             io_db: 0,
-            ppu_2007_rd_buffer: None,
-            ppu_2007_wr_buffer: None,
             odd_frame: false,
             write_block: true,
         }

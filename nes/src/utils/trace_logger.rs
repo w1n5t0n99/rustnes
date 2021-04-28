@@ -7,16 +7,28 @@ const LOG_SIZE: usize = 38000;
 
 fn address_to_device(addr: u16, rw: bool) -> &'static str {
     match addr {
-        0x0000..=0x1FFF =>      "RAM      ",
-        0x2000..=0x3FFF =>      "PPU      ",
-        0x4000..=0x4013 =>      "APU      ",
-        0x4014 =>               "PPU-DMA  ",
-        0x4015 =>               "APU      ",
-        0x4016 =>               "CTRL1    ",
-        0x4017 if rw == true => "CTRL2    ",
-        0x4017 =>               "APU      ",
-        0x4018..=0x401F =>      "DISABLED ",
-        0x4020..=0xFFFF =>      "CART     ",
+        0x0000..=0x1FFF =>      "RAM       ",
+        0x2000..=0x3FFF => {
+            match addr & 0x7 {
+                0x00 => "PPU CTRL  ",
+                0x01 => "PPU MASK  ",
+                0x02 => "PPU STATUS",
+                0x03 => "OAM DMA   ",
+                0x04 => "OAM DATA  ",
+                0x05 => "PPU SCROLL",
+                0x06 => "PPU ADDR  ",
+                0x07 => "PPU DATA  ",
+                _ => panic!("cpu trace logger ppu masking"),
+            }
+        },     
+        0x4000..=0x4013 =>      "APU       ",
+        0x4014 =>               "PPU-DMA   ",
+        0x4015 =>               "APU       ",
+        0x4016 =>               "CTRL1     ",
+        0x4017 if rw == true => "CTRL2     ",
+        0x4017 =>               "APU       ",
+        0x4018..=0x401F =>      "DISABLED  ",
+        0x4020..=0xFFFF =>      "CART      ",
     }
 }
 

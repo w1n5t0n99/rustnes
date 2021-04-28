@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use super::{Pinout, Context};
 use super::background::Background;
 use super::sprites::Sprites;
@@ -194,11 +196,10 @@ impl Rp2c02 {
                 // Reading palette updates latch with contents of nametable under palette address
                 pinout.data = if  is_rendering(&mut self.context) { read_palette_rendering(&mut self.context, v) } else { read_palette_nonrender(&mut self.context, v) };
                 // still need to update read buffer
-                self.context.ppu_2007_rd_buffer = None;
+                self.context.bus.io_palette_read();
             }
             0x0000..=0x3EFF => {
-                let rdbuffer = self.context.ppu_2007_rd_buffer.take();
-                pinout.data = rdbuffer.unwrap();
+                pinout.data = self.context.bus.io_read();
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");
@@ -215,10 +216,10 @@ impl Rp2c02 {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does
                 write_palette(&mut self.context, v, pinout.data);
-                self.context.ppu_2007_wr_buffer = Some(pinout.data);
+                self.context.bus.io_palette_write();
             }
             0x0000..=0x3EFF => {
-                self.context.ppu_2007_wr_buffer = Some(pinout.data);
+                self.context.bus.io_write(pinout.data);
             }
             _ => {
                 panic!("PPU 0x2007 address out of range");

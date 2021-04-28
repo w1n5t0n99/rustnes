@@ -16,7 +16,7 @@ use crate::mappers::Mapper;
 // RenderAction
 // IOAction
 
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum IOAction {
     Idle,
     LatchWrite,
@@ -25,7 +25,7 @@ enum IOAction {
     Read,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RenderAction {
     Idle,
     Latch,
@@ -40,6 +40,7 @@ pub struct Bus {
     latch: u8,
     io_action: IOAction,
     io_mem_access: bool,
+    io_wr_access: bool,
 }
 
 impl Bus {
@@ -50,11 +51,14 @@ impl Bus {
             latch: 0,
             io_action: IOAction::Idle,
             io_mem_access: false,
+            io_wr_access: false,
         }
     }
 
-    pub fn is_io_mem_access(&self) -> bool {
-        self.io_mem_access
+    pub fn is_io_mem_access(&mut self) -> bool {
+        let ret = self.io_mem_access | self.io_wr_access;
+        self.io_wr_access = false;
+        ret
     }
 
     pub fn io_read(&mut self) -> u8{
@@ -62,9 +66,17 @@ impl Bus {
         self.rd_buffer
     }
 
+    pub fn io_palette_read(&mut self) {
+        self.io_action = IOAction::LatchRead;
+    }
+
     pub fn io_write(&mut self, data: u8) {
         self.io_action = IOAction::LatchWrite;
         self.wr_buffer = data;
+    }
+
+    pub fn io_palette_write(&mut self) {
+        self.io_wr_access = true;
     }
 
     pub fn execute(&mut self, mapper: &mut dyn Mapper, render_action: RenderAction, mut pinout: Pinout) -> Pinout { 
@@ -171,7 +183,7 @@ impl Bus {
         pinout = self.internal_apply_latch(pinout);
 
         match pinout.address {
-            0x0000..=0x01fff => { pinout = mapper.read_ppu_chr(pinout); }
+            0x0000..=0x1fff => { pinout = mapper.read_ppu_chr(pinout); }
             0x2000..=0x2fff => { pinout = mapper.read_ppu_nt(pinout); }
             _ => panic!("ppu read {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
         }
@@ -185,7 +197,7 @@ impl Bus {
         pinout = self.internal_apply_latch(pinout);
 
         match pinout.address {
-            0x0000..=0x01fff => { pinout = mapper.write_ppu_chr(pinout); }
+            0x0000..=0x1fff => { pinout = mapper.write_ppu_chr(pinout); }
             0x2000..=0x2fff => { pinout = mapper.write_ppu_nt(pinout); }
             _ => panic!("ppu write {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
         }
@@ -286,6 +298,7 @@ mod test {
         let v0 = bus.io_read();
         assert_ne!(v0, 255);
 
+        // normal render read
         p.address = 0x1FF;
         p = bus.execute(&mut mapper, RenderAction::Latch, p);
         assert_eq!(p.address, 0x1FF);
@@ -295,6 +308,7 @@ mod test {
         assert_eq!(255, p.data);
         assert_eq!(bus.is_io_mem_access(), true);
 
+        // render read interrupted by io read
         p.address = 0x200;
         p = bus.execute(&mut mapper, RenderAction::Latch, p);
         assert_eq!(p.address, 0x200);
@@ -308,7 +322,10 @@ mod test {
         assert_eq!(p.data, 240);
         assert_eq!(bus.is_io_mem_access(), false);
 
-
+        p.address = 0x201;
+        p = bus.execute(&mut mapper, RenderAction::Latch, p);
+        assert_eq!(p.address, (0x201 & 0xFF00) | 240);
+        assert_eq!(bus.is_io_mem_access(), true);
 
     }
 }

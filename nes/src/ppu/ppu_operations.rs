@@ -2,179 +2,165 @@ use super::{Context, Pinout, Ctrl};
 use super::ppu_registers::*;
 use super::background::Background;
 use super::sprites::Sprites;
+use super::bus::{Bus, RenderAction};
 use crate::mappers::Mapper;
 
-fn read(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.ctrl.set(Ctrl::RD, false);
-    pinout.ctrl.set(Ctrl::WR, true);
-    match pinout.address {
-        0x0000..=0x01fff => { pinout = mapper.read_ppu_chr(pinout); }
-        0x2000..=0x2fff => { pinout = mapper.read_ppu_nt(pinout); }
-        _ => panic!("ppu read {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
-    }
-    pinout
-}
-
-fn write(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.ctrl.set(Ctrl::WR, false);
-    pinout.ctrl.set(Ctrl::RD, true);
-    match pinout.address {
-        0x0000..=0x01fff => { pinout = mapper.write_ppu_chr(pinout); }
-        0x2000..=0x2fff => { pinout = mapper.write_ppu_nt(pinout); }
-        _ => panic!("ppu write {:#X} - should not be able to write past 0x2fff during rendering", pinout.address)
-    }
-    pinout
-}
-
-fn idle(ppu: &mut Context, mut pinout: Pinout) -> Pinout {
-    pinout.ctrl.set(Ctrl::RD, true);
-    pinout.ctrl.set(Ctrl::WR, true);
-
-    pinout
-}
-
-macro_rules! check_io_buffers_during_render {
-    ($ppu:ident, $pinout:ident) => {
-        if $ppu.ppu_2007_wr_buffer.is_some() {
-            $ppu.ppu_2007_wr_buffer = None;
-            $ppu.addr_reg.ppu_2007_during_render_increment();
-            return $pinout;
-        }
-
-        if $ppu.ppu_2007_rd_buffer.is_none() {
-            $ppu.ppu_2007_rd_buffer = Some($pinout.data);
-            $ppu.addr_reg.ppu_2007_during_render_increment();
-            return $pinout;
-        }
-    }
-}
-
 pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
     pinout
 }
 
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.vram_address() & 0x2FFF;
+    pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
 
-    if ppu.ppu_2007_wr_buffer.is_some() {
-        let buffer = ppu.ppu_2007_wr_buffer.take();
-        if ppu.addr_reg.vram_address() > 0x2FFF {
-            // write to palette doesn't write to mirror ... as far as I know
-            ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
-            return pinout;
-        }
-
-        pinout.data = buffer.unwrap();
-        pinout = write(ppu, mapper, pinout);
+    if ppu.bus.is_io_mem_access() {
         ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
-        return pinout;
     }
 
-    if ppu.ppu_2007_rd_buffer.is_none() {
-        pinout = read(ppu, mapper, pinout);
-        ppu.ppu_2007_rd_buffer = Some(pinout.data);
-        ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
-        return pinout;
-    }
-
-    pinout = idle(ppu, pinout);
     pinout
 }
 
 pub fn open_tile_index(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.tile_address();
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+
     pinout
 }
 
 pub fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.tile_address();
-    pinout = read(ppu, mapper, pinout);
-    bg.next_tile_index = pinout.data as u16;
+    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
 
-    check_io_buffers_during_render!(ppu, pinout);
+    bg.next_tile_index = pinout.data as u16;
 
     pinout
 }
 
 pub fn open_background_attribute(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.attribute_address();
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+
     pinout
 }
 
 pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = ppu.addr_reg.attribute_address();
-    pinout = read(ppu, mapper, pinout);
-    bg.next_attribute = ppu.addr_reg.attribute_bits(pinout.data);
+    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
 
-    check_io_buffers_during_render!(ppu, pinout);
+    bg.next_attribute = ppu.addr_reg.attribute_bits(pinout.data);
 
     pinout
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = bg.pattern0_address(ppu);
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+
     pinout
 }
 
 pub fn read_background_pattern0(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = bg.pattern0_address(ppu);
-    pinout = read(ppu, mapper, pinout);
-    bg.set_next_pattern0(pinout.data);
+    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
 
-    check_io_buffers_during_render!(ppu, pinout);
+    bg.set_next_pattern0(pinout.data);
 
     pinout
 }
 
 pub fn open_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = bg.pattern1_address(ppu);
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+
     pinout
 }
 
 pub fn read_background_pattern1(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = bg.pattern1_address(ppu);
-    pinout = read(ppu, mapper, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+    else {
+        ppu.addr_reg.coarse_x_increment();
+    }
+
     bg.set_next_pattern1(pinout.data);
 
-    check_io_buffers_during_render!(ppu, pinout);
-
-    ppu.addr_reg.coarse_x_increment();
     pinout
 }
 
 pub fn open_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = sp.pattern0_address(ppu);
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+
     pinout
 }
 
 pub fn read_sprite_pattern0(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = sp.pattern0_address(ppu);
-    pinout = read(ppu, mapper, pinout);
-    sp.set_pattern0(ppu, pinout.data);
+    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
 
-    check_io_buffers_during_render!(ppu, pinout);
+    sp.set_pattern0(ppu, pinout.data);
     
     pinout
 }
 
 pub fn open_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = sp.pattern1_address(ppu);
-    pinout = idle(ppu, pinout);
+    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+
     pinout
 }
 
 pub fn read_sprite_pattern1(ppu: &mut Context, sp: &mut Sprites, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
     pinout.address = sp.pattern1_address(ppu);
-    pinout = read(ppu, mapper, pinout);
-    sp.set_pattern1( ppu, pinout.data);
+    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
 
-    check_io_buffers_during_render!(ppu, pinout);
+    sp.set_pattern1( ppu, pinout.data);
 
     pinout
 }
