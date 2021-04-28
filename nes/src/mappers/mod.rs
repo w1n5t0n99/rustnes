@@ -2,7 +2,7 @@ mod mapper_null;
 mod mapper_nrom;
 mod mapper1;
 mod mapper3;
-mod mapper_debug;
+pub mod mapper_debug;
 
 use super::ppu;
 use super::utils::paging::*;

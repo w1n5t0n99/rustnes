@@ -17,11 +17,18 @@ use crate::mappers::Mapper;
 // IOAction
 
 #[derive(Clone, Copy)]
-enum IOState {
+enum IOAction {
     Idle,
     LatchWrite,
     LatchRead,
     Write,
+    Read,
+}
+
+#[derive(Clone, Copy)]
+pub enum RenderAction {
+    Idle,
+    Latch,
     Read,
 }
 
@@ -31,7 +38,7 @@ pub struct Bus {
     rd_buffer: u8,
     wr_buffer: u8,
     latch: u8,
-    io_state: IOState,
+    io_action: IOAction,
     io_mem_access: bool,
 }
 
@@ -41,7 +48,7 @@ impl Bus {
             rd_buffer: 0,
             wr_buffer: 0,
             latch: 0,
-            io_state: IOState::Idle,
+            io_action: IOAction::Idle,
             io_mem_access: false,
         }
     }
@@ -51,144 +58,108 @@ impl Bus {
     }
 
     pub fn io_read(&mut self) -> u8{
-        self.io_state = IOState::LatchRead;
+        self.io_action = IOAction::LatchRead;
         self.rd_buffer
     }
 
     pub fn io_write(&mut self, data: u8) {
-        self.io_state = IOState::LatchWrite;
+        self.io_action = IOAction::LatchWrite;
         self.wr_buffer = data;
     }
 
-    pub fn render_read(&mut self, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
+    pub fn execute(&mut self, mapper: &mut dyn Mapper, render_action: RenderAction, mut pinout: Pinout) -> Pinout { 
         // clear ctrl pins
         pinout.ctrl.set(Ctrl::RD, true);
         pinout.ctrl.set(Ctrl::WR, true);
         pinout.ctrl.set(Ctrl::ALE, false);
         self.io_mem_access = false;
 
-        match self.io_state {
-            IOState::Idle => {
-                pinout.ctrl.set(Ctrl::RD, false);
-                self.internal_read(mapper, pinout);
-                
-                self.io_mem_access = false;
-            }
-            IOState::LatchRead => {
-                pinout.ctrl.set(Ctrl::RD, false);
+        match (render_action, self.io_action) {
+            (RenderAction::Idle, IOAction::Idle) => { }
+            (RenderAction::Idle, IOAction::LatchRead) => {
                 pinout.ctrl.set(Ctrl::ALE, true);
-                self.internal_read(mapper, pinout);
-
-                self.internal_capture_latch_io_during_render(pinout);
-                self.io_state = IOState::Read;
-                self.io_mem_access = false;
+                self.internal_capture_latch(pinout);
+                self.io_action = IOAction::Read;
             }
-            IOState::Read => {
+            (RenderAction::Idle, IOAction::LatchWrite) => {
+                pinout.ctrl.set(Ctrl::ALE, true);
+                self.internal_capture_latch(pinout);
+                self.io_action = IOAction::Write;
+            }
+            (RenderAction::Idle, IOAction::Read) => {
                 pinout.ctrl.set(Ctrl::RD, false);
-                self.internal_read(mapper, pinout);
-                
+                pinout = self.internal_read(mapper, pinout);
                 self.rd_buffer = pinout.data;
-                self.io_state = IOState::Idle;
                 self.io_mem_access = true;
+                self.io_action = IOAction::Idle;
             }
-            IOState::LatchWrite => {
-                pinout.ctrl.set(Ctrl::RD, false);
-                pinout.ctrl.set(Ctrl::ALE, true);
-                self.internal_read(mapper, pinout);
-
-                self.internal_capture_latch_io_during_render(pinout);
-                self.io_state = IOState::Write;
-                self.io_mem_access = false;
-            }
-            IOState::Write => {
-                pinout.ctrl.set(Ctrl::RD, false);
+            (RenderAction::Idle, IOAction::Write) => {
                 pinout.ctrl.set(Ctrl::WR, false);
-                self.internal_write(mapper, pinout);
-                
-                self.io_state = IOState::Idle;
+                pinout = self.internal_write(mapper, pinout);
                 self.io_mem_access = true;
+                self.io_action = IOAction::Idle;
             }
-        }
-
-        pinout
-    }
-
-    pub fn render_latch(&mut self, mapper: &mut dyn Mapper,  mut pinout: Pinout) -> Pinout {
-        // clear ctrl pins
-        pinout.ctrl.set(Ctrl::RD, true);
-        pinout.ctrl.set(Ctrl::WR, true);
-        pinout.ctrl.set(Ctrl::ALE, false);
-        self.io_mem_access = false;
-
-        match self.io_state {
-            IOState::Idle => {
+            (RenderAction::Latch, IOAction::Idle) => {
                 pinout.ctrl.set(Ctrl::ALE, true);
                 self.internal_capture_latch(pinout);
             }
-            IOState::LatchRead => {
+            (RenderAction::Latch, IOAction::LatchRead) => {
                 pinout.ctrl.set(Ctrl::ALE, true);
                 self.internal_capture_latch(pinout);
-                self.io_state = IOState::Read;
+                self.io_action = IOAction::Read;
             }
-            IOState::Read => {
+            (RenderAction::Latch, IOAction::LatchWrite) => {
+                pinout.ctrl.set(Ctrl::ALE, true);
+                self.internal_capture_latch(pinout);
+                self.io_action = IOAction::Write;
+            }
+            (RenderAction::Latch, IOAction::Read) => {
                 pinout.ctrl.set(Ctrl::RD, false);
                 pinout.ctrl.set(Ctrl::ALE, true);
-                self.internal_read(mapper, pinout);
-
+                pinout = self.internal_read(mapper, pinout);
                 self.internal_capture_latch_io_during_render(pinout);
-                self.io_state = IOState::Idle;
+                self.rd_buffer = pinout.data;
+                self.io_action = IOAction::Idle;
                 self.io_mem_access = true;
             }
-            IOState::LatchWrite => {
-                pinout.ctrl.set(Ctrl::ALE, true);
-                self.internal_capture_latch(pinout);
-                self.io_state = IOState::Write;
-            }
-            IOState::Write => {
+            (RenderAction::Latch, IOAction::Write) => {
                 pinout.ctrl.set(Ctrl::ALE, true);
                 pinout.ctrl.set(Ctrl::WR, false);
-                
-                self.internal_write(mapper, pinout);
+                pinout = self.internal_write(mapper, pinout);
                 self.internal_capture_latch_io_during_render(pinout);
-                self.io_state = IOState::Idle;
+                self.io_action = IOAction::Idle;
                 self.io_mem_access = true;
             }
-        }
-
-        pinout
-    }
-
-    pub fn render_idle(&mut self, mapper: &mut dyn Mapper,  mut pinout: Pinout) -> Pinout {
-        // clear ctrl pins
-        pinout.ctrl.set(Ctrl::RD, true);
-        pinout.ctrl.set(Ctrl::WR, true);
-        pinout.ctrl.set(Ctrl::ALE, false);
-        self.io_mem_access = false;
-
-        match self.io_state {
-            IOState::Idle => { }
-            IOState::LatchRead => {
-                pinout.ctrl.set(Ctrl::ALE, true);
-                self.internal_capture_latch(pinout);
-                self.io_state = IOState::Read;
-            }
-            IOState::Read => {
+            (RenderAction::Read, IOAction::Idle) => {
                 pinout.ctrl.set(Ctrl::RD, false);
-                self.internal_read(mapper, pinout);
-
-                self.io_state = IOState::Idle;
+                pinout = self.internal_read(mapper, pinout);
+            }
+            (RenderAction::Read, IOAction::LatchRead) => {
+                pinout.ctrl.set(Ctrl::RD, false);
+                pinout.ctrl.set(Ctrl::ALE, true);
+                pinout = self.internal_read(mapper, pinout);
+                self.internal_capture_latch_io_during_render(pinout);
+                self.io_action = IOAction::Read;
+            }
+            (RenderAction::Read, IOAction::LatchWrite) => {
+                pinout.ctrl.set(Ctrl::RD, false);
+                pinout.ctrl.set(Ctrl::ALE, true);
+                pinout = self.internal_read(mapper, pinout);
+                self.internal_capture_latch_io_during_render(pinout);
+                self.io_action = IOAction::Write;
+            }
+            (RenderAction::Read, IOAction::Read) => {
+                pinout.ctrl.set(Ctrl::RD, false);
+                pinout = self.internal_read(mapper, pinout);
+                self.rd_buffer = pinout.data;
+                self.io_action = IOAction::Idle;
                 self.io_mem_access = true;
             }
-            IOState::LatchWrite => {
-                pinout.ctrl.set(Ctrl::ALE, true);
-                self.internal_capture_latch(pinout);
-                self.io_state = IOState::Write;   
-            }
-            IOState::Write => {
+            (RenderAction::Read, IOAction::Write) => {
+                pinout.ctrl.set(Ctrl::RD, false);
                 pinout.ctrl.set(Ctrl::WR, false);
-                self.internal_write(mapper, pinout);
-                
-                self.io_state = IOState::Idle;
+                pinout = self.internal_write(mapper, pinout);
+                self.io_action = IOAction::Idle;
                 self.io_mem_access = true;
             }
         }
@@ -209,6 +180,7 @@ impl Bus {
     }
 
     fn internal_write(&mut self, mapper: &mut dyn Mapper,  mut pinout: Pinout) -> Pinout {
+        // rendering never writes
         pinout.data = self.wr_buffer;
         pinout = self.internal_apply_latch(pinout);
 
@@ -236,5 +208,109 @@ impl Bus {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::mappers::mapper_debug::MapperDebug;
+
+    #[test]
+    fn test_render_access() {
+        let mut p = Pinout::new();
+        let mut mapper = MapperDebug::new();
+        let mut bus = Bus::new();
+
+        mapper.poke_chr(0x1FF, 255);
+        p.address = 0x1FF;
+
+        p = bus.execute(&mut mapper, RenderAction::Latch, p);
+        assert_eq!(p.address, 0x1FF);
+        p = bus.execute(&mut mapper, RenderAction::Read, p);
+        assert_eq!(255, p.data);
+    }
+
+    #[test]
+    fn test_io_access() {
+        let mut p = Pinout::new();
+        let mut mapper = MapperDebug::new();
+        let mut bus = Bus::new();
+
+        mapper.poke_chr(0x1FF, 255);
+
+        // test io read
+        p.address = 0x1FF;
+        let v0 = bus.io_read();
+        assert_ne!(v0, 255);
+        
+        p = bus.execute(&mut mapper, RenderAction::Idle, p);
+        assert_eq!(p.address, 0x1FF);
+        assert_eq!(bus.is_io_mem_access(), false);
+        p = bus.execute(&mut mapper, RenderAction::Idle, p);
+        assert_eq!(255, p.data);
+        assert_eq!(bus.is_io_mem_access(), true);
+
+        let v0 = bus.io_read();
+        assert_eq!(v0, 255);
+
+        // test io write
+        p.address = 0x2FF;
+        let v0 = mapper.peek_chr(0x2FF);
+        assert_eq!(v0, 0);
+
+        bus.io_write(255);
+
+        p = bus.execute(&mut mapper, RenderAction::Idle, p);
+        assert_eq!(p.address, 0x2FF);
+        assert_eq!(bus.is_io_mem_access(), false);
+        p = bus.execute(&mut mapper, RenderAction::Idle, p);
+        assert_eq!(255, p.data);
+        assert_eq!(bus.is_io_mem_access(), true);
+
+        let v1 = mapper.peek_chr(0x2FF);
+        assert_eq!(v1, 255);
+
+        p.address = 0x300;
+        p = bus.execute(&mut mapper, RenderAction::Idle, p);
+        assert_eq!(p.address, 0x300);
+        assert_eq!(bus.is_io_mem_access(), false);
+    }
+
+    #[test]
+    fn test_io_read_during_render() {
+        let mut p = Pinout::new();
+        let mut mapper = MapperDebug::new();
+        let mut bus = Bus::new();
+
+        mapper.poke_chr(0x1FF, 255);
+        mapper.poke_chr(0x200, 240);
+
+        let v0 = bus.io_read();
+        assert_ne!(v0, 255);
+
+        p.address = 0x1FF;
+        p = bus.execute(&mut mapper, RenderAction::Latch, p);
+        assert_eq!(p.address, 0x1FF);
+        assert_eq!(bus.is_io_mem_access(), false);
+
+        p = bus.execute(&mut mapper, RenderAction::Read, p);
+        assert_eq!(255, p.data);
+        assert_eq!(bus.is_io_mem_access(), true);
+
+        p.address = 0x200;
+        p = bus.execute(&mut mapper, RenderAction::Latch, p);
+        assert_eq!(p.address, 0x200);
+        assert_eq!(bus.is_io_mem_access(), false);
+
+        let v0 = bus.io_read();
+        assert_eq!(v0, 255);
+
+        p = bus.execute(&mut mapper, RenderAction::Read, p);
+        assert_eq!(p.address, 0x200);
+        assert_eq!(p.data, 240);
+        assert_eq!(bus.is_io_mem_access(), false);
+
+
+
+    }
+}
 
 
