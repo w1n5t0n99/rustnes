@@ -14,7 +14,7 @@ pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout:
 }
 
 pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.address = ppu.addr_reg.vram_address() & 0x2FFF;
+    pinout.address = ppu.addr_reg.vram_address();
     pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
 
     if ppu.bus.is_io_mem_access() {

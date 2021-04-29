@@ -276,15 +276,18 @@ impl Rp2c02 {
     fn scanline_prerender(&mut self, mapper: &mut dyn Mapper) {
         match self.context.scanline_dot {
             0 => {
+                self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
+                self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
                 // Read first bytes of secondary OAM
                 self.pinout = render_idle_cycle(&mut self.context, mapper, self.pinout);
             },
             1..=256 => {
+                if self.context.scanline_dot == 1 {
+                    self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
+                }
+
                 match self.context.scanline_dot & 0x07 {
                     1 => {
-                        self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
-                        self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
-                        self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
                         self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
                     }
                     2 => {
@@ -504,11 +507,14 @@ impl Rp2c02 {
         match self.context.scanline_dot {
             0 => {
                 self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
-                self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
                 self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
                 self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
             }
             1..=340 => {
+                if self.context.scanline_dot == 1 {
+                    self.context.status_reg.set(StatusRegister::VBLANK_STARTED, false);
+                }
+
                 self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
             }
             _ => {

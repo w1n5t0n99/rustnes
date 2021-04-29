@@ -89,7 +89,7 @@ impl<'a> mos::bus::Bus for CpuBus<'a> {
             0x0000..=0x1fff => { pinout = self.mapper.write_cpu_internal_ram(pinout); }
             0x4020..=0x5fff => { pinout = self.mapper.write_cpu_exp(pinout); }
             0x6000..=0x7fff => { pinout = self.mapper.write_cpu_wram(pinout); }
-            0x8000..=0x8fff => { pinout = self.mapper.write_cpu_prg(pinout); }
+            0x8000..=0xffff => { pinout = self.mapper.write_cpu_prg(pinout); }
             0x4014 => { self.dma.oam_execute(pinout.data) },
             0x2000..=0x3FFF => {
                 match pinout.address & 0x07 {
@@ -178,7 +178,7 @@ impl<'a> mos::bus::Bus for DmaBus<'a> {
             0x0000..=0x1fff => { pinout = self.mapper.write_cpu_internal_ram(pinout); }
             0x4020..=0x5fff => { pinout = self.mapper.write_cpu_exp(pinout); }
             0x6000..=0x7fff => { pinout = self.mapper.write_cpu_wram(pinout); }
-            0x8000..=0x8fff => { pinout = self.mapper.write_cpu_prg(pinout); }
+            0x8000..=0xffff => { pinout = self.mapper.write_cpu_prg(pinout); }
             0x2000..=0x3FFF => {
                 match pinout.address & 0x07 {
                     0 => { pinout = self.ppu.write_ppuctrl(pinout); }
