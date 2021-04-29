@@ -1,4 +1,5 @@
-use nes::consoles::{Console, nes_ntsc::NesNtsc, EmuError};
+use nes::consoles::{Console, EmuError};
+use nes::consoles::nes_ntsc::NesNtsc;
 use nes::JoypadInput;
 use nes::utils::{frame_limiter, average_duration};
 

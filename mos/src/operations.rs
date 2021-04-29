@@ -919,9 +919,11 @@ pub fn absolute_x_store_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: P
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     let bal = cpu.ops.bal.overflowing_add(cpu.x);
     cpu.ops.adl = bal.0;
-    cpu.ops.adh = cpu.ops.bah.wrapping_add(bal.1 as u8);
+    cpu.ops.adh = cpu.ops.bah;
     // data discarded
     read_cycle!(cpu, bus, pinout, to_address(cpu.ops.adh, cpu.ops.adl));
+    cpu.ops.adh = cpu.ops.bah.wrapping_add(bal.1 as u8);
+
 
     pinout
 }
@@ -965,9 +967,10 @@ pub fn absolute_y_store_c2<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: P
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     let bal = cpu.ops.bal.overflowing_add(cpu.y);
     cpu.ops.adl = bal.0;
-    cpu.ops.adh = cpu.ops.bah.wrapping_add(bal.1 as u8);
+    cpu.ops.adh = cpu.ops.bah;
     // data discarded
     read_cycle!(cpu, bus, pinout, to_address(cpu.ops.adh, cpu.ops.adl));
+    cpu.ops.adh = cpu.ops.bah.wrapping_add(bal.1 as u8);
 
     pinout
 }
