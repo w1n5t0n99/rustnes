@@ -326,6 +326,8 @@ impl Rp2c02 {
                     self.context.addr_reg.update_x_scroll();
                 }
 
+                self.context.oam_addr_reg = 0;
+
                 match self.context.scanline_dot & 0x07 {
                     1 => {
                         self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
@@ -357,6 +359,7 @@ impl Rp2c02 {
                 }
             },
             280..=304 => {
+                self.context.oam_addr_reg = 0;
                 self.context.addr_reg.update_vertical();
                 // update sprite registers
                 match self.context.scanline_dot & 0x07 {
@@ -390,6 +393,7 @@ impl Rp2c02 {
                 }
             }
             305..=320 => {
+                self.context.oam_addr_reg = 0;
                 // update sprite registers
                 match self.context.scanline_dot & 0x07 {
                     1 => {
@@ -630,6 +634,7 @@ impl Rp2c02 {
                 }
             },
             257..=320 => {
+                //OAMADDR is set to 0 during each of ticks 257-320 (the sprite tile loading interval) of the pre-render and visible scanlines
                 self.context.oam_addr_reg = 0;
 
                 if self.context.scanline_dot == 257 {
