@@ -140,6 +140,7 @@ impl SpriteData {
 }
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
+    pub oam_ram_primary: [u8; 256],
     pub secondary_oam: [u8; 32],
     pub sprite_data: [SpriteData; 8],
     pub sprites_count: u8,
@@ -156,6 +157,7 @@ pub struct Sprites {
 impl Sprites {
     pub fn new() -> Self {
         Sprites {
+            oam_ram_primary: [0; 256],
             secondary_oam: [0xFF; 32],
             sprite_data: [SpriteData::new(); 8],
             sprites_count: 0,
@@ -202,19 +204,20 @@ impl Sprites {
     }
 
     // Secondary sprite data is cleared between dots (1-64)
-    // We'll just clear on dot 65 before first eval
-    pub fn clear_secondary_oam(&mut self, oam_addr: u8) {
-        self.primary_oam_index = OamIndex(oam_addr);
-       // self.secondary_oam_index = 0;
+    pub fn clear_secondary_oam(&mut self) {
         self.next_sprites_count = 0;
         self.next_left_most_x = 0xFF;
         self.eval_state = EvalState::StateYRead;
         for x in self.secondary_oam.iter_mut() { *x = 0xFF; }
     }
 
+    // OAMADDR is set to 0 during each of ticks 257-320 (the sprite tile loading interval) of the pre-render and visible scanlines
+    pub fn clear_oam_addr(&mut self) {
+        self.primary_oam_index.0 = 0;
+    }
+
     pub fn evaluate(&mut self, ppu: &mut Context) {
         // OAMDATA exposes OAM accesses during sprite eval
-        ppu.oam_addr_reg = self.primary_oam_index.0;
         let sprite_size = ppu.control_reg.sprite_size() as u16;
 
         match self.eval_state {
@@ -222,7 +225,7 @@ impl Sprites {
                 self.eval_state = EvalState::StateYWrite;
             }
             EvalState::StateYWrite => {
-                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize];
+                let data = self.oam_ram_primary[self.primary_oam_index.0 as usize];
         
                 if self.sprite_in_range(ppu, sprite_size, data as u16) {
                     let sprite_line =  ppu.scanline_index.wrapping_sub(data as u16);
@@ -238,7 +241,7 @@ impl Sprites {
                 self.eval_state = EvalState::StateIndexWrite;
             }
             EvalState::StateIndexWrite => {
-                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 1];
+                let data = self.oam_ram_primary[self.primary_oam_index.0 as usize + 1];
                 self.secondary_oam[self.secondary_oam_index(self.next_sprites_count, 1) as usize] = data;
                 self.eval_state = EvalState::StateAttribRead;
             }
@@ -246,7 +249,7 @@ impl Sprites {
                 self.eval_state = EvalState::StateYAttribWrite;
             }
             EvalState::StateYAttribWrite => {
-                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 2];
+                let data = self.oam_ram_primary[self.primary_oam_index.0 as usize + 2];
                 self.secondary_oam[self.secondary_oam_index(self.next_sprites_count, 2) as usize ] = data;
                 self.eval_state = EvalState::StateXRead;
             }
@@ -254,7 +257,7 @@ impl Sprites {
                 self.eval_state = EvalState::StateXWrite;
             }
             EvalState::StateXWrite => {
-                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize + 3];
+                let data = self.oam_ram_primary[self.primary_oam_index.0 as usize + 3];
                 self.secondary_oam[self.secondary_oam_index(self.next_sprites_count, 3) as usize] = data;
                 self.next_left_most_x = self.next_left_most_x.min(data);
                 self.eval_state = EvalState::StateYRead;
@@ -272,7 +275,7 @@ impl Sprites {
             }
             EvalState::StateSecondaryOamFull => {
                 // we already found 8 sprites check if we need to set sprite overlow flag
-                let data = ppu.oam_ram_primary[self.primary_oam_index.0 as usize];
+                let data = self.oam_ram_primary[self.primary_oam_index.0 as usize];
                 if self.sprite_in_range(ppu, sprite_size, data as u16) {
                     ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
                     self.primary_oam_index.increment();
@@ -432,6 +435,36 @@ impl Sprites {
         return bg_pixel;
     }
 
+    pub fn io_write_2003(&mut self, data: u8) {
+        self.primary_oam_index.0 = data;
+    }
+
+    pub fn io_read_2004(&mut self, ppu: &Context) -> u8 {
+        match ppu.scanline_index {
+            0..=239 | 261 if ppu.mask_reg.rendering_enabled() => {
+                // Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
+                // attempting to read $2004 will return $FF during secondary OAM initialization (1-64)
+                match ppu.scanline_dot {
+                    1..=64 => { 0xFF }
+                    _ => { self.oam_ram_primary[self.primary_oam_index.0 as usize] }
+                }
+            }
+           _ => { self.oam_ram_primary[self.primary_oam_index.0 as usize] }
+        }
+    }
+
+    pub fn io_write_2004(&mut self, ppu: &Context, data: u8) {
+        match ppu.scanline_index {
+            0..=239 | 261 if ppu.mask_reg.rendering_enabled() => {
+                //on prerender and render scanlines writes do not modify OAM, but perform glitchy increment
+                self.primary_oam_index.increment_n();
+            }
+           _ => {
+                self.oam_ram_primary[self.primary_oam_index.0 as usize] = data;
+                self.primary_oam_index.increment();
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -467,7 +500,7 @@ mod test {
     fn test_sprite_evaluation() {
         let mut sprites = Sprites::new();
         let mut ppu = Context::new();
-        sprites.clear_secondary_oam(0x00);
+        sprites.clear_oam_addr();
 
         let y = 0x0_u8;
         let index = 0x02_u8;
@@ -475,10 +508,10 @@ mod test {
         let x = 0x4_u8;
 
         for i in (0..256).step_by(4) {
-            ppu.oam_ram_primary[i] = y;
-            ppu.oam_ram_primary[i+1] = index;
-            ppu.oam_ram_primary[i+2] = attrib;
-            ppu.oam_ram_primary[i+3] = x;
+            sprites.oam_ram_primary[i] = y;
+            sprites.oam_ram_primary[i+1] = index;
+            sprites.oam_ram_primary[i+2] = attrib;
+            sprites.oam_ram_primary[i+3] = x;
         }
         
         for i in 65..=256 {
@@ -492,17 +525,17 @@ mod test {
         //=================================================
 
         ppu = Context::new();
-        sprites.clear_secondary_oam(0x00);
+        sprites.clear_oam_addr();
 
         for i in (0..32).step_by(4) {
-            ppu.oam_ram_primary[i] = y;
-            ppu.oam_ram_primary[i+1] = index;
-            ppu.oam_ram_primary[i+2] = attrib;
-            ppu.oam_ram_primary[i+3] = x;
+            sprites.oam_ram_primary[i] = y;
+            sprites.oam_ram_primary[i+1] = index;
+            sprites.oam_ram_primary[i+2] = attrib;
+            sprites.oam_ram_primary[i+3] = x;
         }
 
         for i in 32..256 {
-            ppu.oam_ram_primary[i] = 0xFF;
+            sprites.oam_ram_primary[i] = 0xFF;
         }
 
         for _i in 65..=256 {
@@ -516,17 +549,17 @@ mod test {
         //===============================================
 
         ppu = Context::new();
-        sprites.clear_secondary_oam(0x00);
+        sprites.clear_oam_addr();
 
         for i in (0..28).step_by(4) {
-            ppu.oam_ram_primary[i] = y;
-            ppu.oam_ram_primary[i+1] = index;
-            ppu.oam_ram_primary[i+2] = attrib;
-            ppu.oam_ram_primary[i+3] = x;
+            sprites.oam_ram_primary[i] = y;
+            sprites.oam_ram_primary[i+1] = index;
+            sprites.oam_ram_primary[i+2] = attrib;
+            sprites.oam_ram_primary[i+3] = x;
         }
 
         for i in 28..256 {
-            ppu.oam_ram_primary[i] = 0xFF;
+            sprites.oam_ram_primary[i] = 0xFF;
         }
 
         for _i in 65..=256 {
@@ -543,7 +576,7 @@ mod test {
     fn test_sprite_fetching() {
         let mut sprites = Sprites::new();
         let mut ppu = Context::new();
-        sprites.clear_secondary_oam(0x00);
+        sprites.clear_oam_addr();
 
         let y = 0x0_u8;
         let index = 0x02_u8;
@@ -551,21 +584,21 @@ mod test {
         let x = 0x4_u8;
 
         for i in (0..256).step_by(4) {
-            ppu.oam_ram_primary[i] = 0x80;
-            ppu.oam_ram_primary[i+1] = 0x80;
-            ppu.oam_ram_primary[i+2] = 0;
-            ppu.oam_ram_primary[i+3] = 0x80;
+            sprites.oam_ram_primary[i] = 0x80;
+            sprites.oam_ram_primary[i+1] = 0x80;
+            sprites.oam_ram_primary[i+2] = 0;
+            sprites.oam_ram_primary[i+3] = 0x80;
         }
 
-        ppu.oam_ram_primary[0] = y;
-        ppu.oam_ram_primary[1] = index;
-        ppu.oam_ram_primary[2] = attrib;
-        ppu.oam_ram_primary[3] = x;
+        sprites.oam_ram_primary[0] = y;
+        sprites.oam_ram_primary[1] = index;
+        sprites.oam_ram_primary[2] = attrib;
+        sprites.oam_ram_primary[3] = x;
 
-        ppu.oam_ram_primary[252] = y;
-        ppu.oam_ram_primary[253] = index;
-        ppu.oam_ram_primary[254] = attrib;
-        ppu.oam_ram_primary[255] = x;
+        sprites.oam_ram_primary[252] = y;
+        sprites.oam_ram_primary[253] = index;
+        sprites.oam_ram_primary[254] = attrib;
+        sprites.oam_ram_primary[255] = x;
         
         for i in 65..=256 {
             sprites.evaluate(&mut ppu);

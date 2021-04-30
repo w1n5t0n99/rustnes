@@ -105,67 +105,19 @@ impl Rp2c02 {
     }
 
     pub fn write_oamaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
-        /*
-        On the 2C02G, writes to OAMADDR reliably corrupt OAM.[3] This can then be worked around by writing all 256 bytes of OAM.
-        It is also the case that if OAMADDR is not less than eight when rendering starts, the eight bytes starting at OAMADDR & 0xF8 are copied to the first eight bytes of OAM;
-        it seems likely that this is related. On the Dendy, the latter bug is required for 2C02 compatibility.
-        It is known that in the 2C03, 2C04, 2C05[4], and 2C07, OAMADDR works as intended. It is not known whether this bug is present in all revisions of the 2C02.
-        */
         self.context.io_db = pinout.data;
-        self.context.oam_addr_reg = pinout.data;
+        self.sp.io_write_2003(pinout.data);
         pinout
     }
 
     pub fn read_oamdata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        match self.context.scanline_index {
-            0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
-                // Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
-                if self.context.scanline_dot < 65 { 
-                    self.context.io_db = 0xFF;
-                }
-                else {
-                    self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
-                }
-                pinout.data = self.context.io_db;
-            }
-            0..=239 | 261 => {
-                // rendering disabled
-                self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
-                pinout.data = self.context.io_db;
-            }
-            240..=260 => {
-                // Reads during vertical or forced blanking return the value from OAM at that address but do not increment
-                self.context.io_db = self.context.oam_ram_primary[self.context.oam_addr_reg as usize];
-                pinout.data = self.context.io_db;
-            }
-            _ => {
-                panic!("PPU Scanline out of range");
-           }
-        }
-
+        pinout.data = self.sp.io_read_2004(&self.context);
         pinout
     }
 
     pub fn write_oamdata(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
-        match self.context.scanline_index {
-            0..=239 | 261 if self.context.mask_reg.rendering_enabled() => {
-                // No oam write, but performs glitchy increment, only increments the high 6 bits
-                // TODO possible implement glitchy increment
-            }
-            0..=239 | 261 => {
-                self.context.oam_ram_primary[self.context.oam_addr_reg as usize] = pinout.data;
-                self.context.oam_addr_reg = self.context.oam_addr_reg.wrapping_add(1);
-            }
-            240..=260 => {
-                self.context.oam_ram_primary[self.context.oam_addr_reg as usize] = pinout.data;
-                self.context.oam_addr_reg = self.context.oam_addr_reg.wrapping_add(1);
-            }
-            _ => {
-                 panic!("PPU Scanline out of range");
-            }
-        }
-
+        self.sp.io_write_2004(&self.context, pinout.data);
         pinout
     }
 
@@ -322,11 +274,10 @@ impl Rp2c02 {
                 }
             },
             257..=279 => {
+                self.sp.clear_oam_addr();
                 if self.context.scanline_dot == 257 {
                     self.context.addr_reg.update_x_scroll();
                 }
-
-                self.context.oam_addr_reg = 0;
 
                 match self.context.scanline_dot & 0x07 {
                     1 => {
@@ -359,7 +310,7 @@ impl Rp2c02 {
                 }
             },
             280..=304 => {
-                self.context.oam_addr_reg = 0;
+                self.sp.clear_oam_addr();
                 self.context.addr_reg.update_vertical();
                 // update sprite registers
                 match self.context.scanline_dot & 0x07 {
@@ -393,7 +344,7 @@ impl Rp2c02 {
                 }
             }
             305..=320 => {
-                self.context.oam_addr_reg = 0;
+                self.sp.clear_oam_addr();
                 // update sprite registers
                 match self.context.scanline_dot & 0x07 {
                     1 => {
@@ -550,6 +501,10 @@ impl Rp2c02 {
                  let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
                  fb[index] = self.select_pixel() as u16 | self.context.mask_reg.emphasis_mask();
 
+                 if self.context.scanline_dot == 1 {
+                    self.sp.clear_secondary_oam();
+                }
+
                  match self.context.scanline_dot & 0x07 {
                     1 => {
                         self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
@@ -582,10 +537,6 @@ impl Rp2c02 {
                 }
             }
             65..=256 => {
-                if self.context.scanline_dot == 65 {
-                    self.sp.clear_secondary_oam(self.context.oam_addr_reg);
-                }
-
                 // render pixel
                 let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
                 fb[index] = self.select_pixel() as u16 | self.context.mask_reg.emphasis_mask();
@@ -634,9 +585,7 @@ impl Rp2c02 {
                 }
             },
             257..=320 => {
-                //OAMADDR is set to 0 during each of ticks 257-320 (the sprite tile loading interval) of the pre-render and visible scanlines
-                self.context.oam_addr_reg = 0;
-
+                self.sp.clear_oam_addr();
                 if self.context.scanline_dot == 257 {
                     self.context.addr_reg.update_x_scroll();
                 }

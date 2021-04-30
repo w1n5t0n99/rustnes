@@ -40,7 +40,6 @@ impl Pinout {
 
 #[derive(Clone, Copy)]
 pub struct Context {
-    pub oam_ram_primary: [u8; 256],
     pub palette_ram: [u8; 32],
     pub cycle: u64,
     pub frame: u64,
@@ -53,7 +52,6 @@ pub struct Context {
     pub bus: bus::Bus,
     pub scanline_index: u16,
     pub scanline_dot: u16, 
-    pub oam_addr_reg: u8,
     pub io_db: u8,                                      // Simulate latch created by long traces of data bus
     pub odd_frame: bool,
     pub write_block: bool,
@@ -62,7 +60,6 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         Context {
-            oam_ram_primary: [0; 256],
             palette_ram: [0; 32],
             cycle: 0,
             frame: 0,
@@ -75,7 +72,6 @@ impl Context {
             bus: bus::Bus::new(),
             scanline_index: 0,
             scanline_dot: 1,
-            oam_addr_reg: 0,
             io_db: 0,
             odd_frame: false,
             write_block: true,
