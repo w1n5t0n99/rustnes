@@ -1668,9 +1668,9 @@ pub fn branch_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> 
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     second_cycle!(cpu, bus, pinout);
     cpu.ops.offset = cpu.ops.dl;
+    cpu.pc.increment();
     // branch always checks for interrupts on this cycle
     last_cycle!(cpu, pinout);
-    cpu.pc.increment();
     pinout
 }
 
