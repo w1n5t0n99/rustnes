@@ -52,6 +52,8 @@ fn main() {
     //debug_run("test_roms\\color_test.nes");
     //debug_run("test_roms\\Mario Bros. (U) [!].nes");
     //debug_run("test_roms\\test_ppu_read_buffer.nes");
+    //debug_run("test_roms\\ppu_sprite_hit.nes");
+    //debug_run("test_roms\\blargg_ppu_tests\\palette_ram.nes");
 
     // window init code ============================
     let window_options = WindowOptions {
@@ -119,7 +121,7 @@ fn main() {
     let mut nes = NesNtsc::new();
     let mut jp1 = JoypadInput::new();
 
-    nes.load_rom("test_roms\\Super Mario Bros (JU) (PRG 0).nes");
+    nes.load_rom("test_roms\\sprite_hit_tests\\07.screen_bottom.nes");
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();

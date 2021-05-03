@@ -35,7 +35,6 @@ impl MapperNrom {
              }
             SIZE_32K => {
                 mapper_nrom.context.prg_addr_mapper.set_banking_region(0, 0, SIZE_32K);
-
              }
             _ => panic!("prg rom size is invalid - {:#X}", rom.prg_rom_size)
         };

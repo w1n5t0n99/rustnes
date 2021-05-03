@@ -2,7 +2,7 @@ use mos::{Pinout, Ctrl};
 use mos::core::*;
 use std::io::Write;
 
-
+// log large enough to cover NTSC and PAL
 const LOG_SIZE: usize = 38000;
 
 fn address_to_device(addr: u16, rw: bool) -> &'static str {
@@ -13,7 +13,7 @@ fn address_to_device(addr: u16, rw: bool) -> &'static str {
                 0x00 => "PPU CTRL  ",
                 0x01 => "PPU MASK  ",
                 0x02 => "PPU STATUS",
-                0x03 => "OAM DMA   ",
+                0x03 => "OAM ADDR  ",
                 0x04 => "OAM DATA  ",
                 0x05 => "PPU SCROLL",
                 0x06 => "PPU ADDR  ",
@@ -32,14 +32,14 @@ fn address_to_device(addr: u16, rw: bool) -> &'static str {
     }
 }
 
-pub struct TraceLogger {
+pub struct CpuTraceLogger {
     cpu_cache: Vec<(Context, Pinout)>,
     size: usize,
 }
 
-impl TraceLogger {
-    pub fn new() -> TraceLogger {
-        TraceLogger {
+impl CpuTraceLogger {
+    pub fn new() -> CpuTraceLogger {
+        CpuTraceLogger {
             cpu_cache: vec![(Context::new(), Pinout::new()); LOG_SIZE],
             size: 0,
         }
@@ -80,7 +80,7 @@ impl TraceLogger {
                 true => "   "
             };
 
-            writeln!(w, "{} {} {:04X} {:02X} {} {:04X}{}{:02X} {} CYC: {}",
+            writeln!(w, "{} {} {:04X} {:02X} {} {:04X}{}{:02X} {}\t\tA:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC: {}",
                 sync_str,
                 halt_str,
                 u16::from(c.pc),
@@ -90,6 +90,11 @@ impl TraceLogger {
                 rw_str,
                 p.data,
                 address_to_device(p.address, rw),
+                c.a,
+                c.x,
+                c.y,
+                c.p.bits(),
+                c.sp,
                 c.cycle
             ).unwrap();
         }

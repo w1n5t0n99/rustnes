@@ -6,7 +6,7 @@ use crate::mappers::Mapper;
 use crate::controllers::{NesControllers, JoypadInput};
 use crate::palette::*;
 use crate::bus::*;
-use crate::utils::trace_logger::TraceLogger;
+use crate::utils::cpu_trace_logger::CpuTraceLogger;
 use mos::{Pinout, rp2a03::Rp2a03};
 
 use std::fs::File;
@@ -23,7 +23,7 @@ pub struct NesNtsc {
     ppu: Rp2c02,
     controllers: NesControllers,
     mapper: Box<dyn Mapper>,
-    trace_logger: TraceLogger,
+    cpu_logger: CpuTraceLogger,
     pbuffer: Vec<u16>,
 }
 
@@ -37,7 +37,7 @@ impl NesNtsc {
             ppu: Rp2c02::from_power_on(),
             controllers: NesControllers::from_power_on(),
             mapper: mappers::create_mapper_null(),
-            trace_logger: TraceLogger::new(),
+            cpu_logger: CpuTraceLogger::new(),
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
         }
     }
@@ -82,7 +82,7 @@ impl Console for NesNtsc {
     }
 
     fn execute_frame(&mut self) {
-        self.trace_logger.clear();
+        self.cpu_logger.clear();
 
         loop {
             {
@@ -112,7 +112,7 @@ impl Console for NesNtsc {
                 self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
             }
 
-            self.trace_logger.log(self.cpu.get_context(), self.cpu_pinout);
+            self.cpu_logger.log(self.cpu.get_context(), self.cpu_pinout);
         }
     }
 
@@ -137,6 +137,6 @@ impl Console for NesNtsc {
     }
 
     fn output_log<W: Write>(&mut self , w: &mut W) {
-        self.trace_logger.output_log(w);
+        self.cpu_logger.output_log(w);
     }
 }

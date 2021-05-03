@@ -46,6 +46,7 @@ impl Mapper1 {
 
         mapper1.context.prg_rom = rom.prg_data.clone();
         mapper1.context.chr = rom.chr_data.clone();
+        mapper1.context.prg_ram = vec![0; SIZE_8K];
         if mapper1.context.chr.len() == 0 {
             // set chr ram
             mapper1.context.chr = vec![0; SIZE_8K];
