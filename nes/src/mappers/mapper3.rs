@@ -101,7 +101,7 @@ impl Mapper for Mapper3 {
     }
 
     fn read_ppu_nt(&mut self, mut pinout: ppu::Pinout) -> ppu::Pinout {
-        let internal_address = self.context.nt_addr_mapper.translate_address(pinout.address);
+        let internal_address = self.context.nt_addr_mapper.translate_address(pinout.address & 0x2fff);
         pinout.data = self.context.vram[internal_address as usize];
         pinout
     }
@@ -111,7 +111,7 @@ impl Mapper for Mapper3 {
     }
 
     fn  write_ppu_nt(&mut self, pinout: ppu::Pinout) -> ppu::Pinout {
-        let internal_address = self.context.nt_addr_mapper.translate_address(pinout.address);
+        let internal_address = self.context.nt_addr_mapper.translate_address(pinout.address & 0x2fff);
         self.context.vram[internal_address as usize] = pinout.data;
         pinout
     }

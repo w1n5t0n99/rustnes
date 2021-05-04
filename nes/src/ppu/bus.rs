@@ -184,8 +184,7 @@ impl Bus {
 
         match pinout.address {
             0x0000..=0x1fff => { pinout = mapper.read_ppu_chr(pinout); }
-            0x2000..=0x2fff => { pinout = mapper.read_ppu_nt(pinout); }
-            0x3000..=0x3fff => { pinout.address &= 0x2fff; pinout = mapper.read_ppu_nt(pinout); }
+            0x2000..=0x3fff => { pinout = mapper.read_ppu_nt(pinout); }
             _ => panic!("ppu read {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
         }
 
@@ -199,8 +198,7 @@ impl Bus {
 
         match pinout.address {
             0x0000..=0x1fff => { pinout = mapper.write_ppu_chr(pinout); }
-            0x2000..=0x2fff => { pinout = mapper.write_ppu_nt(pinout); }
-            0x3000..=0x3fff => { pinout.address &= 0x2fff; pinout = mapper.write_ppu_nt(pinout); } //<================================================================================
+            0x2000..=0x3fff => { pinout = mapper.write_ppu_nt(pinout); }
             _ => panic!("ppu write {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
         }
 

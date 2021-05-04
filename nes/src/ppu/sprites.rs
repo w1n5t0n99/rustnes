@@ -197,9 +197,9 @@ impl Sprites {
     }
 
     #[inline(always)]
-    fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u16, y_pos: u16) -> bool {
+    fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u8, y_pos: u8) -> bool {
         // Sprite eval happens for the next scanline
-        let sprite_line = ppu.scanline_index.wrapping_sub(y_pos);
+        let sprite_line = (ppu.scanline_index as u8).wrapping_sub(y_pos);
         sprite_line < sprite_size
     }
 
@@ -218,7 +218,7 @@ impl Sprites {
 
     pub fn evaluate(&mut self, ppu: &mut Context) {
         // OAMDATA exposes OAM accesses during sprite eval
-        let sprite_size = ppu.control_reg.sprite_size() as u16;
+        let sprite_size = ppu.control_reg.sprite_size();
 
         match self.eval_state {
             EvalState::StateYRead => {
@@ -227,8 +227,8 @@ impl Sprites {
             EvalState::StateYWrite => {
                 let data = self.oam_ram_primary[self.primary_oam_index.0 as usize];
         
-                if self.sprite_in_range(ppu, sprite_size, data as u16) {
-                    let sprite_line =  ppu.scanline_index.wrapping_sub(data as u16);
+                if self.sprite_in_range(ppu, sprite_size, data) {
+                    let sprite_line =  (ppu.scanline_index as u8).wrapping_sub(data);
                     self.secondary_oam[self.secondary_oam_index(self.next_sprites_count, 0) as usize] = sprite_line as u8;
                     self.eval_state = EvalState::StateIndexRead;
                 }
@@ -276,7 +276,7 @@ impl Sprites {
             EvalState::StateSecondaryOamFull => {
                 // we already found 8 sprites check if we need to set sprite overlow flag
                 let data = self.oam_ram_primary[self.primary_oam_index.0 as usize];
-                if self.sprite_in_range(ppu, sprite_size, data as u16) {
+                if self.sprite_in_range(ppu, sprite_size, data) {
                     ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
                     self.primary_oam_index.increment();
                     if self.primary_oam_index.0 == 0 {
