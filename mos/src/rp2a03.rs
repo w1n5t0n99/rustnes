@@ -40,7 +40,7 @@ impl Rp2a03 {
         if pinout.ctrl.contains(Ctrl::NMI) == false {
             self.cpu.nmi_detected = true;
         }
-		
+
         match u16::from(self.cpu.ir) {
             // reset
             0x0010 =>  pinout = rst_c0(&mut self.cpu, bus, pinout),

@@ -21,6 +21,8 @@ impl MapperNrom {
 
         mapper_nrom.context.prg_rom = rom.prg_data.clone();
         mapper_nrom.context.chr = rom.chr_data.clone();
+        mapper_nrom.context.prg_ram = vec![0; SIZE_8K];
+
 
         if mapper_nrom.context.chr.len() == 0 {
             // set chr ram

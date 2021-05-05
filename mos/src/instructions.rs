@@ -683,10 +683,19 @@ impl Instruction for Axa {
 pub struct Axs {}
 impl Instruction for Axs {
     fn execute(cpu: &mut Context) {
-        cpu.x = cpu.a & cpu.x;
-        let (x, c) = cpu.x.overflowing_sub(cpu.ops.dl);
-        cpu.x = x;
-        cpu.p.set(StatusRegister::CARRY, c);
+        //let (x, c) = ( cpu.a & cpu.x).overflowing_sub(cpu.ops.dl);
+        //cpu.x = x;
+        //cpu.p.set(StatusRegister::CARRY, c);
+        //cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        //cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
+        let new_x = (cpu.x as u16 & cpu.a as u16).wrapping_sub(cpu.ops.dl as u16);
+        let carry = if new_x < 0x100 { true } else { false };
+        cpu.x = new_x as u8;
+
+
+        cpu.p.set(StatusRegister::CARRY, carry);
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
     }
 }
 
