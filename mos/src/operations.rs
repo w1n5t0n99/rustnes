@@ -202,6 +202,7 @@ pub fn brk_c0<B: Bus>(cpu: &mut Context, bus: &mut B, mut pinout: Pinout) -> Pin
     if pinout.ctrl.contains(Ctrl::RDY) == false { return pinout; }
     // read instruction byte (discarded)
     second_cycle!(cpu, bus, pinout);
+    cpu.pc.increment();
     pinout
 }
 
