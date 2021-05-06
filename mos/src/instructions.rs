@@ -618,43 +618,26 @@ pub struct Arr {}
 impl Instruction for Arr {
     fn execute(cpu: &mut Context) {
         cpu.a &= cpu.ops.dl;
-        // rotate right
-        cpu.a = cpu.a.wrapping_div(2);
-        cpu.a |= (cpu.p.contains(StatusRegister::CARRY) as u8) << 7;
 
-        let mask = cpu.a & 0b01100000;
-        match mask {
-            0b01100000 => {
-                cpu.p.set(StatusRegister::CARRY, true);
-                cpu.p.set(StatusRegister::OVERFLOW, false);
-            }
-            0b00000000 => {
-                cpu.p.set(StatusRegister::CARRY, false);
-                cpu.p.set(StatusRegister::OVERFLOW, false);
-            }
-            0b00100000 => {
-                cpu.p.set(StatusRegister::CARRY, false);
-                cpu.p.set(StatusRegister::OVERFLOW, true);
-            }
-            0b01000000 => {
-                cpu.p.set(StatusRegister::CARRY, true);
-                cpu.p.set(StatusRegister::OVERFLOW, true);
-            }
-            _ => panic!("Arr instruction"),
-        }
+        let bit = (cpu.p.contains(StatusRegister::CARRY) as u8) << 7;
+        cpu.a = ((cpu.a >> 1) & 0x7F) | bit;
+
+
+        if cpu.a & 0x40 > 0 { cpu.p.set(StatusRegister::CARRY, true); } else { cpu.p.set(StatusRegister::CARRY, false); }
+        if (((cpu.a & 0x40) >> 1) ^ (cpu.a & 0x20)) > 0 { cpu.p.set(StatusRegister::OVERFLOW, true); } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+
+        cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
+        cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
 }
 
 pub struct Asr {}
 impl Instruction for Asr {
     fn execute(cpu: &mut Context) {
-        
-        let old_carry = if (cpu.a & 0x01) > 0 { true } else { false };
         cpu.a &= cpu.ops.dl;
-        // rotate right
-        cpu.a = cpu.a.wrapping_div(2);
-
-        cpu.p.set(StatusRegister::CARRY, old_carry);
+        if (cpu.a & 0x01) > 0 { cpu.p.set(StatusRegister::CARRY, true); } else { cpu.p.set(StatusRegister::CARRY, false); };
+        
+        cpu.a >>= 1;
         cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
         cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
     }
@@ -663,7 +646,7 @@ impl Instruction for Asr {
 pub struct Atx {}
 impl Instruction for Atx {
     fn execute(cpu: &mut Context) {
-        cpu.a &= cpu.ops.dl;
+        cpu.a = cpu.ops.dl;
         cpu.x = cpu.a;
 
         cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
@@ -684,9 +667,11 @@ impl Instruction for Axa {
 pub struct Axs {}
 impl Instruction for Axs {
     fn execute(cpu: &mut Context) {
-        let (x, c) = ( cpu.a & cpu.x).overflowing_sub(cpu.ops.dl);
-        cpu.x = x;
-        cpu.p.set(StatusRegister::CARRY, c);
+        let new_x = ((cpu.x & cpu.a) as u16).wrapping_sub(cpu.ops.dl as u16);
+        if new_x < 0x100 { cpu.p.set(StatusRegister::CARRY, true); } else { cpu.p.set(StatusRegister::CARRY, false); }
+
+        cpu.x = (new_x & 0xFF) as u8;
+
         cpu.p.set(StatusRegister::ZERO, set_zero(cpu.x));
         cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.x));
     }
