@@ -21,16 +21,16 @@ pub trait Instruction {
 pub struct AdcNoDec {}
 impl Instruction for AdcNoDec {
     fn execute(cpu: &mut Context) {
-        let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
-        if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else {cpu.p.set(StatusRegister::CARRY, false) };
+        let sum16 = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
+        let overflow = if (!(cpu.a as u16 ^ cpu.ops.dl as u16) & (cpu.a as u16 ^ sum16) & 0x80) != 0 { true } else { false };
 
-        let result = sum as u8;
-        cpu.a = result;
-        // cpu.p.overflow =  if (signed_sum < -128) || (signed_sum > 127) { true } else { false };
-        if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+        cpu.p.set(StatusRegister::OVERFLOW, overflow);
+        cpu.p.set(StatusRegister::CARRY, sum16 & 0x100 != 0);
+
+        cpu.a = sum16 as u8;
+
         cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
         cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
-
     }
 }
 
@@ -67,13 +67,14 @@ impl Instruction for Adc {
             cpu.a = (ah << 4) | (al & 0x0F);
         }
         else {
-            let sum = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
-            if sum > 255 { cpu.p.set(StatusRegister::CARRY, true) } else {cpu.p.set(StatusRegister::CARRY, false) };
+            let sum16 = (cpu.a as u16) + (cpu.ops.dl as u16) + (cpu.p.contains(StatusRegister::CARRY) as u16); 
+            let overflow = if (!(cpu.a as u16 ^ cpu.ops.dl as u16) & (cpu.a as u16 ^ sum16) & 0x80) != 0 { true } else { false };
 
-            let result = sum as u8;
-            cpu.a = result;
+            cpu.p.set(StatusRegister::OVERFLOW, overflow);
+            cpu.p.set(StatusRegister::CARRY, sum16 & 0x100 != 0);
 
-            if ((cpu.ops.dl ^ result) & (cpu.a & result) & 0x80) == 0x80 { cpu.p.set(StatusRegister::OVERFLOW, true) } else { cpu.p.set(StatusRegister::OVERFLOW, false) };
+            cpu.a = sum16 as u8;
+
             cpu.p.set(StatusRegister::ZERO, set_zero(cpu.a));
             cpu.p.set(StatusRegister::NEGATIVE, set_negative(cpu.a));
         }

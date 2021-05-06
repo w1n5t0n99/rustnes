@@ -122,7 +122,7 @@ fn main() {
     let mut nes = NesNtsc::new();
     let mut jp1 = JoypadInput::new();
 
-    nes.load_rom("test_roms\\instr_test-v5\\rom_singles\\16-special.nes");
+    nes.load_rom("test_roms\\instr_test-v5\\rom_singles\\05-zp_xy.nes");
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();
