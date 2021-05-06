@@ -122,7 +122,7 @@ fn main() {
     let mut nes = NesNtsc::new();
     let mut jp1 = JoypadInput::new();
 
-    nes.load_rom("test_roms\\vbl_nmi_timing\\1.frame_basics.nes");
+    nes.load_rom("test_roms\\vbl_nmi_timing\\3.even_odd_frames.nes");
  
     while window.is_open() && !window.is_key_down(Key::Escape) {
         frame_limiter.start();

@@ -186,9 +186,8 @@ impl Rp2c02 {
         self.last_frame_cycle = false;
         self.last_scanline_cycle = false;
         
-        self.context.write_block = false;
         if self.context.cycle == WRITE_BLOCK_CYCLES {
-           // self.context.write_block = false;
+            self.context.write_block = false;
         }
 
         match self.context.scanline_index {
