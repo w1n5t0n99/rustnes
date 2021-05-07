@@ -6,6 +6,7 @@ mod sprites;
 mod ssprites;
 mod bus;
 mod scanline_prerender;
+mod scanline_render;
 
 use std::fmt;
 
