@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use super::{Pinout, Context};
 use super::background::Background;
 use super::sprites::Sprites;
