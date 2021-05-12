@@ -5,6 +5,7 @@ mod background;
 mod sprites;
 mod ssprites;
 mod bus;
+mod palette_ram;
 mod scanline_prerender;
 mod scanline_render;
 

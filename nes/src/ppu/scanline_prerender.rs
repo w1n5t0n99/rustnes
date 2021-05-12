@@ -9,13 +9,13 @@ fn scanline_prerender(ppu: &mut Context, bg: &mut Background, sp: &mut Sprites, 
 
     match ppu.scanline_dot {
         0 => {
-            ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
-            ppu.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
             // Read first bytes of secondary OAM
             pinout = render_idle_cycle(ppu, mapper, pinout);
         },
         // tile data fetched
         1 => {
+            ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
+            ppu.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
             ppu.status_reg.set(StatusRegister::VBLANK_STARTED, false);
             pinout = open_tile_index(ppu, mapper, pinout);
         }
