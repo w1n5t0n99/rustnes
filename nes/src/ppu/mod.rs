@@ -54,6 +54,8 @@ pub struct Context {
     pub mask_reg: ppu_registers::MaskRegister,
     pub status_reg: ppu_registers::StatusRegister,
     pub bus: bus::Bus,
+    pub vpos: u16,
+    pub hpos: u16, 
     pub scanline_index: u16,
     pub scanline_dot: u16, 
     pub io_db: u8,                                      // Simulate latch created by long traces of data bus
@@ -74,6 +76,8 @@ impl Context {
             mask_reg: ppu_registers::MaskRegister::new(),
             status_reg: ppu_registers::StatusRegister::new(),
             bus: bus::Bus::new(),
+            vpos: 261,
+            hpos: 0,
             scanline_index: 0,
             scanline_dot: 1,
             io_db: 0,
