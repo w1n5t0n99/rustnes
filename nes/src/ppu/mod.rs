@@ -8,8 +8,8 @@ mod bus;
 mod palette_ram;
 mod scanline_prerender;
 mod scanline_render;
-
-use std::fmt;
+mod scanline_postrender;
+mod scanline_vblank;
 
 bitflags! {
     pub struct Ctrl: u8 {

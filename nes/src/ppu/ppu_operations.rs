@@ -5,8 +5,22 @@ use super::sprites::Sprites;
 use super::bus::{Bus, RenderAction};
 use crate::mappers::Mapper;
 
-pub fn render_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
+pub fn render_idle_cycle(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
+    // PPU address bus during this cycle appears to be the same CHR address
+    // that is later used to fetch the next tile
+    pinout.address = bg.pattern0_address(ppu);
     pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
+
+    if ppu.bus.is_io_mem_access() {
+        ppu.addr_reg.ppu_2007_during_render_increment();
+    }
+    pinout
+}
+
+pub fn prerender_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
+    pinout.address = ppu.addr_reg.vram_address();
+    pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
+
     if ppu.bus.is_io_mem_access() {
         ppu.addr_reg.ppu_2007_during_render_increment();
     }

@@ -229,7 +229,7 @@ impl Rp2c02 {
                 self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
                 self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
                 // Read first bytes of secondary OAM
-                self.pinout = render_idle_cycle(&mut self.context, mapper, self.pinout);
+                self.pinout = render_idle_cycle(&mut self.context, &mut self.bg, mapper, self.pinout);
             },
             1..=256 => {
                 if self.context.scanline_dot == 1 {
@@ -492,7 +492,7 @@ impl Rp2c02 {
         match self.context.scanline_dot {
             0 => {
                 // idle cycle
-                self.pinout = render_idle_cycle(&mut self.context, mapper, self.pinout);
+                self.pinout = render_idle_cycle(&mut self.context, &mut self.bg, mapper, self.pinout);
             }
             1..=64 => {
                  // render pixel
