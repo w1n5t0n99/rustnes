@@ -1,3 +1,5 @@
+use std::pin::Pin;
+
 use super::{Context, Pinout, Ctrl};
 use super::ppu_registers::*;
 use super::background::Background;
@@ -16,49 +18,21 @@ use crate::mappers::Mapper;
 // RenderAction
 // IOAction
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum IOAction {
-    Idle,
-    LatchWrite,
-    LatchRead,
-    Write,
-    Read,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum RenderAction {
-    Idle,
-    Latch,
-    Read,
-}
-
 // -- Bus --
 #[derive(Clone, Copy)]
 pub struct Bus {
-    rd_buffer: u8,
-    wr_buffer: u8,
-    latch: u8,
-    io_action: IOAction,
-    io_mem_access: bool,
-    io_wr_access: bool,
+    pinout: Pinout,
+    rd_buffer: Option<u8>,
+    wr_buffer: Option<u8>,
 }
 
 impl Bus {
     pub fn new() -> Bus {
         Bus {
-            rd_buffer: 0,
-            wr_buffer: 0,
-            latch: 0,
-            io_action: IOAction::Idle,
-            io_mem_access: false,
-            io_wr_access: false,
+            pinout: Pinout::new(),
+            rd_buffer: Some(0),
+            wr_buffer: None,
         }
-    }
-
-    pub fn is_io_mem_access(&mut self) -> bool {
-        let ret = self.io_mem_access | self.io_wr_access;
-        self.io_wr_access = false;
-        ret
     }
 
     pub fn io_read(&mut self) -> u8{
@@ -66,17 +40,13 @@ impl Bus {
         self.rd_buffer
     }
 
-    pub fn io_palette_read(&mut self) {
-        self.io_action = IOAction::LatchRead;
-    }
-
     pub fn io_write(&mut self, data: u8) {
         self.io_action = IOAction::LatchWrite;
         self.wr_buffer = data;
     }
 
-    pub fn io_palette_write(&mut self) {
-        self.io_wr_access = true;
+    pub fn read(&mut self, mapper: &mut dyn Mapper, address: u16) {
+        
     }
 
     pub fn execute(&mut self, mapper: &mut dyn Mapper, render_action: RenderAction, mut pinout: Pinout) -> Pinout { 
