@@ -170,46 +170,31 @@ mod test {
         mapper.poke_chr(0x1FF, 255);
 
         // test io read
-        p.address = 0x1FF;
         let v0 = bus.io_read();
         assert_ne!(v0, 255);
         
-        p = bus.execute(&mut mapper, RenderAction::Idle, p);
-        assert_eq!(p.address, 0x1FF);
-        assert_eq!(bus.is_io_mem_access(), false);
-        p = bus.execute(&mut mapper, RenderAction::Idle, p);
-        assert_eq!(255, p.data);
-        assert_eq!(bus.is_io_mem_access(), true);
+        bus.latch(&mut mapper, 0x1FF);
+        let (d, b) = bus.read(&mut mapper, 0x1FF);
+        assert_eq!(b, true);
 
-        let v0 = bus.io_read();
-        assert_eq!(v0, 255);
+        let v1 = bus.io_read();
+        assert_ne!(v1, 255);
 
         // test io write
-        p.address = 0x2FF;
         let v0 = mapper.peek_chr(0x2FF);
         assert_eq!(v0, 0);
 
         bus.io_write(255);
 
-        p = bus.execute(&mut mapper, RenderAction::Idle, p);
-        assert_eq!(p.address, 0x2FF);
-        assert_eq!(bus.is_io_mem_access(), false);
-        p = bus.execute(&mut mapper, RenderAction::Idle, p);
-        assert_eq!(255, p.data);
-        assert_eq!(bus.is_io_mem_access(), true);
-
-        let v1 = mapper.peek_chr(0x2FF);
-        assert_eq!(v1, 255);
-
-        p.address = 0x300;
-        p = bus.execute(&mut mapper, RenderAction::Idle, p);
-        assert_eq!(p.address, 0x300);
-        assert_eq!(bus.is_io_mem_access(), false);
+        bus.latch(&mut mapper, 0x2FF);
+        let (d, b) = bus.read(&mut mapper, 0x2FF);
+        assert_eq!(d, 0x2FF);
+        assert_eq!(b, true ); 
+        assert_eq!(mapper.peek_chr(0x2FF), 255);
     }
 
     #[test]
-    fn test_io_read_during_render() {
-        let mut p = Pinout::new();
+    fn test_io_during_idle() {
         let mut mapper = MapperDebug::new();
         let mut bus = Bus::new();
 
@@ -219,35 +204,28 @@ mod test {
         let v0 = bus.io_read();
         assert_ne!(v0, 255);
 
-        // normal render read
-        p.address = 0x1FF;
-        p = bus.execute(&mut mapper, RenderAction::Latch, p);
-        assert_eq!(p.address, 0x1FF);
-        assert_eq!(bus.is_io_mem_access(), false);
+        // read
+        let b = bus.idle(&mut mapper, 0x1FF);
+        assert_eq!(bus.io_read(), 255);
+        assert_eq!(b, true);
 
-        p = bus.execute(&mut mapper, RenderAction::Read, p);
-        assert_eq!(255, p.data);
-        assert_eq!(bus.is_io_mem_access(), true);
+        let b = bus.idle(&mut mapper, 0x1FF);
+        let b = bus.idle(&mut mapper, 0x1FF);
+        assert_eq!(b, false);
 
-        // render read interrupted by io read
-        p.address = 0x200;
-        p = bus.execute(&mut mapper, RenderAction::Latch, p);
-        assert_eq!(p.address, 0x200);
-        assert_eq!(bus.is_io_mem_access(), false);
+        // write
+        bus.io_write(128);
+        let b = bus.idle(&mut mapper, 0x200);
+        assert_eq!(b, true);
+        assert_eq!(mapper.peek_chr(0x200), 128);
 
-        let v0 = bus.io_read();
-        assert_eq!(v0, 255);
+        let b = bus.idle(&mut mapper, 0x200);
+        assert_eq!(b, false);
 
-        p = bus.execute(&mut mapper, RenderAction::Read, p);
-        assert_eq!(p.address, 0x200);
-        assert_eq!(p.data, 240);
-        assert_eq!(bus.is_io_mem_access(), false);
-
-        p.address = 0x201;
-        p = bus.execute(&mut mapper, RenderAction::Latch, p);
-        assert_eq!(p.address, (0x201 & 0xFF00) | 240);
-        assert_eq!(bus.is_io_mem_access(), true);
-
+        bus.io_palette_write();
+        let b = bus.idle(&mut mapper, 0x200);
+        assert_eq!(b, true);
+        assert_eq!(mapper.peek_chr(0x200), 128);
     }
 }
 

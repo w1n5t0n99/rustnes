@@ -2,74 +2,39 @@ use super::{Context, Pinout, Ctrl};
 use super::ppu_registers::*;
 use super::background::Background;
 use super::sprites::Sprites;
-use super::bus::{Bus, RenderAction};
+use super::bus::Bus;
 use crate::mappers::Mapper;
 
-pub fn render_idle_cycle(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
+pub fn render_idle_cycle(ppu: &mut Context, bus: &mut Bus,  bg: &mut Background, mapper: &mut dyn Mapper) {
     // PPU address bus during this cycle appears to be the same CHR address
     // that is later used to fetch the next tile
-    pinout.address = bg.pattern0_address(ppu);
-    pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
-
-    if ppu.bus.is_io_mem_access() {
-        ppu.addr_reg.ppu_2007_during_render_increment();
-    }
-    pinout
+    let b = bus.idle(mapper,  bg.pattern0_address(ppu));
+    if b { ppu.addr_reg.ppu_2007_during_render_increment(); }
 }
 
-pub fn prerender_idle_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.address = ppu.addr_reg.vram_address();
-    pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
-
-    if ppu.bus.is_io_mem_access() {
-        ppu.addr_reg.ppu_2007_during_render_increment();
-    }
-    pinout
+pub fn prerender_idle_cycle(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
+    let b = bus.idle(mapper,  ppu.addr_reg.vram_address());
+    if b { ppu.addr_reg.ppu_2007_during_render_increment(); }
 }
 
-pub fn nonrender_cycle(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.address = ppu.addr_reg.vram_address();
-    pinout = ppu.bus.execute(mapper, RenderAction::Idle, pinout);
-
-    if ppu.bus.is_io_mem_access() {
-        ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount());
-    }
-
-    pinout
+pub fn nonrender_cycle(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
+    let b = bus.idle(mapper,  ppu.addr_reg.vram_address());
+    if b {  ppu.addr_reg.increment(ppu.control_reg.vram_addr_increment_amount()); }
 }
 
-pub fn open_tile_index(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.address = ppu.addr_reg.tile_address();
-    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
-
-    if ppu.bus.is_io_mem_access() {
-        ppu.addr_reg.ppu_2007_during_render_increment();
-    }
-
-    pinout
+pub fn open_tile_index(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, ppu.addr_reg.tile_address());
 }
 
-pub fn read_tile_index(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.address = ppu.addr_reg.tile_address();
-    pinout = ppu.bus.execute(mapper, RenderAction::Read, pinout);
-    if ppu.bus.is_io_mem_access() {
-        ppu.addr_reg.ppu_2007_during_render_increment();
-    }
+pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
+    let (d, b) = bus.read(mapper, ppu.addr_reg.tile_address());
+    if b { ppu.addr_reg.ppu_2007_during_render_increment(); }
 
-    bg.next_tile_index = pinout.data as u16;
-
-    pinout
+    bg.next_tile_index = d as u16;
 }
 
-pub fn open_background_attribute(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
-    pinout.address = ppu.addr_reg.attribute_address();
-    pinout = ppu.bus.execute(mapper, RenderAction::Latch, pinout);
-
-    if ppu.bus.is_io_mem_access() {
-        ppu.addr_reg.ppu_2007_during_render_increment();
-    }
-
-    pinout
+pub fn open_background_attribute(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, ppu.addr_reg.attribute_address());
 }
 
 pub fn read_background_attribute(ppu: &mut Context, bg: &mut Background, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
