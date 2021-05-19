@@ -41,11 +41,11 @@ impl PaletteRam {
         let address = address & 0x1F;
         // palette ram contains a 6 bit value
         match address {
-            0x10 => { self.ram[0x00] = (data  & 0x3F); }
-            0x14 => { self.ram[0x04] = (data  & 0x3F); }
-            0x18 => { self.ram[0x08] = (data  & 0x3F); }
-            0x1C => { self.ram[0x0C] = (data  & 0x3F); }
-            _ => { self.ram[address as usize] = (data  & 0x3F); }
+            0x10 => { self.ram[0x00] = data  & 0x3F; }
+            0x14 => { self.ram[0x04] = data  & 0x3F; }
+            0x18 => { self.ram[0x08] = data  & 0x3F; }
+            0x1C => { self.ram[0x0C] = data  & 0x3F; }
+            _ => { self.ram[address as usize] = data  & 0x3F; }
         }
     }
 }

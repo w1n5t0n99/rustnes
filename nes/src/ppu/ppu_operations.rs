@@ -30,7 +30,7 @@ pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, ma
     let (d, b) = bus.read(mapper, ppu.addr_reg.tile_address());
     if b { ppu.addr_reg.ppu_2007_during_render_increment(); }
 
-    bg.next_tile_index = d as u16;   // < ================ TODO change to mimic sprite definition
+    bg.set_next_tile_index(d as u16);
 }
 
 pub fn open_background_attribute(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
@@ -41,7 +41,7 @@ pub fn read_background_attribute(ppu: &mut Context, bus: &mut Bus, bg: &mut Back
     let (d, b) = bus.read(mapper, ppu.addr_reg.attribute_address());
     if b { ppu.addr_reg.ppu_2007_during_render_increment(); }
 
-    bg.next_attribute = ppu.addr_reg.attribute_bits(d);
+    bg.set_next_attribute(d);
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bus: &mut Bus,  bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -165,7 +165,7 @@ pub fn write_palette(ppu: &mut Context, address: u16, data: u8) {
 }
 
 pub fn is_rendering(ppu: &mut Context) -> bool {
-    if (ppu.scanline_index >= 240 && ppu.scanline_index <= 260) || ppu.mask_reg.rendering_enabled() == false {
+    if (ppu.vpos >= 240 && ppu.vpos <= 260) || ppu.mask_reg.rendering_enabled() == false {
         false
     }
     else {

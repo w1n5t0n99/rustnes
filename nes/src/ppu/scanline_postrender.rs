@@ -1,15 +1,16 @@
-use super::{Pinout, Context};
+use super::Context;
+use super::bus::Bus;
 use super::ppu_operations::*;
 use crate::mappers::Mapper;
 
-fn scanline_postrender_tick(ppu: &mut Context, mapper: &mut dyn Mapper, mut pinout: Pinout) -> Pinout {
+pub fn scanline_postrender_tick(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
     match ppu.hpos {
         0..=339 => {
-            pinout = nonrender_cycle(ppu, mapper, pinout);
+            nonrender_cycle(ppu, bus, mapper);
             ppu.hpos += 1;
         }
         340 => {
-            pinout = nonrender_cycle(ppu, mapper, pinout);
+            nonrender_cycle(ppu, bus, mapper);
             ppu.hpos = 0;
             ppu.vpos += 1;
         }
@@ -17,6 +18,4 @@ fn scanline_postrender_tick(ppu: &mut Context, mapper: &mut dyn Mapper, mut pino
             panic!("PPU postrender 0-340 out of bounds");
         }
     }
-
-    pinout
 }

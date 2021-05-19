@@ -12,8 +12,8 @@ pub struct Background {
     pattern_queue: [u16; 2],
     attribute_queue: [u16; 2],
     pub next_pattern: [u8; 2],
-    pub next_tile_index: u16,
-    pub next_attribute: u8,
+    next_tile_index: u16,
+    next_attribute: u8,
 }
 
 impl Background {
@@ -35,9 +35,17 @@ impl Background {
         self.next_pattern[PATTERN1_INDEX] = data;
     }
 
+    pub fn set_next_tile_index(&mut self, data: u16) {
+        self.next_tile_index = data;
+    }
+
+    pub fn set_next_attribute(&mut self, data: u8) {
+        self.next_attribute = data;
+    }
+
     pub fn select_background_pixel(&mut self, ppu: &mut Context) -> u8 {
         let pixel: u8;
-        let index = ppu.scanline_dot - 1;
+        let index = ppu.hpos - 1;
         if (ppu.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_BACKGROUND) || (index >= 8)) && ppu.mask_reg.contains(MaskRegister::SHOW_BACKGROUND) {
             let mask: u16 = 0x8000 >> ppu.addr_reg.x;
 
@@ -93,7 +101,7 @@ mod test {
         let mut ppu_context = Context::new();
         ppu_context.mask_reg.set(MaskRegister::SHOW_BACKGROUND, true);
         ppu_context.mask_reg.set(MaskRegister::SHOW_SPRITES, true);
-        ppu_context.scanline_dot = 10;
+        ppu_context.hpos = 10;
 
         let mut bg = Background::new();
         bg.next_pattern[0] = 0xFF;
