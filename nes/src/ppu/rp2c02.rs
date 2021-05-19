@@ -1,3 +1,5 @@
+use std::{borrow::Borrow, thread::sleep};
+
 use super::{Pinout, Context};
 use super::background::Background;
 use super::sprites::Sprites;
@@ -229,7 +231,7 @@ impl Rp2c02 {
                 self.context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);
                 self.context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, false);
                 // Read first bytes of secondary OAM
-                self.pinout = render_idle_cycle(&mut self.context, &mut self.bg, mapper, self.pinout);
+                self.pinout = render_idle_cycle(&mut self.context, mapper, self.pinout);
             },
             1..=256 => {
                 if self.context.scanline_dot == 1 {
@@ -446,8 +448,6 @@ impl Rp2c02 {
 
         if self.context.scanline_dot == 340 {
             self.last_scanline_cycle = true;
-            self.last_frame_cycle = true;
-            self.context.frame += 1;
             self.context.scanline_index = 0;
             self.context.scanline_dot = if self.context.odd_frame { 1 } else { 0 };
         }
@@ -477,8 +477,6 @@ impl Rp2c02 {
 
         if self.context.scanline_dot == 340 {
             self.last_scanline_cycle = true;
-            self.last_frame_cycle = true;
-            self.context.frame += 1;
             self.context.scanline_index = 0;
             // render idle cycle is not skipped if rendering disabled
             self.context.scanline_dot = 0;
@@ -492,7 +490,7 @@ impl Rp2c02 {
         match self.context.scanline_dot {
             0 => {
                 // idle cycle
-                self.pinout = render_idle_cycle(&mut self.context, &mut self.bg, mapper, self.pinout);
+                self.pinout = render_idle_cycle(&mut self.context, mapper, self.pinout);
             }
             1..=64 => {
                  // render pixel
@@ -742,6 +740,7 @@ impl Rp2c02 {
                 panic!("PPU postrender 0-340 out of bounds");
             }
         }
+        
     }
 
     fn scanline_vblank(&mut self, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
@@ -750,6 +749,8 @@ impl Rp2c02 {
             0 => {
                 self.pinout = nonrender_cycle(&mut self.context, mapper, self.pinout);
                 self.context.scanline_dot += 1;
+
+                if self.context.scanline_index == 241 { self.last_frame_cycle = true; self.context.frame += 1; }
             }
             1 => {
                 if self.context.scanline_index == 241 {
