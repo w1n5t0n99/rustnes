@@ -22,8 +22,6 @@ pub struct Rp2c02 {
     palette_ram: PaletteRam,
     bg: Background,
     sp: Sprites,
-    pinout: Pinout,   
-
 }
 
 impl Rp2c02 {
@@ -34,7 +32,6 @@ impl Rp2c02 {
             palette_ram: PaletteRam::from_power_on(),
             bg: Background::new(),
             sp: Sprites::new(),
-            pinout: Pinout::new(),
         }
     }
 
@@ -45,7 +42,6 @@ impl Rp2c02 {
             palette_ram: self.palette_ram.from_reset(),
             bg: Background::new(),
             sp: Sprites::new(),
-            pinout: Pinout::new(),
         };
 
         // ppuaddr is unchanged after reset
@@ -198,219 +194,9 @@ impl Rp2c02 {
         }
 
         self.context.cycle += 1;
-        self.pinout = mapper.ppu_tick(self.pinout);
+        self.bus.set_pinout(mapper.ppu_tick(self.bus.get_pinout()));
 
         cpu_pinout
-    }
-
-    
-
-    fn scanline_render(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper) {        
-        match self.context.scanline_dot {
-            0 => {
-                // idle cycle
-                self.pinout = render_idle_cycle(&mut self.context, mapper, self.pinout);
-            }
-            1..=64 => {
-                 // render pixel
-                 let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
-                 fb[index] = self.select_pixel() as u16 | self.context.mask_reg.emphasis_mask();
-
-                 if self.context.scanline_dot == 1 {
-                    self.sp.clear_secondary_oam();
-                }
-
-                 match self.context.scanline_dot & 0x07 {
-                    1 => {
-                        self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
-                    }
-                    2 => {
-                        self.pinout = read_tile_index(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    3 => {
-                        self.pinout = open_background_attribute(&mut self.context, mapper, self.pinout);
-                    }
-                    4 => {
-                        self.pinout = read_background_attribute(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    5 => {
-                        self.pinout = open_background_pattern0(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    6 => {
-                        self.pinout = read_background_pattern0(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    7 => {
-                        self.pinout = open_background_pattern1(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    0 => {
-                        self.pinout = read_background_pattern1(&mut self.context, &mut self.bg, mapper, self.pinout);
-                        self.bg.update_shift_registers_render();
-                    }
-                    _ => {
-                        panic!("ppu 2-65 out of bounds");
-                    }
-                }
-            }
-            65..=256 => {
-                // render pixel
-                let index = ((self.context.scanline_dot - 1) + (self.context.scanline_index * 256)) as usize;
-                fb[index] = self.select_pixel() as u16 | self.context.mask_reg.emphasis_mask();
-
-                match self.context.scanline_dot & 0x07 {
-                    1 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
-                    }
-                    2 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = read_tile_index(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    3 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = open_background_attribute(&mut self.context, mapper, self.pinout);
-                    }
-                    4 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = read_background_attribute(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    5 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = open_background_pattern0(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    6 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = read_background_pattern0(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    7 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = open_background_pattern1(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    0 => {
-                        self.sp.evaluate(&mut self.context);
-                        self.pinout = read_background_pattern1(&mut self.context, &mut self.bg, mapper, self.pinout);
-                        self.bg.update_shift_registers_render();
-                    }
-                    _ => {
-                        panic!("ppu 1-256 out of bounds");
-                    }
-                }
-
-                if self.context.scanline_dot == 256 {
-                    self.context.addr_reg.y_increment();
-                }
-            },
-            257..=320 => {
-                self.sp.clear_oam_addr();
-                if self.context.scanline_dot == 257 {
-                    self.context.addr_reg.update_x_scroll();
-                }
-
-                // update sprite registers
-                match self.context.scanline_dot & 0x07 {
-                    1 => {
-                        self.sp.fetch_sprite_data(&mut self.context);
-                        self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
-                    }
-                    2 => {
-                        self.pinout = read_tile_index(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    3 => {
-                        self.pinout = open_background_attribute(&mut self.context, mapper, self.pinout);
-                    }
-                    4 => {
-                        self.pinout = read_background_attribute(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    5 => {
-                        self.pinout = open_sprite_pattern0(&mut self.context, &mut self.sp, mapper, self.pinout);
-                    }
-                    6 => {
-                        self.pinout = read_sprite_pattern0(&mut self.context, &mut self.sp, mapper, self.pinout);
-                    }
-                    7 => {
-                        self.pinout = open_sprite_pattern1(&mut self.context, &mut self.sp, mapper, self.pinout);
-                    }
-                    0 => {
-                        self.pinout = read_sprite_pattern1(&mut self.context, &mut self.sp, mapper, self.pinout);
-                    }
-                    _ => {
-                        panic!("ppu 305-321 out of bounds");
-                    }
-                }
-            }
-            321..=336 => {
-                // two tiles for next scanline fetched
-                match self.context.scanline_dot & 0x07 {
-                    1 => {
-                        // eval sprites odd
-                        self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
-                    }
-                    2 => {
-                        // eval sprites even
-                        self.pinout = read_tile_index(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    3 => {
-                        // eval sprites odd
-                        self.pinout = open_background_attribute(&mut self.context, mapper, self.pinout);
-                    }
-                    4 => {
-                        // eval sprites even
-                        self.pinout = read_background_attribute(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    5 => {
-                        // eval sprites odd
-                        self.pinout = open_background_pattern0(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    6 => {
-                        // eval sprites even
-                        self.pinout = read_background_pattern0(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    7 => {
-                        // eval sprites odd
-                        self.pinout = open_background_pattern1(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    0 => {
-                        // eval sprites even
-                        self.pinout = read_background_pattern1(&mut self.context, &mut self.bg, mapper, self.pinout);
-                        self.bg.update_shift_registers_idle();
-                    }
-                    _ => {
-                        panic!("ppu 321-336 out of bounds");
-                    }
-                }
-            }
-            337..=340 => {
-                // garbage nametable fetchs
-                match self.context.scanline_dot {
-                    337 => {
-                        self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
-                    }
-                    338 => {
-                        self.pinout = read_tile_index(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    339 => {
-                        self.pinout = open_tile_index(&mut self.context, mapper, self.pinout);
-                    }
-                    340 => {
-                        self.pinout = read_tile_index(&mut self.context, &mut self.bg, mapper, self.pinout);
-                    }
-                    _ => {
-                        panic!("ppu 337-340 out of bounds");
-                    }
-                }
-            }
-            _ => {
-                panic!("PPU render 0-340 out of bounds");
-            }
-        }
-
-        if self.context.scanline_dot == 340 {
-            self.last_scanline_cycle = true;
-            self.context.scanline_index += 1;
-            self.context.scanline_dot = 0;
-        }
-        else {
-            self.context.scanline_dot += 1;
-        }
     }
 }
 

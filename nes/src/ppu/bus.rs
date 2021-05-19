@@ -37,6 +37,14 @@ impl Bus {
         }
     }
 
+    pub fn get_pinout(&self) -> Pinout {
+        self.pinout
+    }
+
+    pub fn set_pinout(&mut self, pinout: Pinout) {
+        self.pinout = pinout;
+    }
+
     pub fn io_read(&mut self) -> u8{
         self.rd_buffer.take().unwrap()
     }
@@ -188,7 +196,7 @@ mod test {
 
         bus.latch(&mut mapper, 0x2FF);
         let (d, b) = bus.read(&mut mapper, 0x2FF);
-        assert_eq!(d, 0x2FF);
+        assert_eq!(d, 255);
         assert_eq!(b, true ); 
         assert_eq!(mapper.peek_chr(0x2FF), 255);
     }

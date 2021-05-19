@@ -511,9 +511,9 @@ pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Backgr
         // garbage nt fetches
         337 => { open_tile_index(ppu, bus, mapper); ppu.hpos += 1; }
         338 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
-        339 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
+        339 => { open_tile_index(ppu, bus, mapper); ppu.hpos += 1; }
         340 => { 
-            read_background_attribute(ppu, bus, bg, mapper); 
+            read_tile_index(ppu, bus, bg, mapper); 
             ppu.vpos = 0;
             // on odd frames this cycle is skipped , simulate by skipping the next render idle cycle
             ppu.hpos = if ppu.odd_frame { 1 } else { 0 };

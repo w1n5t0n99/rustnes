@@ -199,7 +199,7 @@ impl Sprites {
     #[inline(always)]
     fn sprite_in_range(&mut self, ppu: &mut Context, sprite_size: u8, y_pos: u8) -> bool {
         // Sprite eval happens for the next scanline
-        let sprite_line = (ppu.scanline_index as u8).wrapping_sub(y_pos);
+        let sprite_line = (ppu.vpos as u8).wrapping_sub(y_pos);
         sprite_line < sprite_size
     }
 
@@ -228,7 +228,7 @@ impl Sprites {
                 let data = self.oam_ram_primary[self.primary_oam_index.0 as usize];
         
                 if self.sprite_in_range(ppu, sprite_size, data) {
-                    let sprite_line =  (ppu.scanline_index as u8).wrapping_sub(data);
+                    let sprite_line =  (ppu.vpos as u8).wrapping_sub(data);
                     self.secondary_oam[self.secondary_oam_index(self.next_sprites_count, 0) as usize] = sprite_line as u8;
                     self.eval_state = EvalState::StateIndexRead;
                 }
@@ -301,7 +301,7 @@ impl Sprites {
         self.left_most_x = self.next_left_most_x;
         self.sprites_count = self.next_sprites_count;
 
-        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
         let y = self.fetch_y(current_sprite_index as usize);
 
         self.sprite_data[current_sprite_index as usize].y_pos = y;
@@ -320,7 +320,7 @@ impl Sprites {
     }
 
     pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
-        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
 
         if current_sprite_index < (self.sprites_count as u16) {
             let spr = &mut self.sprite_data[current_sprite_index as usize];
@@ -343,7 +343,7 @@ impl Sprites {
     }
 
     pub fn pattern1_address(&mut self, ppu: &mut Context) -> u16 {
-        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
 
         if current_sprite_index < (self.sprites_count as u16) {
             let spr = &mut self.sprite_data[current_sprite_index as usize];
@@ -366,7 +366,7 @@ impl Sprites {
     }
 
     pub fn set_pattern0(&mut self, ppu: &mut Context, mut data: u8) {
-        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
 
         if spr.attribute.hflip() {
@@ -377,7 +377,7 @@ impl Sprites {
     }
 
     pub fn set_pattern1(&mut self,  ppu: &mut Context, mut data: u8) {
-        let current_sprite_index= ((ppu.scanline_dot - 1) >> 3) & 0x07;
+        let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
         let spr = &mut self.sprite_data[current_sprite_index as usize];
 
         if spr.attribute.hflip() {
@@ -388,7 +388,7 @@ impl Sprites {
     }
 
     pub fn select_sprite_pixel(&mut self, ppu: &mut Context, mut bg_pixel: u8) -> u8 {
-        let index = ppu.scanline_dot - 1;
+        let index = ppu.hpos - 1;
         // Are any sprites in range
 
         if (self.left_most_x as u16) <= index {
@@ -440,11 +440,11 @@ impl Sprites {
     }
 
     pub fn io_read_2004(&mut self, ppu: &Context) -> u8 {
-        match ppu.scanline_index {
+        match ppu.vpos {
             0..=239 | 261 if ppu.mask_reg.rendering_enabled() => {
                 // Reading OAMDATA while the PPU is rendering will expose internal OAM accesses during sprite evaluation and loading
                 // attempting to read $2004 will return $FF during secondary OAM initialization (1-64)
-                match ppu.scanline_dot {
+                match ppu.hpos {
                     1..=64 => { 0xFF }
                     _ => { self.oam_ram_primary[self.primary_oam_index.0 as usize] }
                 }
@@ -454,7 +454,7 @@ impl Sprites {
     }
 
     pub fn io_write_2004(&mut self, ppu: &Context, data: u8) {
-        match ppu.scanline_index {
+        match ppu.vpos {
             0..=239 | 261 if ppu.mask_reg.rendering_enabled() => {
                 //on prerender and render scanlines writes do not modify OAM, but perform glitchy increment
                 self.primary_oam_index.increment_n();
@@ -607,12 +607,12 @@ mod test {
         assert_eq!(sprites.next_sprites_count, 2);
         assert_eq!(ppu.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
 
-        ppu.scanline_dot = 257;
+        ppu.hpos = 257;
         let mut addr = 0xff_u16;
 
         for _i in 257..=320 {
-            let data = (ppu.scanline_dot & 0x07) as u8;
-            match ppu.scanline_dot & 0x07 {
+            let data = (ppu.hpos & 0x07) as u8;
+            match ppu.hpos & 0x07 {
                 1 => {
                     sprites.fetch_sprite_data(&mut ppu);
                 }
@@ -643,7 +643,7 @@ mod test {
                 }
             }
 
-            ppu.scanline_dot += 1;
+            ppu.hpos += 1;
         }
 
         assert_eq!(sprites.sprites_count, 2);
