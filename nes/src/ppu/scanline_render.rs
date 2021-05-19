@@ -1548,97 +1548,28 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
             ppu.addr_reg.update_x_scroll();
             ppu.hpos += 1;
         }
-        258 => {
-             read_tile_index(ppu, bus, bg, mapper);
-              ppu.hpos += 1;
-        }
-        259 => {
-             open_background_attribute(ppu, bus, mapper);
-              ppu.hpos += 1;
-        }
-        260 => {
-            read_background_attribute(ppu, bus, bg, mapper);
-            ppu.hpos += 1;
-        }
-        261 => { 
-            open_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1;
-        }
-        262 => { 
-            read_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        263 => { 
-            open_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        264 => { 
-            read_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        265 => {
-            open_tile_index(ppu, bus, mapper);
-            sp.fetch_sprite_data(ppu);
-            ppu.hpos += 1;
-        }
-        266 => {
-             read_tile_index(ppu, bus, bg, mapper);
-              ppu.hpos += 1;
-        }
-        267 => {
-             open_background_attribute(ppu, bus, mapper);
-              ppu.hpos += 1;
-        }
-        268 => {
-            read_background_attribute(ppu, bus, bg, mapper);
-            ppu.hpos += 1;
-        }
-        269 => { 
-            open_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1;
-        }
-        270 => { 
-            read_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        271 => { 
-            open_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        272 => { 
-            read_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        
-        273 => {
-            open_tile_index(ppu, bus, mapper);
-            sp.fetch_sprite_data(ppu);
-            ppu.hpos += 1;
-        }
-        274 => {
-             read_tile_index(ppu, bus, bg, mapper);
-              ppu.hpos += 1;
-        }
-        275 => {
-             open_background_attribute(ppu, bus, mapper);
-              ppu.hpos += 1;
-        }
-        276 => {
-            read_background_attribute(ppu, bus, bg, mapper);
-            ppu.hpos += 1;
-        }
-        277 => { 
-            open_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1;
-        }
-        278 => { 
-            read_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        279 => { 
-            open_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
+        258 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        259 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
+        260 => { read_background_attribute(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        261 => { open_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        262 => { read_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        263 => { open_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        264 => { read_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        265 => { open_tile_index(ppu, bus, mapper); sp.fetch_sprite_data(ppu); ppu.hpos += 1; }
+        266 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        267 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
+        268 => { read_background_attribute(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        269 => { open_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        270 => { read_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        271 => { open_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        272 => { read_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        273 => { open_tile_index(ppu, bus, mapper); sp.fetch_sprite_data(ppu); ppu.hpos += 1; }
+        274 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1;}
+        275 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
+        276 => { read_background_attribute(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        277 => { open_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        278 => { read_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        279 => { open_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
         280 => { 
             read_sprite_pattern1(ppu, bus, sp, mapper);
             ppu.addr_reg.update_vertical();
@@ -1767,72 +1698,22 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
             ppu.addr_reg.update_vertical();
             ppu.hpos += 1; 
         }
-        305 => {
-            open_tile_index(ppu, bus, mapper);
-            sp.fetch_sprite_data(ppu);
-            ppu.hpos += 1;
-        }
-        306 => {
-             read_tile_index(ppu, bus, bg, mapper);
-              ppu.hpos += 1;
-        }
-        307 => {
-             open_background_attribute(ppu, bus, mapper);
-              ppu.hpos += 1;
-        }
-        308 => {
-            read_background_attribute(ppu, bus, bg, mapper);
-            ppu.hpos += 1;
-        }
-        309 => { 
-            open_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1;
-        }
-        310 => { 
-            read_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        311 => { 
-            open_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        312 => { 
-            read_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        313 => {
-            open_tile_index(ppu, bus, mapper);
-            sp.fetch_sprite_data(ppu);
-            ppu.hpos += 1;
-        }
-        314 => {
-             read_tile_index(ppu, bus, bg, mapper);
-              ppu.hpos += 1;
-        }
-        315 => {
-             open_background_attribute(ppu, bus, mapper);
-              ppu.hpos += 1;
-        }
-        316 => {
-            read_background_attribute(ppu, bus, bg, mapper);
-            ppu.hpos += 1;
-        }
-        317 => { 
-            open_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1;
-        }
-        318 => { 
-            read_sprite_pattern0(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        319 => { 
-            open_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
-        320 => { 
-            read_sprite_pattern1(ppu, bus, sp, mapper);
-            ppu.hpos += 1; 
-        }
+        305 => { open_tile_index(ppu, bus, mapper); sp.fetch_sprite_data(ppu); ppu.hpos += 1; }
+        306 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        307 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
+        308 => { read_background_attribute(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        309 => { open_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        310 => { read_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        311 => { open_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        312 => { read_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        313 => { open_tile_index(ppu, bus, mapper); sp.fetch_sprite_data(ppu); ppu.hpos += 1; }
+        314 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        315 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
+        316 => { read_background_attribute(ppu, bus, bg, mapper); ppu.hpos += 1; }
+        317 => { open_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        318 => { read_sprite_pattern0(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        319 => { open_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
+        320 => { read_sprite_pattern1(ppu, bus, sp, mapper); ppu.hpos += 1; }
         // tile data fetched for next scanline
         321 => { open_tile_index(ppu, bus, mapper); ppu.hpos += 1; }
         322 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
