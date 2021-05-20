@@ -44,7 +44,6 @@ impl Pinout {
 
 #[derive(Clone, Copy)]
 pub struct Context {
-    pub palette_ram: [u8; 32],
     pub cycle: u64,
     pub frame: u64,
     pub read_2002_cycle: u64,                           // Used to track NMI race condition
@@ -64,7 +63,6 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         Context {
-            palette_ram: [0; 32],
             cycle: 0,
             frame: 0,
             read_2002_cycle: 0,

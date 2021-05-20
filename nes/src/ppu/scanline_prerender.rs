@@ -9,9 +9,7 @@ use crate::mappers::Mapper;
 pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, sp: &mut Sprites, mapper: &mut dyn Mapper) {
 
     match ppu.hpos {
-        0 => {
-            prerender_idle_cycle(ppu, bus, mapper);
-        },
+        0 => { prerender_idle_cycle(ppu, bus, mapper); ppu.hpos += 1; },
         // tile data fetched
         1 => {
             ppu.status_reg.set(StatusRegister::SPRITE_OVERFLOW, false);

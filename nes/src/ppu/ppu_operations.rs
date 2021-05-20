@@ -23,7 +23,6 @@ pub fn nonrender_cycle(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper
 }
 
 pub fn open_tile_index(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
-    bus.latch(mapper, ppu.addr_reg.tile_address());
 }
 
 pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -34,7 +33,6 @@ pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, ma
 }
 
 pub fn open_background_attribute(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
-    bus.latch(mapper, ppu.addr_reg.attribute_address());
 }
 
 pub fn read_background_attribute(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -45,7 +43,6 @@ pub fn read_background_attribute(ppu: &mut Context, bus: &mut Bus, bg: &mut Back
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bus: &mut Bus,  bg: &mut Background, mapper: &mut dyn Mapper) {
-    bus.latch(mapper, bg.pattern0_address(ppu));
 }
 
 pub fn read_background_pattern0(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -56,7 +53,6 @@ pub fn read_background_pattern0(ppu: &mut Context, bus: &mut Bus, bg: &mut Backg
 }
 
 pub fn open_background_pattern1(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
-    bus.latch(mapper, bg.pattern1_address(ppu));
 }
 
 pub fn read_background_pattern1(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -73,7 +69,6 @@ pub fn read_background_pattern1(ppu: &mut Context, bus: &mut Bus, bg: &mut Backg
 }
 
 pub fn open_sprite_pattern0(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
-    bus.latch(mapper, sp.pattern0_address(ppu));
 }
 
 pub fn read_sprite_pattern0(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
@@ -84,7 +79,6 @@ pub fn read_sprite_pattern0(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, 
 }
 
 pub fn open_sprite_pattern1(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
-    bus.latch(mapper, sp.pattern1_address(ppu));
 }
 
 pub fn read_sprite_pattern1(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
@@ -129,39 +123,6 @@ pub fn vblank_nmi_update(ppu: &mut Context, mut pinout: mos::Pinout) -> mos::Pin
     }
 
     pinout
-}
-
-// TODO make sure palette read and writes are put on the bus for mmc5?
-pub fn read_palette_rendering(ppu: &mut Context, address: u16) -> u8 { 
-    // only call if rendering enbabled
-    let address = address & 0x1F;        
-    match address {
-        0x04 | 0x08 | 0x0C | 0x10 | 0x14 | 0x18 | 0x1C => ppu.palette_ram[0x00],
-        _ => ppu.palette_ram[address as usize],
-    }
-}
-
-pub fn read_palette_nonrender(ppu: &mut Context, address: u16) -> u8 { 
-    let address = address & 0x1F;
-    match address {
-        0x10 => ppu.palette_ram[0x00],
-        0x14 => ppu.palette_ram[0x04],
-        0x18 => ppu.palette_ram[0x08],
-        0x1C => ppu.palette_ram[0x0C],
-        _ => ppu.palette_ram[address as usize]
-    }
-}
-
-#[inline(always)]
-pub fn write_palette(ppu: &mut Context, address: u16, data: u8) { 
-    let address = address & 0x1F;
-    match address {
-        0x10 => { ppu.palette_ram[0x00] = data; }
-        0x14 => { ppu.palette_ram[0x04] = data; }
-        0x18 => { ppu.palette_ram[0x08] = data; }
-        0x1C => { ppu.palette_ram[0x0C] = data; }
-        _ => { ppu.palette_ram[address as usize] = data; }
-    }
 }
 
 pub fn is_rendering(ppu: &mut Context) -> bool {

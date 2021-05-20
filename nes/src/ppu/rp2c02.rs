@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, thread::sleep};
 
-use super::{Pinout, Context};
+use super::Context;
 use super::bus::Bus;
 use super::palette_ram::PaletteRam;
 use super::background::Background;
@@ -9,7 +9,6 @@ use super::scanline_postrender::scanline_postrender_tick;
 use super::scanline_vblank::scanline_vblank_tick;
 use super::scanline_prerender::{scanline_prerender_nonvisible_tick, scanline_prerender_tick};
 use super::scanline_render::{scanline_render_nonvisible_tick, scanline_render_tick};
-use super::ppu_registers::*;
 use super::ppu_operations::*;
 use crate::mappers::Mapper;
 
@@ -140,7 +139,7 @@ impl Rp2c02 {
         match v {
             0x3F00..=0x3FFF => {
                 // Reading palette updates latch with contents of nametable under palette address
-                pinout.data = if  is_rendering(&mut self.context) { read_palette_rendering(&mut self.context, v) } else { read_palette_nonrender(&mut self.context, v) };
+                pinout.data = if  is_rendering(&mut self.context) { self.palette_ram.read_during_render(v) } else { self.palette_ram.read(v) };
                 // still need to update read buffer
                 self.bus.io_palette_read();
             }
@@ -161,7 +160,7 @@ impl Rp2c02 {
         match v {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does
-                write_palette(&mut self.context, v, pinout.data);
+                self.palette_ram.write(v, pinout.data);
                 self.bus.io_palette_write();
             }
             0x0000..=0x3EFF => {
@@ -214,21 +213,4 @@ mod tests {
         let mut cpu_pinout = Pinout::new();
         
     }
-
-    #[test]
-    fn test_palette_readwrite() {
-        let mut ppu = Rp2c02::from_power_on();
-
-        write_palette(&mut ppu.context, 0x3F00, 0xFF);
-        let mut data = read_palette_nonrender(&mut ppu.context, 0x3F00);
-
-        assert_eq!(0xFF, data);
-
-
-        write_palette(&mut ppu.context, 0x3F10, 0x00);
-        data = read_palette_nonrender(&mut ppu.context, 0x3F00);
-
-        assert_eq!(0x00, data);
-    }
-
 }

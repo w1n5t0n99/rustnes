@@ -12,7 +12,6 @@ fn select_pixel(fb: &mut[u16], ppu: &mut Context, pram: &mut PaletteRam, bg: &mu
     // background pixel is default
     let mut pixel = bg.select_background_pixel(ppu);
     pixel = sp.select_sprite_pixel(ppu, pixel);
-
     fb[index] = ((pram.read_during_render(pixel as u16) & ppu.mask_reg.monochrome_mask()) as u16) | ppu.mask_reg.emphasis_mask();  
 }
 
@@ -33,7 +32,6 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
         // tile data fetched, sprites eval, pixels output
         1 => {
             select_pixel(fb, ppu, pram, bg, sp);
-
             open_tile_index(ppu, bus, mapper);
             sp.clear_secondary_oam();                // <======= TODO change to per cycle
             ppu.hpos += 1;

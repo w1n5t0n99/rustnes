@@ -61,12 +61,6 @@ impl Bus {
         self.palette_write = true;
     }
 
-    pub fn latch(&mut self, mapper: &mut dyn Mapper, address: u16) {
-        self.pinout.ctrl.set(Ctrl::WR, false);
-        self.pinout.ctrl.set(Ctrl::RD, false);
-        self.pinout.ctrl.set(Ctrl::ALE, true);
-    }
-
     pub fn read(&mut self, mapper: &mut dyn Mapper, address: u16) -> (u8, bool) {
         self.pinout.ctrl.set(Ctrl::WR, false);
         self.pinout.ctrl.set(Ctrl::RD, false);
@@ -177,16 +171,16 @@ mod test {
 
         mapper.poke_chr(0x1FF, 255);
 
-        // test io read
+        // dummy io read
         let v0 = bus.io_read();
         assert_ne!(v0, 255);
         
-        bus.latch(&mut mapper, 0x1FF);
         let (d, b) = bus.read(&mut mapper, 0x1FF);
         assert_eq!(b, true);
+        assert_eq!(d, 255);
 
         let v1 = bus.io_read();
-        assert_ne!(v1, 255);
+        assert_eq!(v1, 255);
 
         // test io write
         let v0 = mapper.peek_chr(0x2FF);
@@ -194,7 +188,6 @@ mod test {
 
         bus.io_write(255);
 
-        bus.latch(&mut mapper, 0x2FF);
         let (d, b) = bus.read(&mut mapper, 0x2FF);
         assert_eq!(d, 255);
         assert_eq!(b, true ); 
