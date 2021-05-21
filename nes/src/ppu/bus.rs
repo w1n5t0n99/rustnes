@@ -62,9 +62,11 @@ impl Bus {
     }
 
     pub fn read(&mut self, mapper: &mut dyn Mapper, address: u16) -> (u8, bool) {
-        self.pinout.ctrl.set(Ctrl::WR, false);
-        self.pinout.ctrl.set(Ctrl::RD, false);
         self.pinout.ctrl.set(Ctrl::ALE, false);
+        self.pinout.ctrl.set(Ctrl::WR, true);
+        // read is always asserted on read action
+        self.pinout.ctrl.set(Ctrl::RD, false);
+
 
         self.pinout.address = address;
 
@@ -95,9 +97,9 @@ impl Bus {
     }
 
     pub fn idle(&mut self, mapper: &mut dyn Mapper, address: u16) -> bool {
-        self.pinout.ctrl.set(Ctrl::WR, false);
-        self.pinout.ctrl.set(Ctrl::RD, false);
         self.pinout.ctrl.set(Ctrl::ALE, false);
+        self.pinout.ctrl.set(Ctrl::WR, true);
+        self.pinout.ctrl.set(Ctrl::RD, true);
 
         self.pinout.address = address;
 
@@ -126,7 +128,7 @@ impl Bus {
     }
 
     fn internal_read(&mut self, mapper: &mut dyn Mapper) {
-        self.pinout.ctrl.set(Ctrl::RD, true);
+        self.pinout.ctrl.set(Ctrl::RD, false);
         match self.pinout.address {
             0x0000..=0x1fff => { self.pinout = mapper.read_ppu_chr(self.pinout); }
             0x2000..=0x3fff => { self.pinout = mapper.read_ppu_nt(self.pinout); }
@@ -135,7 +137,7 @@ impl Bus {
     }
 
     fn internal_write(&mut self, mapper: &mut dyn Mapper) {
-        self.pinout.ctrl.set(Ctrl::WR, true);
+        self.pinout.ctrl.set(Ctrl::WR, false);
          match self.pinout.address {
             0x0000..=0x1fff => { self.pinout = mapper.write_ppu_chr(self.pinout); }
             0x2000..=0x3fff => { self.pinout = mapper.write_ppu_nt(self.pinout); }

@@ -7,6 +7,7 @@ use crate::controllers::{NesControllers, JoypadInput};
 use crate::palette::*;
 use crate::bus::*;
 use crate::utils::cpu_trace_logger::CpuTraceLogger;
+use crate::utils::ppu_trace_logger::PpuTraceLogger;
 use mos::{Pinout, rp2a03::Rp2a03};
 
 use std::fs::File;
@@ -24,6 +25,7 @@ pub struct NesNtsc {
     controllers: NesControllers,
     mapper: Box<dyn Mapper>,
     cpu_logger: CpuTraceLogger,
+    ppu_logger: PpuTraceLogger,
     pbuffer: Vec<u16>,
 }
 
@@ -38,6 +40,7 @@ impl NesNtsc {
             controllers: NesControllers::from_power_on(),
             mapper: mappers::create_mapper_null(),
             cpu_logger: CpuTraceLogger::new(),
+            ppu_logger: PpuTraceLogger::new(),
             pbuffer: vec![0; (WIDTH*HEIGHT) as usize],
         }
     }

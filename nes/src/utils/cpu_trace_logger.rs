@@ -98,6 +98,5 @@ impl CpuTraceLogger {
                 c.cycle
             ).unwrap();
         }
-
     }
 }
