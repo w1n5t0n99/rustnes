@@ -72,13 +72,13 @@ impl Bus {
             Some(data) => {
                 // if write buffer was filled then perform write instead
                 self.pinout.data = data;
-                self.pinout = self.internal_write(mapper, self.pinout);
+                self.internal_write(mapper);
                 return (data, true);
             }
             None => { }
         }
 
-        self.pinout = self.internal_read(mapper, self.pinout);
+        self.internal_read(mapper);
 
         match self.rd_buffer {
             Some(_) => { }
@@ -105,7 +105,7 @@ impl Bus {
             Some(data) => {
                 // if write buffer was filled then perform write instead
                 self.pinout.data = data;
-                self.pinout = self.internal_write(mapper, self.pinout);
+                self.internal_write(mapper);
                 return true;
             }
             None => { }
@@ -114,7 +114,7 @@ impl Bus {
         match self.rd_buffer {
             Some(_) => { }
             None => { 
-                self.pinout = self.internal_read(mapper, self.pinout);
+                self.internal_read(mapper);
                 self.rd_buffer = Some(self.pinout.data);
                 return true
             }
@@ -125,26 +125,22 @@ impl Bus {
         tmp
     }
 
-    fn internal_read(&mut self, mapper: &mut dyn Mapper,  mut pinout: Pinout) -> Pinout {
-        pinout.ctrl.set(Ctrl::RD, true);
-        match pinout.address {
-            0x0000..=0x1fff => { pinout = mapper.read_ppu_chr(pinout); }
-            0x2000..=0x3fff => { pinout = mapper.read_ppu_nt(pinout); }
-            _ => panic!("ppu read {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
+    fn internal_read(&mut self, mapper: &mut dyn Mapper) {
+        self.pinout.ctrl.set(Ctrl::RD, true);
+        match self.pinout.address {
+            0x0000..=0x1fff => { self.pinout = mapper.read_ppu_chr(self.pinout); }
+            0x2000..=0x3fff => { self.pinout = mapper.read_ppu_nt(self.pinout); }
+            _ => panic!("ppu read {:#X} - should not be able to read past 0x2fff during rendering", self.pinout.address)
         }
-
-        pinout
     }
 
-    fn internal_write(&mut self, mapper: &mut dyn Mapper,  mut pinout: Pinout) -> Pinout {
-        pinout.ctrl.set(Ctrl::WR, true);
-         match pinout.address {
-            0x0000..=0x1fff => { pinout = mapper.write_ppu_chr(pinout); }
-            0x2000..=0x3fff => { pinout = mapper.write_ppu_nt(pinout); }
-            _ => panic!("ppu write {:#X} - should not be able to read past 0x2fff during rendering", pinout.address)
+    fn internal_write(&mut self, mapper: &mut dyn Mapper) {
+        self.pinout.ctrl.set(Ctrl::WR, true);
+         match self.pinout.address {
+            0x0000..=0x1fff => { self.pinout = mapper.write_ppu_chr(self.pinout); }
+            0x2000..=0x3fff => { self.pinout = mapper.write_ppu_nt(self.pinout); }
+            _ => panic!("ppu write {:#X} - should not be able to read past 0x2fff during rendering", self.pinout.address)
         }
-
-        pinout
     }
 }
 
