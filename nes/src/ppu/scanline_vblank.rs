@@ -7,7 +7,6 @@ use crate::mappers::Mapper;
 pub fn scanline_vblank_tick(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
     match ppu.hpos {
         0 => {
-            if ppu.vpos == 241 { ppu.last_frame_cycle = true; ppu.frame += 1; }
             nonrender_cycle(ppu, bus, mapper);
             ppu.hpos += 1;
         }
@@ -22,6 +21,7 @@ pub fn scanline_vblank_tick(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn M
             ppu.hpos += 1;
         }
         340 => {
+            if ppu.vpos == 260 { ppu.last_frame_cycle = true; ppu.frame += 1; }
             cpu_pinout = vblank_nmi_update(ppu, cpu_pinout);
             nonrender_cycle(ppu, bus, mapper);
             ppu.hpos = 0;

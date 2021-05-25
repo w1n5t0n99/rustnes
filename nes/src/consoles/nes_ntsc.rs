@@ -86,6 +86,8 @@ impl Console for NesNtsc {
 
     fn execute_frame(&mut self) {
         self.cpu_logger.clear();
+        self.ppu_logger.clear();
+
         let mut end_of_frame = false;
 
         loop {
@@ -101,10 +103,15 @@ impl Console for NesNtsc {
     
             {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout());
                 if self.ppu.is_end_of_frame() { end_of_frame = true; }
+
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout());
                 if self.ppu.is_end_of_frame() { end_of_frame = true; }
+
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
+                self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout());
                 if self.ppu.is_end_of_frame() { end_of_frame = true; }
             }
 
@@ -142,7 +149,11 @@ impl Console for NesNtsc {
         Ok(())
     }
 
-    fn output_log<W: Write>(&mut self , w: &mut W) {
+    fn output_cpu_log<W: Write>(&mut self , w: &mut W) {
         self.cpu_logger.output_log(w);
+    }
+
+    fn output_ppu_log<W: Write>(&mut self , w: &mut W) {
+        self.ppu_logger.output_log(w);
     }
 }

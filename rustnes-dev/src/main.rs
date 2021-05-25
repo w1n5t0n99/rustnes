@@ -34,9 +34,13 @@ pub fn normal_execute<C: Console>(nes: &mut C, jp1: JoypadInput, fb: &mut [u32])
     match emu_res {
         Ok(_) => { }
         Err(emu_err) => {
-            let log_file = File::create(format!("logs\\trace-frame-{}-error.log", nes.get_frame_number())).unwrap();
-            let mut log_writer = BufWriter::new(log_file);  
-            nes.output_log(&mut log_writer);
+            let cpu_log_file = File::create(format!("logs\\cpu_trace-frame-{}-error.log", nes.get_frame_number())).unwrap();
+            let mut cpu_log_writer = BufWriter::new(cpu_log_file);  
+            nes.output_cpu_log(&mut cpu_log_writer);
+
+            let ppu_log_file = File::create(format!("logs\\ppu_trace-frame-{}-error.log", nes.get_frame_number())).unwrap();
+            let mut ppu_log_writer = BufWriter::new(ppu_log_file);  
+            nes.output_ppu_log(&mut ppu_log_writer);
         }
     }
 
@@ -189,9 +193,13 @@ fn main() {
                         average_duration.update(normal_execute(&mut nes, jp1, &mut fb));
                         // trace logs quickly grow huge, only really useful if going frame by frame
                         if enable_trace_log {
-                            let log_file = File::create(format!("logs\\trace-frame-{}.log", nes.get_frame_number())).unwrap();
-                            let mut log_writer = BufWriter::new(log_file);  
-                            nes.output_log(&mut log_writer);
+                            let cpu_log_file = File::create(format!("logs\\cpu_trace-frame-{}-error.log", nes.get_frame_number())).unwrap();
+                            let mut cpu_log_writer = BufWriter::new(cpu_log_file);  
+                            nes.output_cpu_log(&mut cpu_log_writer);
+
+                            let ppu_log_file = File::create(format!("logs\\ppu_trace-frame-{}-error.log", nes.get_frame_number())).unwrap();
+                            let mut ppu_log_writer = BufWriter::new(ppu_log_file);  
+                            nes.output_ppu_log(&mut ppu_log_writer);
                         }
                     }
                 }

@@ -6,10 +6,10 @@ const LOG_SIZE: usize = 110000;
 
 fn vpos_to_ntsc_scanline(vpos: u16) -> &'static str {
     match vpos {
-        261 => "Prerender",
-        0..=239 => "Render",
-        240 => "Postrender",
-        241..=260 => "Vblank",
+        261 =>          "Prerender ",
+        0..=239 =>      "Render    ",
+        240 =>          "Postrender",
+        241..=260 =>    "Vblank    ",
         _ => panic!("vpos out of bounds")
     }
 }
@@ -69,16 +69,23 @@ impl PpuTraceLogger {
                 true => "L"
             };
 
-            writeln!(w, "CYC: {} {:04X} {}{} {:02X} {} {}:{}",
+            write!(w, "CYC: {} {}:{} {:04X} {}{} {:02X} {}",
                 c.cycle,
+                vpos_to_ntsc_scanline(c.vpos),
+                c.vpos,
                 p.address,
                 rd_str,
                 wr_str,
                 p.data,
                 address_to_device(p.address),
-                vpos_to_ntsc_scanline(c.vpos),
-                c.vpos
             ).unwrap();
+
+            match i%3 {
+                0 => { write!(w, " | ").unwrap(); },
+                1 => { write!(w, " | ").unwrap(); },
+                2 => { write!(w, "\n").unwrap(); },
+                _ => panic!("index out of bounds"),
+            }
         }
     }
 }

@@ -18,12 +18,17 @@ fn select_pixel(fb: &mut[u16], ppu: &mut Context, pram: &mut PaletteRam, bg: &mu
 fn select_blank_pixel(fb: &mut[u16], ppu: &mut Context, pram: &mut PaletteRam) {
     let index = ((ppu.hpos - 1) + (ppu.vpos * 256)) as usize;
     let v = ppu.addr_reg.vram_address();
-    if (v & 0x3F00) == 0x3F00 {
-        fb[index] = ((pram.read(v) & ppu.mask_reg.monochrome_mask()) as u16) | ppu.mask_reg.emphasis_mask();
-    }
-    else {
-        fb[index] = ((pram.read(0x00) & ppu.mask_reg.monochrome_mask()) as u16) | ppu.mask_reg.emphasis_mask();
-    }    
+    match v {
+        0x3F00..=0x3FFF => {
+            fb[index] = ((pram.read(v) & ppu.mask_reg.monochrome_mask()) as u16) | ppu.mask_reg.emphasis_mask();
+        }
+        0x0000..=0x3EFF => {
+            fb[index] = ((pram.read(0x00) & ppu.mask_reg.monochrome_mask()) as u16) | ppu.mask_reg.emphasis_mask();
+        }
+        _ => {
+            panic!("blank pixel address out of range");
+        }
+    }   
 }
 
 pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pram: &mut PaletteRam, bg: &mut Background, sp: &mut Sprites, mapper: &mut dyn Mapper) {

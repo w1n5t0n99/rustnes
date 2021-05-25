@@ -24,5 +24,6 @@ pub trait Console {
     fn input_joypad2_state(&mut self, joypad: JoypadInput);
 
     fn output_pixel_buffer(&mut self, frame_buffer: &mut [u32]) -> Result<(), EmuError>;
-    fn output_log<W: Write>(&mut self , w: &mut W);    
+    fn output_cpu_log<W: Write>(&mut self , w: &mut W);    
+    fn output_ppu_log<W: Write>(&mut self , w: &mut W);    
 }

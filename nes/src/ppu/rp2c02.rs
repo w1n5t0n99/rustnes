@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, thread::sleep};
 
-use super::Context;
+use super::{Context, Pinout};
 use super::bus::Bus;
 use super::palette_ram::PaletteRam;
 use super::background::Background;
@@ -173,6 +173,14 @@ impl Rp2c02 {
 
         self.context.io_db = pinout.data;
         pinout
+    }
+
+    pub fn get_context(&self) -> Context {
+        self.context
+    }
+
+    pub fn get_pinout(&self) -> Pinout {
+        self.bus.get_pinout()
     }
 
     pub fn tick(&mut self, fb: &mut[u16], mapper: &mut dyn Mapper, mut cpu_pinout: mos::Pinout) -> mos::Pinout {
