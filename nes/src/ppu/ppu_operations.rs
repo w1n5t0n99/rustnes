@@ -29,7 +29,7 @@ pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, ma
     let (d, b) = bus.read(mapper, ppu.addr_reg.tile_address());
     if b { ppu.addr_reg.ppu_2007_during_render_increment(); }
 
-    bg.set_next_tile_index(d as u16);
+    bg.set_next_tile_index(d);
 }
 
 pub fn open_background_attribute(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {

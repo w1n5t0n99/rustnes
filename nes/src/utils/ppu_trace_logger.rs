@@ -16,8 +16,15 @@ fn vpos_to_ntsc_scanline(vpos: u16) -> &'static str {
 
 fn address_to_device(addr: u16) -> &'static str {
     match addr {
-        0x0000..=0x1fff => "CHR",
-        0x2000..=0x3fff => "NT ",
+        0x0000..=0x1fff => "CHR ",
+        0x2000..=0x23bf => "NT 0",
+        0x23c0..=0x23ff => "AT 0",
+        0x2400..=0x27bf => "NT 1",
+        0x27c0..=0x27ff => "AT 1",
+        0x2800..=0x2bbf => "NT 2",
+        0x2bc0..=0x2bff => "AT 2",
+        0x2c00..=0x2fbf => "NT 3",
+        0x2fc0..=0x2fff => "AT 3",
         _ => panic!("address out of bounds")
     }
 }

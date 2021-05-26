@@ -35,8 +35,8 @@ impl Background {
         self.next_pattern[PATTERN1_INDEX] = data;
     }
 
-    pub fn set_next_tile_index(&mut self, data: u16) {
-        self.next_tile_index = data;
+    pub fn set_next_tile_index(&mut self, data: u8) {
+        self.next_tile_index = data as u16;
     }
 
     pub fn set_next_attribute(&mut self, data: u8) {
