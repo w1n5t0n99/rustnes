@@ -97,7 +97,7 @@ impl AddrReg {
         }
     }
 
-    pub fn update_x_scroll(&mut self) {
+    pub fn update_horizontal(&mut self) {
         let edcba = self.t & 0x1F;
         let f = self.t & 0x400;
         self.v = (self.v & 0xFBFF) | f;

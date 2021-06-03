@@ -407,7 +407,7 @@ pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Backgr
             open_tile_index(ppu, bus, mapper); ppu.hpos += 1;
             sp.clear_oam_addr();
             // update V horizontal bits
-            ppu.addr_reg.update_x_scroll();
+            ppu.addr_reg.update_horizontal();
             ppu.hpos += 1;
         }
         258 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
