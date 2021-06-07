@@ -1,4 +1,5 @@
 use crate::ppu::{Context, Pinout, Ctrl};
+use crate::ppu::background::Background;
 use std::io::Write;
 
 // log large enough to cover NTSC and PAL
@@ -30,14 +31,14 @@ fn address_to_device(addr: u16) -> &'static str {
 }
 
 pub struct PpuTraceLogger {
-    ppu_cache: Vec<(Context, Pinout)>,
+    ppu_cache: Vec<(Context, Pinout, Background)>,
     size: usize,
 }
 
 impl PpuTraceLogger {
     pub fn new() -> PpuTraceLogger {
         PpuTraceLogger {
-            ppu_cache: vec![(Context::new(), Pinout::new()); LOG_SIZE],
+            ppu_cache: vec![(Context::new(), Pinout::new(), Background::new()); LOG_SIZE],
             size: 0,
         }
     }
@@ -47,16 +48,16 @@ impl PpuTraceLogger {
         self.size = 0;
     }
 
-    pub fn log(&mut self, context: Context, pinout: Pinout) {
+    pub fn log(&mut self, context: Context, pinout: Pinout, background: Background) {
         if self.size < LOG_SIZE {
-            self.ppu_cache[self.size] = (context, pinout);
+            self.ppu_cache[self.size] = (context, pinout, background);
             self.size += 1;
         }
     }
     
     pub fn output_log<W: Write>(&self, w: &mut W) {
         
-        for (i, (c, p)) in self.ppu_cache.iter().enumerate() {
+        for (i, (c, p, b)) in self.ppu_cache.iter().enumerate() {
             if self.size == 0 || i >= self.size {
                 break;
             }
@@ -76,15 +77,20 @@ impl PpuTraceLogger {
                 true => "L"
             };
 
-            write!(w, "CYC: {} {}:{} {:04X} {}{} {:02X} {}",
+            write!(w, "CYC: {} {}:{:03} HPos:{:03} {:#06X} {}{} {:#04X} {} PTRN:{:#018b} {:#018b} ATTR:{:#018b} {:#018b}",
                 c.cycle,
                 vpos_to_ntsc_scanline(c.vpos),
                 c.vpos,
+                c.hpos,
                 p.address,
                 rd_str,
                 wr_str,
                 p.data,
                 address_to_device(p.address),
+                b.get_pattern0_queue(),
+                b.get_pattern1_queue(),
+                b.get_attribute0_queue(),
+                b.get_attribute1_queue(),
             ).unwrap();
 
             match i%3 {

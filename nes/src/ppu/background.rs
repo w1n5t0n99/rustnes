@@ -11,7 +11,7 @@ const PATTERN1_INDEX: usize = 1;
 pub struct Background {
     pattern_queue: [u16; 2],
     attribute_queue: [u16; 2],
-    pub next_pattern: [u8; 2],
+    next_pattern: [u8; 2],
     next_tile_index: u16,
     next_attribute: u8,
 }
@@ -41,6 +41,22 @@ impl Background {
 
     pub fn set_next_attribute(&mut self, data: u8) {
         self.next_attribute = data;
+    }
+
+    pub fn get_pattern0_queue(&self) -> u16 {
+        self.pattern_queue[PATTERN0_INDEX]
+    }
+
+    pub fn get_pattern1_queue(&self) -> u16 {
+        self.pattern_queue[PATTERN1_INDEX]
+    }
+
+    pub fn get_attribute0_queue(&self) -> u16 {
+        self.attribute_queue[PATTERN0_INDEX]
+    }
+
+    pub fn get_attribute1_queue(&self) -> u16 {
+        self.attribute_queue[PATTERN1_INDEX]
     }
 
     pub fn select_background_pixel(&mut self, ppu: &mut Context) -> u8 {

@@ -1,8 +1,8 @@
 pub mod rp2c02;
 mod ppu_registers;
 mod ppu_operations;
-mod background;
-mod sprites;
+pub mod background;
+pub mod sprites;
 mod ssprites;
 mod bus;
 mod palette_ram;

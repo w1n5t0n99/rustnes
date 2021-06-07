@@ -49,6 +49,8 @@ pub fn normal_execute<C: Console>(nes: &mut C, jp1: JoypadInput, fb: &mut [u32])
 
 fn main() {
 
+    println!("TEST PT:{:#018b}", 0xFFFF);
+
     //debug_run("test_roms\\nestest.nes");
     //debug_run("test_roms\\donkey_kong.nes");
     //debug_run("test_roms\\2-nmi_and_brk.nes");

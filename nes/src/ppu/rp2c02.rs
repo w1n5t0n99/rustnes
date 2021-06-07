@@ -179,6 +179,10 @@ impl Rp2c02 {
         self.context
     }
 
+    pub fn get_background(&self) -> Background {
+        self.bg
+    }
+
     pub fn get_pinout(&self) -> Pinout {
         self.bus.get_pinout()
     }
