@@ -18,22 +18,30 @@ use crate::mappers::Mapper;
 // RenderAction
 // IOAction
 
+#[derive(Clone, Copy)]
+enum IOAction {
+    Idle,
+    Read,
+    Write,
+    PaletteWrite,   // doesn't actually write on bus but still need to notify of bus action
+}
+
 // -- Bus --
 #[derive(Clone, Copy)]
 pub struct Bus {
     pinout: Pinout,
-    rd_buffer: Option<u8>,
-    wr_buffer: Option<u8>,
-    palette_write: bool,
+    rd_buffer: u8,
+    wr_buffer: u8,
+    io_action: IOAction,
 }
 
 impl Bus {
     pub fn new() -> Bus {
         Bus {
             pinout: Pinout::new(),
-            rd_buffer: Some(0),
-            wr_buffer: None,
-            palette_write: false,
+            rd_buffer: 0,
+            wr_buffer: 0,
+            io_action: IOAction::Idle,
         }
     }
 
@@ -46,19 +54,30 @@ impl Bus {
     }
 
     pub fn io_read(&mut self) -> u8{
-        self.rd_buffer.take().unwrap()
+        self.io_action = IOAction::Read;
+        self.rd_buffer
     }
 
     pub fn io_write(&mut self, data: u8) {
-        self.wr_buffer = Some(data);
+        self.io_action = IOAction::Write;
+        self.wr_buffer = data;
     }
 
     pub fn io_palette_read(&mut self) {
-        self.rd_buffer = None;
+        self.io_action = IOAction::Read;
     }
 
     pub fn io_palette_write(&mut self) {
-        self.palette_write = true;
+        self.io_action = IOAction::PaletteWrite;
+    }
+
+    pub fn latch(&mut self, mapper: &mut dyn Mapper, address: u16) {
+        // used for debugging
+        self.pinout.ctrl.set(Ctrl::ALE, true);
+        self.pinout.ctrl.set(Ctrl::WR, true);
+        self.pinout.ctrl.set(Ctrl::RD, true);
+
+        self.pinout.address = address;
     }
 
     pub fn read(&mut self, mapper: &mut dyn Mapper, address: u16) -> (u8, bool) {
@@ -70,30 +89,31 @@ impl Bus {
 
         self.pinout.address = address;
 
-        match self.wr_buffer.take() {
-            Some(data) => {
-                // if write buffer was filled then perform write instead
-                self.pinout.data = data;
-                self.internal_write(mapper);
-                return (data, true);
+        match self.io_action {
+            IOAction::Idle => {
+                self.internal_read(mapper);
+                return (self.pinout.data, false);
             }
-            None => { }
-        }
-
-        self.internal_read(mapper);
-
-        match self.rd_buffer {
-            Some(_) => { }
-            None => { 
-                self.rd_buffer = Some(self.pinout.data);
+            IOAction::Read => {
+                self.io_action = IOAction::Idle;
+                self.internal_read(mapper);
+                self.rd_buffer = self.pinout.data;
                 return (self.pinout.data, true);
             }
-        }
-
-        let tmp = self.palette_write;
-        self.palette_write = false;
-
-        (self.pinout.data, tmp)        
+            IOAction::Write => {
+                self.io_action = IOAction::Idle;
+                 // if write buffer was filled then perform write instead
+                 self.pinout.ctrl.set(Ctrl::WR, false);
+                 self.pinout.data = self.wr_buffer;
+                 self.internal_write(mapper);
+                 return (self.pinout.data, true);
+            }
+            IOAction::PaletteWrite => {
+                self.io_action = IOAction::Idle;
+                self.internal_read(mapper);
+                return (self.pinout.data, true);
+            }
+        }      
     }
 
     pub fn idle(&mut self, mapper: &mut dyn Mapper, address: u16) -> bool {
@@ -103,28 +123,31 @@ impl Bus {
 
         self.pinout.address = address;
 
-        match self.wr_buffer.take() {
-            Some(data) => {
-                // if write buffer was filled then perform write instead
-                self.pinout.data = data;
-                self.internal_write(mapper);
+        match self.io_action {
+            IOAction::Idle => {
+                return false;
+            }
+            IOAction::Read => {
+                self.io_action = IOAction::Idle;
+                self.pinout.ctrl.set(Ctrl::RD, false);
+                self.internal_read(mapper);
+                self.rd_buffer = self.pinout.data;
                 return true;
             }
-            None => { }
-        }
+            IOAction::Write => {
+                println!("WRITE BUS Address:{:#X} Data:{:#X}", self.pinout.address, self.pinout.data);
 
-        match self.rd_buffer {
-            Some(_) => { }
-            None => { 
-                self.internal_read(mapper);
-                self.rd_buffer = Some(self.pinout.data);
-                return true
+                self.io_action = IOAction::Idle;
+                 self.pinout.ctrl.set(Ctrl::WR, false);
+                 self.pinout.data = self.wr_buffer;
+                 self.internal_write(mapper);
+                 return  true;
             }
-        }
-
-        let tmp = self.palette_write;
-        self.palette_write = false;
-        tmp
+            IOAction::PaletteWrite => {
+                self.io_action = IOAction::Idle;
+                return true;
+            }
+        }      
     }
 
     fn internal_read(&mut self, mapper: &mut dyn Mapper) {

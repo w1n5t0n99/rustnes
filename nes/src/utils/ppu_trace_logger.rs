@@ -77,13 +77,14 @@ impl PpuTraceLogger {
                 true => "L"
             };
 
-            write!(w, "CYC: {} {}:{:03} HPos:{:03} {:#06X} {}{} {:#04X} {} PTRN:{:#018b} {:#018b} ATTR:{:#018b} {:#018b}",
+            write!(w, "CYC: {} {}:{:03} HPos:{:03} {:#06X} {}{}{} {:#04X} {} PTRN:{:#018b} {:#018b} ATTR:{:#018b} {:#018b}",
                 c.cycle,
                 vpos_to_ntsc_scanline(c.vpos),
                 c.vpos,
                 c.hpos,
                 p.address,
                 rd_str,
+                ale_str,
                 wr_str,
                 p.data,
                 address_to_device(p.address),

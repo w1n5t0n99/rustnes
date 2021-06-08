@@ -157,6 +157,7 @@ impl Rp2c02 {
 
     pub fn write_ppudata(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         let v = self.context.addr_reg.vram_address();
+        println!("WRITE Frame {} Cycle {} V:{} H:{} Address:{:#X} Data:{:#X} REN:{}", self.context.frame, self.context.cycle, self.context.vpos, self.context.hpos, self.context.addr_reg.vram_address(), pinout.data, self.context.mask_reg.rendering_enabled());
         match v {
             0x3F00..=0x3FFF => {
                 // TODO not sure if the underlying address is written to like reading does

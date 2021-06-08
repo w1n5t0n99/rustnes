@@ -23,6 +23,7 @@ pub fn nonrender_cycle(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper
 }
 
 pub fn open_tile_index(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, ppu.addr_reg.tile_address());
 }
 
 pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -33,6 +34,7 @@ pub fn read_tile_index(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, ma
 }
 
 pub fn open_background_attribute(ppu: &mut Context, bus: &mut Bus, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, ppu.addr_reg.attribute_address());
 }
 
 pub fn read_background_attribute(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -43,7 +45,9 @@ pub fn read_background_attribute(ppu: &mut Context, bus: &mut Bus, bg: &mut Back
 }
 
 pub fn open_background_pattern0(ppu: &mut Context, bus: &mut Bus,  bg: &mut Background, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, bg.pattern0_address(ppu));
 }
+
 
 pub fn read_background_pattern0(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
     let (d, b) = bus.read(mapper, bg.pattern0_address(ppu));
@@ -53,6 +57,7 @@ pub fn read_background_pattern0(ppu: &mut Context, bus: &mut Bus, bg: &mut Backg
 }
 
 pub fn open_background_pattern1(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, bg.pattern1_address(ppu));
 }
 
 pub fn read_background_pattern1(ppu: &mut Context, bus: &mut Bus, bg: &mut Background, mapper: &mut dyn Mapper) {
@@ -69,6 +74,7 @@ pub fn read_background_pattern1(ppu: &mut Context, bus: &mut Bus, bg: &mut Backg
 }
 
 pub fn open_sprite_pattern0(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, sp.pattern0_address(ppu));
 }
 
 pub fn read_sprite_pattern0(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
@@ -79,6 +85,7 @@ pub fn read_sprite_pattern0(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, 
 }
 
 pub fn open_sprite_pattern1(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
+    bus.latch(mapper, sp.pattern1_address(ppu));
 }
 
 pub fn read_sprite_pattern1(ppu: &mut Context, bus: &mut Bus, sp: &mut Sprites, mapper: &mut dyn Mapper) {
