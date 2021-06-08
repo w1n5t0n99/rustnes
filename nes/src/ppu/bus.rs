@@ -135,8 +135,6 @@ impl Bus {
                 return true;
             }
             IOAction::Write => {
-                println!("WRITE BUS Address:{:#X} Data:{:#X}", self.pinout.address, self.pinout.data);
-
                 self.io_action = IOAction::Idle;
                  self.pinout.ctrl.set(Ctrl::WR, false);
                  self.pinout.data = self.wr_buffer;
