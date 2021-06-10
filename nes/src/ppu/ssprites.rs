@@ -19,6 +19,19 @@ const REVERSE_BITS: [u8; 256] = [
 	0x07, 0x87, 0x47, 0xc7, 0x27, 0xa7, 0x67, 0xe7, 0x17, 0x97, 0x57, 0xd7, 0x37, 0xb7, 0x77, 0xf7,
 	0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef, 0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff ];
 
+#[derive(Debug, Clone, Copy)]
+enum EvalState {
+    FetchY,
+    WriteY,
+    FetchIndex,
+    WriteIndex,
+    FetchAttribute,
+    WriteAttribute,
+    FetchX,
+    WriteX,
+    SOAMFull,
+    OAMOverflow,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Sprites {
@@ -28,4 +41,43 @@ pub struct Sprites {
     pattern_queue_right: [u8; 8],
     attribute_latches: [u8; 8],
     xpos_counters: [u8; 8],
+	n_index: u8,
+	m_index: u8,
+	saom_index: u8,
+	eval_state: EvalState,
+}
+
+impl Sprites {
+	pub fn new() -> Self {
+		Sprites {
+			primary_oam: [0xFF; 256],
+			secondary_oam: [0xFF; 32],
+			pattern_queue_left: [0; 8],
+			pattern_queue_right: [0; 8],
+			attribute_latches: [0; 8],
+			xpos_counters: [0; 8],
+			n_index: 0,
+			m_index: 0,
+			saom_index: 0,
+			eval_state: EvalState::FetchY,
+		}
+	}
+
+	pub fn clear_secondary_oam(&mut self) {
+		for d in self.secondary_oam.iter_mut() { *d = 0xFF; }
+		self.reset_eval_state();
+	}
+
+	pub fn evaluate(&mut self) {
+
+	}
+
+	fn reset_eval_state(&mut self) {
+		// reset sprite evaluation indices
+		self.n_index = 0;
+		self.m_index = 0;
+		self.saom_index = 0;
+		self.eval_state = EvalState::FetchY;
+	}
+
 }
