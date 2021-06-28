@@ -30,7 +30,8 @@ enum EvalState {
     FetchX,
     WriteX,
     SOAMFull,
-    OAMOverflow,
+    OAMOverflowRead,
+	OAMOverflowWrite,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -76,17 +77,70 @@ impl Sprites {
 		match self.eval_state {
 			EvalState::FetchY => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.increment_low_m();
 				self.eval_state = EvalState::WriteY;
 			}
 			EvalState::WriteY => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
-				self.increment_low_m();
+				if self.sprite_in_range(context, self.oam_data_buffer) {
+					// copy remaining bytes for sprite
+					self.secondary_oam_addr += 1;
+					self.increment_low_m();
+					self.eval_state = EvalState::FetchTileIndex;
+				}
+				else {
+					self.increment_high_n();
+					if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::OAMOverflowRead; }
+					else if (self.secondary_oam_addr % 8) == 8 { self.eval_state = EvalState::SOAMFull; }
+					else { self.eval_state = EvalState::FetchY; }
+				}
+			}
+			EvalState::FetchTileIndex => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
 				self.eval_state = EvalState::FetchTileIndex;
 			}
-			_ => { 
-				//TEMP
-			 }
+			EvalState::WriteTileIndex => {
+				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
+				self.secondary_oam_addr += 1;
+				self.increment_low_m();
+				self.eval_state = EvalState::FetchAttribute;
+			}
+			EvalState::FetchAttribute => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::WriteAttribute;
+			}
+			EvalState::WriteAttribute => {
+				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
+				self.secondary_oam_addr += 1;
+				self.increment_low_m();
+				self.eval_state = EvalState::FetchAttribute;
+			}
+			EvalState::FetchX => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::WriteAttribute;
+			}
+			EvalState::WriteX => {
+				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
+				self.secondary_oam_addr += 1;
+				self.increment_low_m();
+				self.increment_high_n();
+				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::OAMOverflowRead; }
+				else if (self.secondary_oam_addr % 8) == 8 { self.eval_state = EvalState::SOAMFull; }
+				else { self.eval_state = EvalState::FetchY; }
+			}
+			EvalState::OAMOverflowRead => {
+				// attempt (and fail) to copy OAM[n][0] into the next free slot in secondary OAM
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::OAMOverflowWrite;
+			}
+			EvalState::OAMOverflowWrite => {
+				// secondary oam write disabled turns into a read from secondary oam
+				self.oam_data_buffer = self.secondary_oam[0];
+				self.increment_high_n();
+				self.eval_state = EvalState::OAMOverflowRead;
+			}
+			EvalState::SOAMFull => {
+				//TODO
+			}
 		}
 	}
 
