@@ -80,14 +80,9 @@ impl Sprites {
 				self.eval_state = EvalState::WriteY;
 			}
 			EvalState::WriteY => {
-				if self.sprite_in_range(context, self.oam_data_buffer) {
-					self.oam_data_buffer = self.primary_oam[self.oam_addr];
-					self.increment_low_m();
-					self.eval_state = EvalState::FetchTileIndex;
-				}
-				else {
-					self.increment_high_n();
-				}
+				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
+				self.increment_low_m();
+				self.eval_state = EvalState::FetchTileIndex;
 			}
 			_ => { 
 				//TEMP
