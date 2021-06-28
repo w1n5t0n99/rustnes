@@ -23,8 +23,8 @@ const REVERSE_BITS: [u8; 256] = [
 enum EvalState {
     FetchY,
     WriteY,
-    FetchIndex,
-    WriteIndex,
+    FetchTileIndex,
+    WriteTileIndex,
     FetchAttribute,
     WriteAttribute,
     FetchX,
@@ -41,9 +41,9 @@ pub struct Sprites {
     pattern_queue_right: [u8; 8],
     attribute_latches: [u8; 8],
     xpos_counters: [u8; 8],
-	n_index: u8,
-	m_index: u8,
-	saom_index: u8,
+	oam_addr: usize,
+	secondary_oam_addr: usize,
+	oam_data_buffer: u8,
 	eval_state: EvalState,
 }
 
@@ -56,9 +56,9 @@ impl Sprites {
 			pattern_queue_right: [0; 8],
 			attribute_latches: [0; 8],
 			xpos_counters: [0; 8],
-			n_index: 0,
-			m_index: 0,
-			saom_index: 0,
+			oam_addr: 0,
+			secondary_oam_addr: 0,
+			oam_data_buffer: 0,
 			eval_state: EvalState::FetchY,
 		}
 	}
@@ -68,16 +68,56 @@ impl Sprites {
 		self.reset_eval_state();
 	}
 
-	pub fn evaluate(&mut self) {
+	pub fn process_sprite_evaluation(&mut self, context: &Context) {
+		if context.hpos == 65 {
+			self.reset_eval_state();
+		}
 
+		match self.eval_state {
+			EvalState::FetchY => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.increment_low_m();
+				self.eval_state = EvalState::WriteY;
+			}
+			EvalState::WriteY => {
+				if self.sprite_in_range(context, self.oam_data_buffer) {
+					self.oam_data_buffer = self.primary_oam[self.oam_addr];
+					self.increment_low_m();
+					self.eval_state = EvalState::FetchTileIndex;
+				}
+				else {
+					self.increment_high_n();
+				}
+			}
+			_ => { 
+				//TEMP
+			 }
+		}
 	}
 
 	fn reset_eval_state(&mut self) {
 		// reset sprite evaluation indices
-		self.n_index = 0;
-		self.m_index = 0;
-		self.saom_index = 0;
+		self.secondary_oam_addr = 0;
 		self.eval_state = EvalState::FetchY;
+	}
+
+	fn sprite_in_range(&self, context: &Context, y_pos: u8) -> bool {
+		if (y_pos as u16) >= context.vpos && y_pos < (context.control_reg.sprite_size()) {
+			true
+		}
+		else {
+			false
+		}
+	}
+
+	fn increment_high_n(&mut self) {
+		// high 6 bits of OAMADDR
+		self.oam_addr = (self.oam_addr & 0x03) | ((self.oam_addr & 0xFC).wrapping_add(4) & 0xFC)
+	}
+
+	fn increment_low_m(&mut self) {
+		// low 2 bits of OAMADDR
+		self.oam_addr = (self.oam_addr & 0xfc) | (((self.oam_addr & 0x03) + 1) & 0x03);
 	}
 
 }
