@@ -46,6 +46,10 @@ pub struct Sprites {
 	secondary_oam_addr: usize,
 	oam_data_buffer: u8,
 	eval_state: EvalState,
+	sprite_0_evaluated: bool,
+	sprite_0_visible: bool,
+	sprite_count: u8,
+
 }
 
 impl Sprites {
@@ -61,17 +65,23 @@ impl Sprites {
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
 			eval_state: EvalState::FetchY,
+			sprite_0_evaluated: false,
+			sprite_0_visible: false,
+			sprite_count: 0,
 		}
 	}
 
 	pub fn clear_secondary_oam(&mut self) {
 		for d in self.secondary_oam.iter_mut() { *d = 0xFF; }
-		self.reset_eval_state();
+		self.begin_evaluation();
 	}
 
 	pub fn process_sprite_evaluation(&mut self, context: &Context) {
 		if context.hpos == 65 {
-			self.reset_eval_state();
+			self.begin_evaluation();
+		}
+		else if context.hpos == 256 {
+			self.sprite_0_visible = self.sprite_0_evaluated;
 		}
 
 		match self.eval_state {
@@ -144,10 +154,16 @@ impl Sprites {
 		}
 	}
 
-	fn reset_eval_state(&mut self) {
+	fn begin_evaluation(&mut self) {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
 		self.eval_state = EvalState::FetchY;
+		self.sprite_0_evaluated = false;
+	}
+
+	fn end_evaluation(&mut self) {
+		self.sprite_0_visible = self.sprite_0_evaluated;
+		self.sprite_count = (self.secondary_oam_addr as u8) >> 2;
 	}
 
 	fn sprite_in_range(&self, context: &Context, y_pos: u8) -> bool {
