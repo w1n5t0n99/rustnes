@@ -271,3 +271,38 @@ impl Sprites {
 	}
 
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+	#[test]
+	fn test_oam_addr_increment() {
+		let mut sprites = Sprites::new();
+		sprites.increment_high_n();
+		assert_eq!(sprites.oam_addr, 4);
+		sprites.increment_high_n();
+		assert_eq!(sprites.oam_addr, 8);
+		sprites.increment_low_m();
+		sprites.increment_low_m();
+		sprites.increment_low_m();
+		assert_eq!(sprites.oam_addr, 11);
+		// test m overflow
+		sprites.increment_low_m();
+		assert_eq!(sprites.oam_addr, 8);
+		sprites.increment_high_n();
+		assert_eq!(sprites.oam_addr, 12);
+
+		sprites.oam_addr = 0;
+		for _i in 0..63 {
+			sprites.increment_high_n();
+		}
+
+		assert_eq!(sprites.oam_addr, 252);
+		// test n overflow
+		sprites.increment_high_n();
+		assert_eq!(sprites.oam_addr, 0);
+
+	}
+
+}

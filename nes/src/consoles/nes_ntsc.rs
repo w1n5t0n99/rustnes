@@ -103,15 +103,15 @@ impl Console for NesNtsc {
     
             {
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout(), self.ppu.get_background());
+                //self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout(), self.ppu.get_background());
                 if self.ppu.is_end_of_frame() { end_of_frame = true; }
 
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout(), self.ppu.get_background());
+                //self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout(), self.ppu.get_background());
                 if self.ppu.is_end_of_frame() { end_of_frame = true; }
 
                 self.cpu_pinout = self.ppu.tick(&mut self.pbuffer, &mut *self.mapper, self.cpu_pinout);
-                self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout(), self.ppu.get_background());
+                //self.ppu_logger.log(self.ppu.get_context(), self.ppu.get_pinout(), self.ppu.get_background());
                 if self.ppu.is_end_of_frame() { end_of_frame = true; }
             }
 
@@ -123,7 +123,7 @@ impl Console for NesNtsc {
                 self.cpu_pinout = (*self.mapper).cpu_tick(self.cpu_pinout);
             }
 
-            self.cpu_logger.log(self.cpu.get_context(), self.cpu_pinout);
+            //self.cpu_logger.log(self.cpu.get_context(), self.cpu_pinout);
 
             if end_of_frame {  break; }
         }
