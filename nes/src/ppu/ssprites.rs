@@ -21,17 +21,24 @@ const REVERSE_BITS: [u8; 256] = [
 
 #[derive(Debug, Clone, Copy)]
 enum EvalState {
-    FetchY,
-    WriteY,
-    FetchTileIndex,
-    WriteTileIndex,
-    FetchAttribute,
-    WriteAttribute,
-    FetchX,
-    WriteX,
-    SOAMFull,
-    OAMOverflowRead,
-	OAMOverflowWrite,
+    SpriteFetchY,
+    SpriteWriteY,
+    SpriteFetchTileIndex,
+    SpriteWriteTileIndex,
+    SpriteFetchAttribute,
+    SpriteWriteAttribute,
+    SpriteFetchX,
+    SpriteWriteX,
+    OverflowFetchY,
+    OverflowWriteY,
+    OverflowFetchTileIndex,
+    OverflowWriteTileIndex,
+    OverflowFetchAttribute,
+    OverflowWriteAttribute,
+    OverflowFetchX,
+    OverflowWriteX,
+    FinishedRead,
+	FinishedWrite,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -64,10 +71,41 @@ impl Sprites {
 			oam_addr: 0,
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
-			eval_state: EvalState::FetchY,
+			eval_state: EvalState::SpriteFetchY,
 			sprite_0_evaluated: false,
 			sprite_0_visible: false,
 			sprite_count: 0,
+		}
+	}
+
+	pub fn write_oamaddr_reg(&mut self, data: u8) {
+		self.oam_addr = data as usize;
+	}
+
+	pub fn read_oamdata_reg(&mut self, context: &Context) -> u8 {
+		if context.vpos <= 239 && context.mask_reg.rendering_enabled() {
+			// while screen is being drawn
+			self.oam_data_buffer
+		}
+		else {
+			self.primary_oam[self.oam_addr]
+		}
+	}
+
+	pub fn write_oamdata_reg(&mut self, context: &Context, mut data: u8) {
+		if context.vpos >= 240 || !context.mask_reg.rendering_enabled() {
+			if(self.oam_addr & 0x03) == 0x02 {
+				//"The three unimplemented bits of each sprite's byte 2 do not exist in the PPU and always read back as 0 on PPU revisions that allow reading PPU OAM through OAMDATA ($2004)"
+				data &= 0xE3;
+			}
+			self.primary_oam[self.oam_addr] = data;
+			self.oam_addr = (self.oam_addr + 1) & 0xFF;
+		}
+		else {
+			//"Writes to OAMDATA during rendering (on the pre-render line and the visible lines 0-239, provided either sprite
+			// or background rendering is enabled) do not modify values in OAM, but do perform a glitchy increment of 
+			// OAMADDR, bumping only the high 6 bits"
+			self.oam_addr = (self.oam_addr + 4) & 0xFF;
 		}
 	}
 
@@ -76,80 +114,127 @@ impl Sprites {
 		self.begin_evaluation();
 	}
 
-	pub fn process_sprite_evaluation(&mut self, context: &Context) {
+	pub fn process_sprite_evaluation(&mut self, context: &mut Context) {
 		if context.hpos == 65 {
 			self.begin_evaluation();
 		}
 		else if context.hpos == 256 {
-			self.sprite_0_visible = self.sprite_0_evaluated;
+			self.end_evaluation();
 		}
 
 		match self.eval_state {
-			EvalState::FetchY => {
+			EvalState::SpriteFetchY => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::WriteY;
+				self.eval_state = EvalState::SpriteWriteY;
 			}
-			EvalState::WriteY => {
+			EvalState::SpriteWriteY => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				if self.sprite_in_range(context, self.oam_data_buffer) {
 					// copy remaining bytes for sprite
 					self.secondary_oam_addr += 1;
 					self.increment_low_m();
-					self.eval_state = EvalState::FetchTileIndex;
+					self.eval_state = EvalState::SpriteFetchTileIndex;
 				}
 				else {
 					self.increment_high_n();
-					if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::OAMOverflowRead; }
-					else if (self.secondary_oam_addr % 8) == 8 { self.eval_state = EvalState::SOAMFull; }
-					else { self.eval_state = EvalState::FetchY; }
+					if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
+					else if self.secondary_oam_addr >= 0x20 { self.eval_state = EvalState::OverflowFetchY; }
+					else { self.eval_state = EvalState::SpriteFetchY; }
 				}
 			}
-			EvalState::FetchTileIndex => {
+			EvalState::SpriteFetchTileIndex => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::FetchTileIndex;
+				self.eval_state = EvalState::SpriteFetchTileIndex;
 			}
-			EvalState::WriteTileIndex => {
+			EvalState::SpriteWriteTileIndex => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
-				self.eval_state = EvalState::FetchAttribute;
+				self.eval_state = EvalState::SpriteFetchAttribute;
 			}
-			EvalState::FetchAttribute => {
+			EvalState::SpriteFetchAttribute => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::WriteAttribute;
+				self.eval_state = EvalState::SpriteWriteAttribute;
 			}
-			EvalState::WriteAttribute => {
+			EvalState::SpriteWriteAttribute => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
-				self.eval_state = EvalState::FetchAttribute;
+				self.eval_state = EvalState::SpriteFetchAttribute;
 			}
-			EvalState::FetchX => {
+			EvalState::SpriteFetchX => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::WriteAttribute;
+				self.eval_state = EvalState::SpriteWriteAttribute;
 			}
-			EvalState::WriteX => {
+			EvalState::SpriteWriteX => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
 				self.increment_high_n();
-				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::OAMOverflowRead; }
-				else if (self.secondary_oam_addr % 8) == 8 { self.eval_state = EvalState::SOAMFull; }
-				else { self.eval_state = EvalState::FetchY; }
+				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
+				else if self.secondary_oam_addr >= 0x20 { self.eval_state = EvalState::OverflowFetchY; }
+				else { self.eval_state = EvalState::SpriteFetchY; }
 			}
-			EvalState::OAMOverflowRead => {
+			EvalState::FinishedRead => {
 				// attempt (and fail) to copy OAM[n][0] into the next free slot in secondary OAM
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::OAMOverflowWrite;
+				self.eval_state = EvalState::FinishedWrite;
 			}
-			EvalState::OAMOverflowWrite => {
-				// secondary oam write disabled turns into a read from secondary oam
-				self.oam_data_buffer = self.secondary_oam[0];
+			EvalState::FinishedWrite => {
+				// a side effect of the OAM write disable signal is to turn writes to the secondary OAM into reads from it
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
 				self.increment_high_n();
-				self.eval_state = EvalState::OAMOverflowRead;
+				self.eval_state = EvalState::FinishedRead;
 			}
-			EvalState::SOAMFull => {
-				//TODO
+			EvalState::OverflowFetchY => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::OverflowWriteY;
+			}
+			EvalState::OverflowWriteY => {
+				let buffer = self.oam_data_buffer;
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
+
+				if self.sprite_in_range(context, buffer) {
+					//  If the value is in range, set the sprite overflow flag in $2002 and read the next 3 entries of OAM
+					// (incrementing 'm' after each byte and incrementing 'n' when 'm' overflows); if m = 3, increment n
+					context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
+					self.increment_low_m();  
+					self.eval_state = EvalState::SpriteFetchTileIndex;
+				}
+				else {
+					//  If the value is not in range, increment n and m (without carry). If n overflows to 0, go to 4; otherwise go to 3
+					self.increment_high_n();
+					self.increment_low_m();
+					if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
+					else { self.eval_state = EvalState::OverflowFetchY; }
+				}
+			}
+			EvalState::OverflowFetchTileIndex => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::OverflowWriteTileIndex;
+			}
+			EvalState::OverflowWriteTileIndex => {
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
+				self.increment_low_m();
+				self.eval_state = EvalState::OverflowFetchAttribute;
+			}
+			EvalState::OverflowFetchAttribute => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::OverflowWriteAttribute;
+			}
+			EvalState::OverflowWriteAttribute => {
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
+				self.increment_low_m();
+				self.eval_state = EvalState::OverflowFetchX;
+			}
+			EvalState::OverflowFetchX => {
+				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				self.eval_state = EvalState::OverflowWriteX;
+			}
+			EvalState::OverflowWriteX => {
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
+				self.increment_low_m();
+				self.eval_state = EvalState::FinishedRead;
 			}
 		}
 	}
@@ -157,7 +242,7 @@ impl Sprites {
 	fn begin_evaluation(&mut self) {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
-		self.eval_state = EvalState::FetchY;
+		self.eval_state = EvalState::SpriteFetchY;
 		self.sprite_0_evaluated = false;
 	}
 
