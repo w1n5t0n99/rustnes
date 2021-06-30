@@ -111,7 +111,7 @@ impl Sprites {
 
 	pub fn clear_secondary_oam(&mut self) {
 		for d in self.secondary_oam.iter_mut() { *d = 0xFF; }
-		self.begin_evaluation();
+		self.oam_data_buffer = 0xFF;
 	}
 
 	pub fn process_sprite_evaluation(&mut self, context: &mut Context) {
