@@ -19,6 +19,15 @@ const REVERSE_BITS: [u8; 256] = [
 	0x07, 0x87, 0x47, 0xc7, 0x27, 0xa7, 0x67, 0xe7, 0x17, 0x97, 0x57, 0xd7, 0x37, 0xb7, 0x77, 0xf7,
 	0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef, 0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff ];
 
+const PATTERN0_INDEX: usize = 0;
+const PATTERN0_OFFSET: u16 = 0;
+const PATTERN1_INDEX: usize = 1;
+const PATTERN1_OFFSET: u16 = 8;
+const SPRITE_8X_SIZE: u8 = 8;
+const SPRITE_16X_SIZE: u8 = 16;
+const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
+const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
+
 #[derive(Debug, Clone, Copy)]
 enum EvalState {
     SpriteFetchY,
@@ -65,6 +74,7 @@ pub struct Sprites {
 	secondary_oam_addr: usize,
 	oam_data_buffer: u8,
 	tile_data_buffer: u8,
+	y_data_buffer: u8,
 	sprite_index: usize,
 	eval_state: EvalState,
 	fetch_state: FetchState,
@@ -87,6 +97,7 @@ impl Sprites {
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
 			tile_data_buffer: 0xFF,
+			y_data_buffer: 0xFF,
 			sprite_index: 0,
 			eval_state: EvalState::SpriteFetchY,
 			fetch_state: FetchState::ReadY,
@@ -113,7 +124,7 @@ impl Sprites {
 	pub fn write_oamdata_reg(&mut self, context: &Context, mut data: u8) {
 		if context.vpos >= 240 || !context.mask_reg.rendering_enabled() {
 			if(self.oam_addr & 0x03) == 0x02 {
-				//"The three unimplemented bits of each sprite's byte 2 do not exist in the PPU and always read back as 0 on PPU revisions that allow reading PPU OAM through OAMDATA ($2004)"
+				//"The three unimplemented bits of each sprite's byte 2 do not exist in the context and always read back as 0 on context revisions that allow reading context OAM through OAMDATA ($2004)"
 				data &= 0xE3;
 			}
 			self.primary_oam[self.oam_addr] = data;
@@ -265,6 +276,7 @@ impl Sprites {
 		match self.fetch_state {
 			FetchState::ReadY => {
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
+				self.y_data_buffer = self.oam_data_buffer;
 				self.fetch_state = FetchState::ReadTileIndex;
 			}
 			FetchState::ReadTileIndex => {
@@ -277,6 +289,15 @@ impl Sprites {
 				self.secondary_oam_addr += 1;
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
 				self.attribute_latches[self.sprite_index] = self.oam_data_buffer;
+
+				// apply vertical flip
+				if (self.oam_data_buffer & 0x80) > 0 && context.control_reg.large_sprite() {
+					self.y_data_buffer ^= SPRITE_16X_FLIPMASK;
+				}
+				else if (self.oam_data_buffer & 0x80) > 0 {
+					self.y_data_buffer ^= SPRITE_8X_FLIPMASK;
+				}
+
 				self.fetch_state = FetchState::ReadX;
 			}
 			FetchState::ReadX => {
@@ -301,26 +322,54 @@ impl Sprites {
 		}
 	}
 
-	pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
-        //let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
+	pub fn pattern0_address(&mut self, context: &mut Context) -> u16 {
+        //let current_sprite_index= ((context.hpos - 1) >> 3) & 0x07;
+        if context.control_reg.large_sprite() {
+			((((self.tile_data_buffer as u16) & 1) << 12) | (((self.tile_data_buffer as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((self.y_data_buffer as u16) & 7) | (((self.y_data_buffer as u16) & 0x08) << 1)) & 0xffff
+		}
+		else {
+			(context.control_reg.sprite_table_address()| (((self.tile_data_buffer as u16)) << 4) | PATTERN0_OFFSET | (self.y_data_buffer as u16)) & 0xffff
+		}
+    }
 
-        if self.sprite_index < (self.sprite_count as usize) {
-            if ppu.control_reg.large_sprite() {
-                ((((self.tile_data_buffer as u16) & 1) << 12) | (((self.tile_data_buffer as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
-            }
-            else {
-                (ppu.control_reg.sprite_table_address()| (((spr.tile_index as u16)) << 4) | PATTERN0_OFFSET | (spr.y_pos as u16)) & 0xffff
-            }
-        }
-        else {
-            // dummy address
-            if ppu.control_reg.large_sprite() {
-                (((0xFF & 1) << 12) | ((0xFF & 0xfe) << 4) | PATTERN0_OFFSET | (0xFF & 7) | ((0xFF & 0x08) << 1)) & 0xffff
-            }
-            else {
-                (ppu.control_reg.sprite_table_address()| (0xFF << 4) | PATTERN0_OFFSET | 0xFF) & 0xffff
-            }
-        }
+	pub fn pattern1_address(&mut self, context: &mut Context) -> u16 {
+        //let current_sprite_index= ((context.hpos - 1) >> 3) & 0x07;
+        if context.control_reg.large_sprite() {
+			((((self.tile_data_buffer as u16) & 1) << 12) | (((self.tile_data_buffer as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((self.y_data_buffer as u16) & 7) | (((self.y_data_buffer as u16) & 0x08) << 1)) & 0xffff
+		}
+		else {
+			(context.control_reg.sprite_table_address()| (((self.tile_data_buffer as u16)) << 4) | PATTERN1_OFFSET | (self.y_data_buffer as u16)) & 0xffff
+		}
+    }
+
+	pub fn set_pattern0(&mut self, context: &mut Context, mut data: u8) {
+		if self.sprite_index >= (self.sprite_count as usize) {
+			//load pattern tables with transparent data
+			self.pattern_queue_left[self.sprite_index] = 0;
+		}
+		else {
+			if (self.attribute_latches[self.sprite_index] & 0x40) > 0 {
+				// horizontal flip pattern
+				data = REVERSE_BITS[data as usize];
+			}
+
+			self.pattern_queue_left[self.sprite_index] = data;
+		}
+    }
+
+    pub fn set_pattern1(&mut self, context: &mut Context, mut data: u8) {
+        if self.sprite_index >= (self.sprite_count as usize) {
+			//load pattern tables with transparent data
+			self.pattern_queue_right[self.sprite_index] = 0;
+		}
+		else {
+			if (self.attribute_latches[self.sprite_index] & 0x40) > 0 {
+				// horizontal flip pattern
+				data = REVERSE_BITS[data as usize];
+			}
+
+			self.pattern_queue_right[self.sprite_index] = data;
+		}
     }
 
 	// called on cycle 65
@@ -342,6 +391,8 @@ impl Sprites {
 		self.oam_addr = 0;
 		self.secondary_oam_addr = 0;
 		self.sprite_index = 0;
+		self.tile_data_buffer = 0xFF;
+		self.y_data_buffer = 0xFF;
 		self.fetch_state = FetchState::ReadY;
 	}
 
