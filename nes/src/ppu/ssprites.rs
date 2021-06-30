@@ -42,6 +42,18 @@ enum EvalState {
 }
 
 #[derive(Debug, Clone, Copy)]
+enum FetchState {
+	ReadY,
+	ReadTileIndex,
+	ReadAttribue,
+	ReadX,
+	Dummy0,
+	Dummy1,
+	Dummy2,
+	Dummy3,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Sprites {
     pub primary_oam: [u8; 256],
     pub secondary_oam: [u8; 32],
@@ -52,7 +64,10 @@ pub struct Sprites {
 	oam_addr: usize,
 	secondary_oam_addr: usize,
 	oam_data_buffer: u8,
+	tile_data_buffer: u8,
+	sprite_index: usize,
 	eval_state: EvalState,
+	fetch_state: FetchState,
 	sprite_0_evaluated: bool,
 	sprite_0_visible: bool,
 	sprite_count: u8,
@@ -71,7 +86,10 @@ impl Sprites {
 			oam_addr: 0,
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
+			tile_data_buffer: 0xFF,
+			sprite_index: 0,
 			eval_state: EvalState::SpriteFetchY,
+			fetch_state: FetchState::ReadY,
 			sprite_0_evaluated: false,
 			sprite_0_visible: false,
 			sprite_count: 0,
@@ -239,6 +257,73 @@ impl Sprites {
 		}
 	}
 
+	pub fn fetch_sprites(&mut self, context: &mut Context) {
+		if context.hpos == 257 {
+			self.begin_sprite_fetch();
+		}
+
+		match self.fetch_state {
+			FetchState::ReadY => {
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
+				self.fetch_state = FetchState::ReadTileIndex;
+			}
+			FetchState::ReadTileIndex => {
+				self.secondary_oam_addr += 1;
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
+				self.tile_data_buffer = self.oam_data_buffer;
+				self.fetch_state = FetchState::ReadAttribue;
+			}
+			FetchState::ReadAttribue => {
+				self.secondary_oam_addr += 1;
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
+				self.attribute_latches[self.sprite_index] = self.oam_data_buffer;
+				self.fetch_state = FetchState::ReadX;
+			}
+			FetchState::ReadX => {
+				self.secondary_oam_addr += 1;
+				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
+				self.xpos_counters[self.sprite_index] = self.oam_data_buffer;
+				self.fetch_state = FetchState::Dummy0;
+			}
+			FetchState::Dummy0 => {
+				self.fetch_state = FetchState::Dummy1;
+			}
+			FetchState::Dummy1 => {
+				self.fetch_state = FetchState::Dummy2;
+			}
+			FetchState::Dummy2 => {
+				self.fetch_state = FetchState::Dummy3;
+			}
+			FetchState::Dummy3 => {
+				self.secondary_oam_addr += 1;
+				self.fetch_state = FetchState::ReadY;
+			}
+		}
+	}
+
+	pub fn pattern0_address(&mut self, ppu: &mut Context) -> u16 {
+        //let current_sprite_index= ((ppu.hpos - 1) >> 3) & 0x07;
+
+        if self.sprite_index < (self.sprite_count as usize) {
+            if ppu.control_reg.large_sprite() {
+                ((((self.tile_data_buffer as u16) & 1) << 12) | (((self.tile_data_buffer as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((spr.y_pos as u16) & 7) | (((spr.y_pos as u16) & 0x08) << 1)) & 0xffff
+            }
+            else {
+                (ppu.control_reg.sprite_table_address()| (((spr.tile_index as u16)) << 4) | PATTERN0_OFFSET | (spr.y_pos as u16)) & 0xffff
+            }
+        }
+        else {
+            // dummy address
+            if ppu.control_reg.large_sprite() {
+                (((0xFF & 1) << 12) | ((0xFF & 0xfe) << 4) | PATTERN0_OFFSET | (0xFF & 7) | ((0xFF & 0x08) << 1)) & 0xffff
+            }
+            else {
+                (ppu.control_reg.sprite_table_address()| (0xFF << 4) | PATTERN0_OFFSET | 0xFF) & 0xffff
+            }
+        }
+    }
+
+	// called on cycle 65
 	fn begin_evaluation(&mut self) {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
@@ -246,9 +331,18 @@ impl Sprites {
 		self.sprite_0_evaluated = false;
 	}
 
+	// called on cycle 256
 	fn end_evaluation(&mut self) {
 		self.sprite_0_visible = self.sprite_0_evaluated;
 		self.sprite_count = (self.secondary_oam_addr as u8) >> 2;
+	}
+
+	// called on cycle 257
+	fn begin_sprite_fetch(&mut self) {
+		self.oam_addr = 0;
+		self.secondary_oam_addr = 0;
+		self.sprite_index = 0;
+		self.fetch_state = FetchState::ReadY;
 	}
 
 	fn sprite_in_range(&self, context: &Context, y_pos: u8) -> bool {
