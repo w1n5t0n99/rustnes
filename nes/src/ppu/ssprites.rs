@@ -63,23 +63,39 @@ enum FetchState {
 }
 
 #[derive(Debug, Clone, Copy)]
+struct SpriteInfo {
+	pub pattern_queue: [u8; 2],
+	pub sprite_line: u8,
+	pub attribute_queue: u8,
+	pub xpos_counter: u8,
+	pub tile_index: u8,
+}
+
+impl SpriteInfo {
+	pub fn new() -> Self {
+		Self {
+			pattern_queue: [0; 2],
+			sprite_line: 0,
+			attribute_queue: 0,
+			xpos_counter: 0,
+			tile_index: 0xFF,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Sprites {
-    pub primary_oam: [u8; 256],
-    pub secondary_oam: [u8; 32],
-    pattern_queue_left: [u8; 8],
-    pattern_queue_right: [u8; 8],
-    attribute_latches: [u8; 8],
-    xpos_counters: [u8; 8],
+    primary_oam: [u8; 256],
+    secondary_oam: [u8; 32],
+    sprites: [SpriteInfo; 8],
 	oam_addr: usize,
 	secondary_oam_addr: usize,
 	oam_data_buffer: u8,
-	tile_data_buffer: u8,
-	y_data_buffer: u8,
-	sprite_index: usize,
 	eval_state: EvalState,
 	fetch_state: FetchState,
 	sprite_0_evaluated: bool,
 	sprite_0_visible: bool,
+	sprite_index: usize,
 	sprite_count: u8,
 
 }
@@ -89,20 +105,15 @@ impl Sprites {
 		Sprites {
 			primary_oam: [0xFF; 256],
 			secondary_oam: [0xFF; 32],
-			pattern_queue_left: [0; 8],
-			pattern_queue_right: [0; 8],
-			attribute_latches: [0; 8],
-			xpos_counters: [0; 8],
+			sprites: [SpriteInfo::new(); 8],
 			oam_addr: 0,
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
-			tile_data_buffer: 0xFF,
-			y_data_buffer: 0xFF,
-			sprite_index: 0,
 			eval_state: EvalState::SpriteFetchY,
 			fetch_state: FetchState::ReadY,
 			sprite_0_evaluated: false,
 			sprite_0_visible: false,
+			sprite_index: 0,
 			sprite_count: 0,
 		}
 	}
@@ -138,7 +149,11 @@ impl Sprites {
 		}
 	}
 
-	pub fn clear_secondary_oam(&mut self) {
+	pub fn clear_secondary_oam(&mut self, context: &mut Context) {
+		if context.vpos == 0 && context.hpos == 1 {
+			self.sprite_0_visible = false;
+		}
+
 		for d in self.secondary_oam.iter_mut() { *d = 0xFF; }
 		self.oam_data_buffer = 0xFF;
 	}
@@ -276,26 +291,26 @@ impl Sprites {
 		match self.fetch_state {
 			FetchState::ReadY => {
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
-				self.y_data_buffer = self.oam_data_buffer;
+				self.sprites[self.sprite_index].sprite_line = self.oam_data_buffer;
 				self.fetch_state = FetchState::ReadTileIndex;
 			}
 			FetchState::ReadTileIndex => {
 				self.secondary_oam_addr += 1;
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
-				self.tile_data_buffer = self.oam_data_buffer;
+				self.sprites[self.sprite_index].tile_index = self.oam_data_buffer;
 				self.fetch_state = FetchState::ReadAttribue;
 			}
 			FetchState::ReadAttribue => {
 				self.secondary_oam_addr += 1;
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
-				self.attribute_latches[self.sprite_index] = self.oam_data_buffer;
+				self.sprites[self.sprite_index].attribute_queue = self.oam_data_buffer;
 
 				// apply vertical flip
 				if (self.oam_data_buffer & 0x80) > 0 && context.control_reg.large_sprite() {
-					self.y_data_buffer ^= SPRITE_16X_FLIPMASK;
+					self.sprites[self.sprite_index].sprite_line ^= SPRITE_16X_FLIPMASK;
 				}
 				else if (self.oam_data_buffer & 0x80) > 0 {
-					self.y_data_buffer ^= SPRITE_8X_FLIPMASK;
+					self.sprites[self.sprite_index].sprite_line ^= SPRITE_8X_FLIPMASK;
 				}
 
 				self.fetch_state = FetchState::ReadX;
@@ -303,7 +318,7 @@ impl Sprites {
 			FetchState::ReadX => {
 				self.secondary_oam_addr += 1;
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
-				self.xpos_counters[self.sprite_index] = self.oam_data_buffer;
+				self.sprites[self.sprite_index].xpos_counter = self.oam_data_buffer;
 				self.fetch_state = FetchState::Dummy0;
 			}
 			FetchState::Dummy0 => {
@@ -317,6 +332,7 @@ impl Sprites {
 			}
 			FetchState::Dummy3 => {
 				self.secondary_oam_addr += 1;
+				self.sprite_index += 1;
 				self.fetch_state = FetchState::ReadY;
 			}
 		}
@@ -325,50 +341,50 @@ impl Sprites {
 	pub fn pattern0_address(&mut self, context: &mut Context) -> u16 {
         //let current_sprite_index= ((context.hpos - 1) >> 3) & 0x07;
         if context.control_reg.large_sprite() {
-			((((self.tile_data_buffer as u16) & 1) << 12) | (((self.tile_data_buffer as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((self.y_data_buffer as u16) & 7) | (((self.y_data_buffer as u16) & 0x08) << 1)) & 0xffff
+			((((self.sprites[self.sprite_index].tile_index as u16) & 1) << 12) | (((self.sprites[self.sprite_index].tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((self.sprites[self.sprite_index].sprite_line as u16) & 7) | (((self.sprites[self.sprite_index].sprite_line as u16) & 0x08) << 1)) & 0xffff
 		}
 		else {
-			(context.control_reg.sprite_table_address()| (((self.tile_data_buffer as u16)) << 4) | PATTERN0_OFFSET | (self.y_data_buffer as u16)) & 0xffff
+			(context.control_reg.sprite_table_address()| (((self.sprites[self.sprite_index].tile_index as u16)) << 4) | PATTERN0_OFFSET | (self.sprites[self.sprite_index].sprite_line as u16)) & 0xffff
 		}
     }
 
 	pub fn pattern1_address(&mut self, context: &mut Context) -> u16 {
         //let current_sprite_index= ((context.hpos - 1) >> 3) & 0x07;
         if context.control_reg.large_sprite() {
-			((((self.tile_data_buffer as u16) & 1) << 12) | (((self.tile_data_buffer as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((self.y_data_buffer as u16) & 7) | (((self.y_data_buffer as u16) & 0x08) << 1)) & 0xffff
+			((((self.sprites[self.sprite_index].tile_index as u16) & 1) << 12) | (((self.sprites[self.sprite_index].tile_index as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((self.sprites[self.sprite_index].sprite_line as u16) & 7) | (((self.sprites[self.sprite_index].sprite_line as u16) & 0x08) << 1)) & 0xffff
 		}
 		else {
-			(context.control_reg.sprite_table_address()| (((self.tile_data_buffer as u16)) << 4) | PATTERN1_OFFSET | (self.y_data_buffer as u16)) & 0xffff
+			(context.control_reg.sprite_table_address()| (((self.sprites[self.sprite_index].tile_index as u16)) << 4) | PATTERN1_OFFSET | (self.sprites[self.sprite_index].sprite_line as u16)) & 0xffff
 		}
     }
 
 	pub fn set_pattern0(&mut self, context: &mut Context, mut data: u8) {
 		if self.sprite_index >= (self.sprite_count as usize) {
 			//load pattern tables with transparent data
-			self.pattern_queue_left[self.sprite_index] = 0;
+			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = 0;
 		}
 		else {
-			if (self.attribute_latches[self.sprite_index] & 0x40) > 0 {
+			if (self.sprites[self.sprite_index].attribute_queue & 0x40) > 0 {
 				// horizontal flip pattern
 				data = REVERSE_BITS[data as usize];
 			}
 
-			self.pattern_queue_left[self.sprite_index] = data;
+			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = data;
 		}
     }
 
     pub fn set_pattern1(&mut self, context: &mut Context, mut data: u8) {
         if self.sprite_index >= (self.sprite_count as usize) {
 			//load pattern tables with transparent data
-			self.pattern_queue_right[self.sprite_index] = 0;
+			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = 0;
 		}
 		else {
-			if (self.attribute_latches[self.sprite_index] & 0x40) > 0 {
+			if (self.sprites[self.sprite_index].attribute_queue & 0x40) > 0 {
 				// horizontal flip pattern
 				data = REVERSE_BITS[data as usize];
 			}
 
-			self.pattern_queue_right[self.sprite_index] = data;
+			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = data;
 		}
     }
 
@@ -391,8 +407,6 @@ impl Sprites {
 		self.oam_addr = 0;
 		self.secondary_oam_addr = 0;
 		self.sprite_index = 0;
-		self.tile_data_buffer = 0xFF;
-		self.y_data_buffer = 0xFF;
 		self.fetch_state = FetchState::ReadY;
 	}
 
