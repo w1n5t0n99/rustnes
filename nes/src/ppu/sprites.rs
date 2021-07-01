@@ -120,6 +120,7 @@ impl SpriteAttribute {
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpriteData {
+    pub sprite_0: bool,
     pub y_pos: u8,
     pub x_pos: u8,
     pub tile_index: u8,
@@ -130,6 +131,7 @@ pub struct SpriteData {
 impl SpriteData {
     pub fn new() -> Self {
         SpriteData {
+            sprite_0: false,
             y_pos: 0xFF,
             x_pos: 0xFF,
             tile_index: 0xFF,

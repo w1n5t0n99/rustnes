@@ -69,6 +69,7 @@ struct SpriteInfo {
 	pub attribute_queue: u8,
 	pub xpos_counter: u8,
 	pub tile_index: u8,
+	pub sprite_0: bool,
 }
 
 impl SpriteInfo {
@@ -79,6 +80,7 @@ impl SpriteInfo {
 			attribute_queue: 0,
 			xpos_counter: 0,
 			tile_index: 0xFF,
+			sprite_0: false,
 		}
 	}
 }
@@ -150,7 +152,7 @@ impl Sprites {
 	}
 
 	pub fn clear_secondary_oam(&mut self, context: &mut Context) {
-		if context.vpos == 0 && context.hpos == 1 {
+		if context.vpos == 0  {
 			self.sprite_0_visible = false;
 		}
 
@@ -387,6 +389,24 @@ impl Sprites {
 			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = data;
 		}
     }
+
+	pub fn select_sprite_pixel(&mut self, context: &mut Context, mut bg_pixel: u8) -> u8 {
+		let pixel_index = context.hpos - 1;
+
+		// check if sprites should be drawn
+		if (context.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (pixel_index >= 8)) && context.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
+			for (sprite_index, sprite) in self.sprites.iter().enumerate() {
+				let x_offset = pixel_index.saturating_sub(sprite.xpos_counter as u16);
+
+				// check if sprite is visible on this pixel, first sprite found takes priority
+				if x_offset < 8 {
+
+				}
+			}
+		}
+
+		bg_pixel
+	}
 
 	// called on cycle 65
 	fn begin_evaluation(&mut self) {
