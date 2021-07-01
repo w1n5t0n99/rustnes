@@ -27,6 +27,9 @@ const SPRITE_8X_SIZE: u8 = 8;
 const SPRITE_16X_SIZE: u8 = 16;
 const SPRITE_8X_FLIPMASK: u8 = 0b00000111;
 const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
+// internal flag to track sprite zero from OAM
+const OAM_ZERO: u8 = 0b00010000;
+const OAM_PRIORITY: u8 = 0b00100000;
 
 #[derive(Debug, Clone, Copy)]
 enum EvalState {
@@ -66,7 +69,7 @@ enum FetchState {
 struct SpriteInfo {
 	pub pattern_queue: [u8; 2],
 	pub sprite_line: u8,
-	pub attribute_queue: u8,
+	pub attribute: u8,
 	pub xpos_counter: u8,
 	pub tile_index: u8,
 	pub sprite_0: bool,
@@ -77,7 +80,7 @@ impl SpriteInfo {
 		Self {
 			pattern_queue: [0; 2],
 			sprite_line: 0,
-			attribute_queue: 0,
+			attribute: 0,
 			xpos_counter: 0,
 			tile_index: 0xFF,
 			sprite_0: false,
@@ -95,8 +98,6 @@ pub struct Sprites {
 	oam_data_buffer: u8,
 	eval_state: EvalState,
 	fetch_state: FetchState,
-	sprite_0_evaluated: bool,
-	sprite_0_visible: bool,
 	sprite_index: usize,
 	sprite_count: u8,
 
@@ -113,8 +114,6 @@ impl Sprites {
 			oam_data_buffer: 0,
 			eval_state: EvalState::SpriteFetchY,
 			fetch_state: FetchState::ReadY,
-			sprite_0_evaluated: false,
-			sprite_0_visible: false,
 			sprite_index: 0,
 			sprite_count: 0,
 		}
@@ -152,10 +151,6 @@ impl Sprites {
 	}
 
 	pub fn clear_secondary_oam(&mut self, context: &mut Context) {
-		if context.vpos == 0  {
-			self.sprite_0_visible = false;
-		}
-
 		for d in self.secondary_oam.iter_mut() { *d = 0xFF; }
 		self.oam_data_buffer = 0xFF;
 	}
@@ -200,6 +195,11 @@ impl Sprites {
 			}
 			EvalState::SpriteFetchAttribute => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
+				if self.oam_addr < 4 {
+					// sprite 0 would be OAM[0] - OAM[3]
+					self.oam_data_buffer |= OAM_ZERO;
+				}
+
 				self.eval_state = EvalState::SpriteWriteAttribute;
 			}
 			EvalState::SpriteWriteAttribute => {
@@ -305,7 +305,7 @@ impl Sprites {
 			FetchState::ReadAttribue => {
 				self.secondary_oam_addr += 1;
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr];
-				self.sprites[self.sprite_index].attribute_queue = self.oam_data_buffer;
+				self.sprites[self.sprite_index].attribute = self.oam_data_buffer;
 
 				// apply vertical flip
 				if (self.oam_data_buffer & 0x80) > 0 && context.control_reg.large_sprite() {
@@ -366,7 +366,7 @@ impl Sprites {
 			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = 0;
 		}
 		else {
-			if (self.sprites[self.sprite_index].attribute_queue & 0x40) > 0 {
+			if (self.sprites[self.sprite_index].attribute & 0x40) > 0 {
 				// horizontal flip pattern
 				data = REVERSE_BITS[data as usize];
 			}
@@ -381,7 +381,7 @@ impl Sprites {
 			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = 0;
 		}
 		else {
-			if (self.sprites[self.sprite_index].attribute_queue & 0x40) > 0 {
+			if (self.sprites[self.sprite_index].attribute & 0x40) > 0 {
 				// horizontal flip pattern
 				data = REVERSE_BITS[data as usize];
 			}
@@ -400,7 +400,18 @@ impl Sprites {
 
 				// check if sprite is visible on this pixel, first sprite found takes priority
 				if x_offset < 8 {
+					let shift = 7 - x_offset;
 
+					let spr_pixel = ((sprite.pattern_queue[PATTERN0_INDEX] >> shift) & 0x01) | (((sprite.pattern_queue[PATTERN1_INDEX] >> shift) << 0x01) & 0x02);
+
+					// check if pixel is visible
+					if (spr_pixel & 0x03) > 0 {
+						// check for sprite 0 hit
+						// according to Mesen, a sprite 0 hit does not occur on hpos 255
+						if (sprite.attribute & OAM_ZERO) > 0 && context.hpos < 255 {
+							context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, true);
+						}
+					}
 				}
 			}
 		}
@@ -413,12 +424,10 @@ impl Sprites {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
 		self.eval_state = EvalState::SpriteFetchY;
-		self.sprite_0_evaluated = false;
 	}
 
 	// called on cycle 256
 	fn end_evaluation(&mut self) {
-		self.sprite_0_visible = self.sprite_0_evaluated;
 		self.sprite_count = (self.secondary_oam_addr as u8) >> 2;
 	}
 
