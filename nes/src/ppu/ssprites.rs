@@ -464,6 +464,17 @@ impl Sprites {
 mod test {
     use super::*;
 
+	fn init_oam(oam: &mut [u8]) {
+		for data in oam {
+			*data = 0xFF;
+		}
+	}
+
+	fn set_sprite(oam: &mut [u8], y: u8, ti: u8, index: usize) {
+		oam[(index*4)] = y;
+		oam[(index*4)+1] = ti;
+	}
+
 	#[test]
 	fn test_oam_addr_increment() {
 		let mut sprites = Sprites::new();
@@ -490,7 +501,8 @@ mod test {
 		// test n overflow
 		sprites.increment_high_n();
 		assert_eq!(sprites.oam_addr, 0);
-
 	}
+
+	
 
 }
