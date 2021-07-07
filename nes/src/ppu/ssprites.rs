@@ -471,7 +471,7 @@ mod test {
 	}
 
 	fn set_sprite(oam: &mut [u8], y: u8, ti: u8, index: usize) {
-		oam[(index*4)] = y;
+		oam[(index*4)+0] = y;
 		oam[(index*4)+1] = ti;
 	}
 
@@ -503,6 +503,20 @@ mod test {
 		assert_eq!(sprites.oam_addr, 0);
 	}
 
-	
+	#[test]
+	fn test_sprite_evaluation() {
+		let mut context = Context::new();
+		let mut sprites = Sprites::new();
+		// set scanline position
+		context.vpos = 1;
+		context.hpos = 65;
+		// init oam test in range sprites
+		init_oam(&mut sprites.primary_oam);
+		set_sprite(&mut sprites.primary_oam, 0x1, 0x1, 0);
+		set_sprite(&mut sprites.primary_oam, 0x2, 0x2, 1);
+		set_sprite(&mut sprites.primary_oam, 0x3, 0x3, 2);
+		set_sprite(&mut sprites.primary_oam, 0x4, 0x4, 3);
+
+	}
 
 }
