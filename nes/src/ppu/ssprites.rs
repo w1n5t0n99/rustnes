@@ -100,6 +100,7 @@ pub struct Sprites {
 	fetch_state: FetchState,
 	sprite_index: usize,
 	sprite_count: u8,
+	soam_count: u8,
 
 }
 
@@ -116,6 +117,7 @@ impl Sprites {
 			fetch_state: FetchState::ReadY,
 			sprite_index: 0,
 			sprite_count: 0,
+			soam_count: 0,
 		}
 	}
 
@@ -185,7 +187,7 @@ impl Sprites {
 			}
 			EvalState::SpriteFetchTileIndex => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::SpriteFetchTileIndex;
+				self.eval_state = EvalState::SpriteWriteTileIndex;
 			}
 			EvalState::SpriteWriteTileIndex => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
@@ -206,15 +208,16 @@ impl Sprites {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
-				self.eval_state = EvalState::SpriteFetchAttribute;
+				self.eval_state = EvalState::SpriteFetchX;
 			}
 			EvalState::SpriteFetchX => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::SpriteWriteAttribute;
+				self.eval_state = EvalState::SpriteWriteX;
 			}
 			EvalState::SpriteWriteX => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
+				self.soam_count += 1;
 				self.increment_low_m();
 				self.increment_high_n();
 				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
@@ -423,6 +426,7 @@ impl Sprites {
 	fn begin_evaluation(&mut self) {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
+		self.soam_count = 0;
 		self.eval_state = EvalState::SpriteFetchY;
 	}
 
@@ -470,9 +474,11 @@ mod test {
 		}
 	}
 
-	fn set_sprite(oam: &mut [u8], y: u8, ti: u8, index: usize) {
-		oam[(index*4)+0] = y;
-		oam[(index*4)+1] = ti;
+	fn set_sprite(oam: &mut [u8], ypos: u8, other_data: u8, index: usize) {
+		oam[(index*4)+0] = ypos;
+		oam[(index*4)+1] = other_data;
+		oam[(index*4)+2] = other_data;
+		oam[(index*4)+3] = other_data;
 	}
 
 	#[test]
@@ -517,6 +523,13 @@ mod test {
 		set_sprite(&mut sprites.primary_oam, 0x3, 0x3, 2);
 		set_sprite(&mut sprites.primary_oam, 0x4, 0x4, 3);
 
+		for _i in 65..=256 {
+			sprites.process_sprite_evaluation(&mut context);
+			context.hpos += 1;
+		}
+		
+		println!("++++++SPRITE COUNT: {}", sprites.soam_count);
+		assert_eq!(sprites.soam_count, 4);
 	}
 
 }
