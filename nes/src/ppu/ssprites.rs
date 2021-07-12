@@ -510,7 +510,31 @@ mod test {
 	}
 
 	#[test]
-	fn test_sprite_evaluation() {
+	fn test_sprite_evaluation_basic() {
+		let mut context = Context::new();
+		let mut sprites = Sprites::new();
+		// set scanline position
+		context.vpos = 1;
+		context.hpos = 65;
+		// init oam test in range sprites
+		init_oam(&mut sprites.primary_oam);
+		set_sprite(&mut sprites.primary_oam, 0x1, 0x1, 0);
+		set_sprite(&mut sprites.primary_oam, 0x9, 0x9, 1);
+		set_sprite(&mut sprites.primary_oam, 0x2, 0x2, 2);
+		set_sprite(&mut sprites.primary_oam, 0x3, 0x3, 3);
+		set_sprite(&mut sprites.primary_oam, 0x4, 0x4, 4);
+
+		for _i in 65..=256 {
+			sprites.process_sprite_evaluation(&mut context);
+			context.hpos += 1;
+		}
+		
+		//println!("++++++SPRITE COUNT: {}", sprites.soam_count);
+		assert_eq!(sprites.soam_count, 4);
+	}
+
+	#[test]
+	fn test_sprite_evaluation_sprite_overflow() {
 		let mut context = Context::new();
 		let mut sprites = Sprites::new();
 		// set scanline position
@@ -522,6 +546,13 @@ mod test {
 		set_sprite(&mut sprites.primary_oam, 0x2, 0x2, 1);
 		set_sprite(&mut sprites.primary_oam, 0x3, 0x3, 2);
 		set_sprite(&mut sprites.primary_oam, 0x4, 0x4, 3);
+		set_sprite(&mut sprites.primary_oam, 0x5, 0x5, 4);
+		set_sprite(&mut sprites.primary_oam, 0x6, 0x6, 5);
+		set_sprite(&mut sprites.primary_oam, 0x7, 0x7, 6);
+		set_sprite(&mut sprites.primary_oam, 0x7, 0x8, 7);
+		// more than 8 sprites on line should overflow
+		set_sprite(&mut sprites.primary_oam, 0x7, 0x9, 8);
+
 
 		for _i in 65..=256 {
 			sprites.process_sprite_evaluation(&mut context);
@@ -529,7 +560,9 @@ mod test {
 		}
 		
 		println!("++++++SPRITE COUNT: {}", sprites.soam_count);
-		assert_eq!(sprites.soam_count, 4);
+		assert_eq!(sprites.soam_count, 8);
+		println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
+		assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), true);
 	}
 
 }
