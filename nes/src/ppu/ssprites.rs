@@ -221,7 +221,7 @@ impl Sprites {
 				self.increment_low_m();
 				self.increment_high_n();
 				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
-				else if self.secondary_oam_addr >= 0x20 { self.eval_state = EvalState::OverflowFetchY; }
+				else if self.secondary_oam_addr >= 0x20 {  self.secondary_oam_addr = 0; self.eval_state = EvalState::OverflowFetchY; }
 				else { self.eval_state = EvalState::SpriteFetchY; }
 			}
 			EvalState::FinishedRead => {
@@ -248,7 +248,7 @@ impl Sprites {
 					// (incrementing 'm' after each byte and incrementing 'n' when 'm' overflows); if m = 3, increment n
 					context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
 					self.increment_low_m();  
-					self.eval_state = EvalState::SpriteFetchTileIndex;
+					self.eval_state = EvalState::OverflowFetchTileIndex;
 				}
 				else {
 					//  If the value is not in range, increment n and m (without carry). If n overflows to 0, go to 4; otherwise go to 3
@@ -552,6 +552,7 @@ mod test {
 		set_sprite(&mut sprites.primary_oam, 0x7, 0x8, 7);
 		// more than 8 sprites on line should overflow
 		set_sprite(&mut sprites.primary_oam, 0x7, 0x9, 8);
+		set_sprite(&mut sprites.primary_oam, 0x7, 0x9, 9);
 
 
 		for _i in 65..=256 {
