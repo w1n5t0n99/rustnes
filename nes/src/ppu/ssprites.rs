@@ -99,7 +99,6 @@ pub struct Sprites {
 	eval_state: EvalState,
 	fetch_state: FetchState,
 	sprite_index: usize,
-	sprite_count: u8,
 	soam_count: u8,
 
 }
@@ -116,7 +115,6 @@ impl Sprites {
 			eval_state: EvalState::SpriteFetchY,
 			fetch_state: FetchState::ReadY,
 			sprite_index: 0,
-			sprite_count: 0,
 			soam_count: 0,
 		}
 	}
@@ -160,9 +158,6 @@ impl Sprites {
 	pub fn process_sprite_evaluation(&mut self, context: &mut Context) {
 		if context.hpos == 65 {
 			self.begin_evaluation();
-		}
-		else if context.hpos == 256 {
-			self.end_evaluation();
 		}
 
 		match self.eval_state {
@@ -364,7 +359,7 @@ impl Sprites {
     }
 
 	pub fn set_pattern0(&mut self, context: &mut Context, mut data: u8) {
-		if self.sprite_index >= (self.sprite_count as usize) {
+		if self.sprite_index >= (self.soam_count as usize) {
 			//load pattern tables with transparent data
 			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = 0;
 		}
@@ -379,7 +374,7 @@ impl Sprites {
     }
 
     pub fn set_pattern1(&mut self, context: &mut Context, mut data: u8) {
-        if self.sprite_index >= (self.sprite_count as usize) {
+        if self.sprite_index >= (self.soam_count as usize) {
 			//load pattern tables with transparent data
 			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = 0;
 		}
@@ -430,11 +425,6 @@ impl Sprites {
 		self.eval_state = EvalState::SpriteFetchY;
 	}
 
-	// called on cycle 256
-	fn end_evaluation(&mut self) {
-		self.sprite_count = (self.secondary_oam_addr as u8) >> 2;
-	}
-
 	// called on cycle 257
 	fn begin_sprite_fetch(&mut self) {
 		self.oam_addr = 0;
@@ -444,6 +434,7 @@ impl Sprites {
 	}
 
 	fn sprite_in_range(&self, context: &Context, y_pos: u8) -> bool {
+		println!("++++++ Y in range: {} - {}", y_pos, context.vpos);
 		if (y_pos as u16) >= context.vpos && y_pos < (context.control_reg.sprite_size()) {
 			true
 		}
@@ -534,7 +525,7 @@ mod test {
 	}
 
 	#[test]
-	fn test_sprite_evaluation_sprite_overflow() {
+	fn test_sprite_evaluation_soam_overflow() {
 		let mut context = Context::new();
 		let mut sprites = Sprites::new();
 		// set scanline position
@@ -564,6 +555,41 @@ mod test {
 		assert_eq!(sprites.soam_count, 8);
 		println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
 		assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), true);
+	}
+
+	#[test]
+	fn test_sprite_evaluation_soam_no_overflow() {
+		let mut context = Context::new();
+		let mut sprites = Sprites::new();
+		// set scanline position
+		context.vpos = 200;
+		context.hpos = 65;
+		// init oam test in range sprites
+		init_oam(&mut sprites.primary_oam);
+		// fill oam entirely with sprites but only 8 on line
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 0);
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 1);
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 2);
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 3);
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 4);
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 5);
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 6);
+		for n in 7..31 {
+			set_sprite(&mut sprites.primary_oam, 0x1, 0x8, n);
+		}
+
+		set_sprite(&mut sprites.primary_oam, 200, 0x1, 31);
+
+		for _i in 65..=256 {
+			sprites.process_sprite_evaluation(&mut context);
+			context.hpos += 1;
+		}
+		
+		println!("++++++SPRITE COUNT: {}", sprites.soam_count);
+		assert_eq!(sprites.soam_count, 8);
+		//println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
+		//assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
+		
 	}
 
 }
