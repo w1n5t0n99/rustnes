@@ -91,8 +91,10 @@ impl SpriteEvalState {
 
 	pub fn transition(&mut self) {
 		*self = match *self {
-			Self::SpriteSearch(index, rw) => Self::SpriteSearch(index+1, !rw),
-			Self::OverflowSearch(index, rw) => Self::OverflowSearch(index+1, !rw),
+			Self::SpriteSearch(index, READ) => Self::SpriteSearch(index, WRITE),
+			Self::SpriteSearch(index, WRITE) => Self::SpriteSearch(index+1, READ),
+			Self::OverflowSearch(index, READ) => Self::OverflowSearch(index, WRITE),
+			Self::OverflowSearch(index, WRITE) => Self::OverflowSearch(index+1, READ),
 			Self::End(rw) => Self::End(!rw),
 		};
 	}
@@ -170,76 +172,75 @@ impl Sprites {
 		}
 
 		match self.eval_state {
-			EvalState::SpriteReadY => {
+			SpriteEvalState::SpriteSearch(0, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::SpriteWriteY;
+				self.eval_state.transition();
 			}
-			EvalState::SpriteWriteY => {
+			SpriteEvalState::SpriteSearch(0, WRITE) => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				if self.sprite_in_range(context, self.oam_data_buffer) {
 					// copy remaining bytes for sprite
 					self.secondary_oam_addr += 1;
 					self.increment_low_m();
-					self.eval_state = EvalState::SpriteReadTileIndex;
+					self.eval_state.transition();
 				}
 				else {
 					self.increment_high_n();
 					// has oam address overflowed
-					if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
-					// have 8 sprites been found
-					else if self.secondary_oam_addr >= 0x20 { self.eval_state = EvalState::OverflowReadY; }
+					if (self.oam_addr & 0xFC) == 0 { self.eval_state = SpriteEvalState::from_end_state(); }
 					// else continue searching
-					else { self.eval_state = EvalState::SpriteReadY; }
+					else { self.eval_state = SpriteEvalState::from_start_state(); }
 				}
 			}
-			EvalState::SpriteReadTileIndex => {
+			SpriteEvalState::SpriteSearch(1, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::SpriteWriteTileIndex;
+				self.eval_state.transition();
 			}
-			EvalState::SpriteWriteTileIndex => {
+			SpriteEvalState::SpriteSearch(1, WRITE) => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
-				self.eval_state = EvalState::SpriteReadAttribute;
+				self.eval_state.transition();
 			}
-			EvalState::SpriteReadAttribute => {
+			SpriteEvalState::SpriteSearch(2, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
 				if self.oam_addr < 4 {
 					// sprite 0 would be OAM[0] - OAM[3]
 					self.oam_data_buffer |= OAM_ZERO;
 				}
 
-				self.eval_state = EvalState::SpriteWriteAttribute;
+				self.eval_state.transition();
 			}
-			EvalState::SpriteWriteAttribute => {
+			SpriteEvalState::SpriteSearch(2, Write) => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
-				self.eval_state = EvalState::SpriteReadX;
+				self.eval_state.transition();
 			}
-			EvalState::SpriteReadX => {
+			SpriteEvalState::SpriteSearch(3, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::SpriteWriteX;
+				self.eval_state.transition();
 			}
-			EvalState::SpriteWriteX => {
+			SpriteEvalState::SpriteSearch(3, WRITE) => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.increment_low_m();
 				self.increment_high_n();
+				self.secondary_oam_addr += 1;
 				self.soam_count += 1;
-				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
-				else if self.secondary_oam_addr >= 0x20 {  self.secondary_oam_addr = 0; self.eval_state = EvalState::OverflowReadY; }
-				else { self.secondary_oam_addr += 1; self.eval_state = EvalState::SpriteReadY; }
+				if (self.oam_addr & 0xFC) == 0 { self.eval_state = SpriteEvalState::from_end_state(); }
+				else if self.secondary_oam_addr >= 0x20 {  self.secondary_oam_addr = 0; self.eval_state = SpriteEvalState::from_overflow_state(); }
+				else { self.eval_state = SpriteEvalState::from_start_state(); }
 			}
-			EvalState::FinishedRead => {
+			SpriteEvalState::End(READ)=> {
 				// attempt (and fail) to copy OAM[n][0] into the next free slot in secondary OAM
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::FinishedWrite;
+				self.eval_state.transition();
 			}
-			EvalState::FinishedWrite => {
+			SpriteEvalState::End(WRITE) => {
 				// a side effect of the OAM write disable signal is to turn writes to the secondary OAM into reads from it
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
 				self.increment_high_n();
-				self.eval_state = EvalState::FinishedRead;
+				self.eval_state.transition();
 			}
 			EvalState::OverflowReadY => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
