@@ -30,28 +30,9 @@ const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
 // internal flag to track sprite zero from OAM
 const OAM_ZERO: u8 = 0b00010000;
 const OAM_PRIORITY: u8 = 0b00100000;
+const WRITE: bool = true;
+const READ: bool = false;
 
-#[derive(Debug, Clone, Copy)]
-enum EvalState {
-    SpriteReadY,
-    SpriteWriteY,
-    SpriteReadTileIndex,
-    SpriteWriteTileIndex,
-    SpriteReadAttribute,
-    SpriteWriteAttribute,
-    SpriteReadX,
-    SpriteWriteX,
-    OverflowReadY,
-    OverflowWriteY,
-    OverflowReadTileIndex,
-    OverflowWriteTileIndex,
-    OverflowReadAttribute,
-    OverflowWriteAttribute,
-    OverflowReadX,
-    OverflowWriteX,
-    FinishedRead,
-	FinishedWrite,
-}
 
 #[derive(Debug, Clone, Copy)]
 enum FetchState {
@@ -89,6 +70,35 @@ impl SpriteInfo {
 }
 
 #[derive(Debug, Clone, Copy)]
+enum SpriteEvalState {
+	SpriteSearch(u8, bool),
+    OverflowSearch(u8, bool),
+    End(bool),
+}
+
+impl SpriteEvalState {
+	pub fn from_start_state() -> Self {
+		SpriteEvalState::SpriteSearch(0, READ)
+	}
+
+	pub fn from_overflow_state() -> Self {
+		SpriteEvalState::OverflowSearch(0, READ)
+	}
+
+	pub fn from_end_state() -> Self {
+		SpriteEvalState::End(READ)
+	}
+
+	pub fn transition(&mut self) {
+		*self = match *self {
+			Self::SpriteSearch(index, rw) => Self::SpriteSearch(index+1, !rw),
+			Self::OverflowSearch(index, rw) => Self::OverflowSearch(index+1, !rw),
+			Self::End(rw) => Self::End(!rw),
+		};
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Sprites {
     primary_oam: [u8; 256],
     secondary_oam: [u8; 32],
@@ -96,7 +106,7 @@ pub struct Sprites {
 	oam_addr: usize,
 	secondary_oam_addr: usize,
 	oam_data_buffer: u8,
-	eval_state: EvalState,
+	eval_state: SpriteEvalState,
 	fetch_state: FetchState,
 	sprite_index: usize,
 	soam_count: u8,
@@ -111,7 +121,7 @@ impl Sprites {
 			oam_addr: 0,
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
-			eval_state: EvalState::SpriteReadY,
+			eval_state: SpriteEvalState::from_start_state(),
 			fetch_state: FetchState::ReadY,
 			sprite_index: 0,
 			soam_count: 0,
@@ -370,7 +380,7 @@ impl Sprites {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
 		self.soam_count = 0;
-		self.eval_state = EvalState::SpriteReadY;
+		self.eval_state = SpriteEvalState::from_start_state();
 	}
 
 	fn sprite_in_range(&self, context: &Context, y_pos: u8) -> bool {
