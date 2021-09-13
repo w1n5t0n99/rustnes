@@ -404,8 +404,8 @@ pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Backgr
         }
         // sprite tile data fetched, garbage nt and attr fetched
         257 => {
-            open_tile_index(ppu, bus, mapper); ppu.hpos += 1;
-            sp.clear_oam_addr();
+            open_tile_index(ppu, bus, mapper);
+            sp.fetch_sprite_data(ppu);
             // update V horizontal bits
             ppu.addr_reg.update_horizontal();
             ppu.hpos += 1;

@@ -30,6 +30,8 @@ const SPRITE_16X_FLIPMASK: u8 = 0b00001111;
 // internal flag to track sprite zero from OAM
 const OAM_ZERO: u8 = 0b00010000;
 const OAM_PRIORITY: u8 = 0b00100000;
+const VFLIP: u8 = 0b10000000;
+const HFLIP: u8 = 0b01000000;
 const WRITE: bool = true;
 const READ: bool = false;
 
@@ -37,6 +39,7 @@ const READ: bool = false;
 #[derive(Debug, Clone, Copy)]
 struct SpriteInfo {
 	pub pattern_queue: [u8; 2],
+	pub sprite_line: u8, // used to get the correct tile data, adjusted for vflip/hflip
 	pub attribute: u8,
 	pub xpos_counter: u8,
 	pub tile_index: u8,
@@ -48,6 +51,7 @@ impl SpriteInfo {
 	pub fn new() -> Self {
 		Self {
 			pattern_queue: [0; 2],
+			sprite_line: 0,
 			attribute: 0,
 			xpos_counter: 0,
 			tile_index: 0,
@@ -288,15 +292,24 @@ impl Sprites {
 		// doesn't appear to have any side effects, should be able to grab all at once
 		let mut sprite_index = 0;
 		for i in (0..32).step_by(4) {
-			self.sprites[i].xpos_counter = self.secondary_oam[i+3];
-			self.sprites[i].attribute = self.secondary_oam[i+2];
-			self.sprites[i].tile_index = self.secondary_oam[i+1];
-			self.sprites[i].valid_sprite = if sprite_index < self.sprite_count {
+			self.sprites[sprite_index].xpos_counter = self.secondary_oam[i+3];
+			self.sprites[sprite_index].attribute = self.secondary_oam[i+2];
+			self.sprites[sprite_index].tile_index = self.secondary_oam[i+1];
+			self.sprites[sprite_index].sprite_line = (context.vpos - (self.secondary_oam[i+0] as u16)) as u8;
+			self.sprites[sprite_index].valid_sprite = if sprite_index < (self.sprite_count as usize) {
 				 true
 			}
 			else {
 				false
 			};
+
+			// adjust for vflip
+			if (self.sprites[sprite_index].attribute & VFLIP) > 0 && context.control_reg.large_sprite() {
+                self.sprites[sprite_index].sprite_line ^= SPRITE_16X_FLIPMASK;
+            }
+            else if (self.sprites[sprite_index].attribute & VFLIP) > 0 {
+                self.sprites[sprite_index].sprite_line ^= SPRITE_8X_FLIPMASK;
+            }
 
 			sprite_index += 1;
 		}
@@ -323,32 +336,34 @@ impl Sprites {
     }
 
 	pub fn set_pattern0(&mut self, context: &mut Context, mut data: u8) {
-		if self.sprite_index >= (self.sprite_count as usize) {
+		let current_sprite_index= (((context.hpos - 1) >> 3) & 0x07) as usize;
+		if current_sprite_index >= (self.sprite_count as usize) {
 			//load pattern tables with transparent data
-			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = 0;
+			self.sprites[current_sprite_index].pattern_queue[PATTERN0_INDEX] = 0;
 		}
 		else {
-			if (self.sprites[self.sprite_index].attribute & 0x40) > 0 {
+			if (self.sprites[current_sprite_index].attribute & HFLIP) > 0 {
 				// horizontal flip pattern
 				data = REVERSE_BITS[data as usize];
 			}
 
-			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = data;
+			self.sprites[current_sprite_index].pattern_queue[PATTERN0_INDEX] = data;
 		}
     }
 
     pub fn set_pattern1(&mut self, context: &mut Context, mut data: u8) {
-        if self.sprite_index >= (self.sprite_count as usize) {
+		let current_sprite_index= (((context.hpos - 1) >> 3) & 0x07) as usize;
+        if current_sprite_index >= (self.sprite_count as usize) {
 			//load pattern tables with transparent data
-			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = 0;
+			self.sprites[current_sprite_index].pattern_queue[PATTERN1_INDEX] = 0;
 		}
 		else {
-			if (self.sprites[self.sprite_index].attribute & 0x40) > 0 {
+			if (self.sprites[current_sprite_index].attribute & HFLIP) > 0 {
 				// horizontal flip pattern
 				data = REVERSE_BITS[data as usize];
 			}
 
-			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = data;
+			self.sprites[current_sprite_index].pattern_queue[PATTERN1_INDEX] = data;
 		}
     }
 
@@ -381,9 +396,13 @@ impl Sprites {
 		bg_pixel
 	}
 
-	// called on cycle 65
-	fn begin_evaluation(&mut self) {
-		// reset sprite evaluation indices
+	pub fn clear_oam_addr(&mut self) {
+		//OAMADDR is set to 0 during each of ticks 257-320 (the sprite tile loading interval) of the pre-render and visible scanlines
+		self.oam_addr = 0;
+	}
+
+	fn reset_evaluation(&mut self) {
+		// called on cycle 320 - not real operation 
 		self.secondary_oam_addr = 0;
 		self.sprite_count = 0;
 		self.eval_state = SpriteEvalState::from_start_state();

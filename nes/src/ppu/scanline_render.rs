@@ -1545,7 +1545,6 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
         // sprite tile data fetched, garbage nt and attr fetched
         257 => {
             open_tile_index(ppu, bus, mapper);
-            sp.clear_oam_addr();
             sp.fetch_sprite_data(ppu);
             // update V horizontal bits
             ppu.addr_reg.update_horizontal();
