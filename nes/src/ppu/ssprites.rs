@@ -35,24 +35,12 @@ const READ: bool = false;
 
 
 #[derive(Debug, Clone, Copy)]
-enum FetchState {
-	ReadY,
-	ReadTileIndex,
-	ReadAttribue,
-	ReadX,
-	Dummy0,
-	Dummy1,
-	Dummy2,
-	Dummy3,
-}
-
-#[derive(Debug, Clone, Copy)]
 struct SpriteInfo {
 	pub pattern_queue: [u8; 2],
-	pub sprite_line: u8,
 	pub attribute: u8,
 	pub xpos_counter: u8,
 	pub tile_index: u8,
+	pub valid_sprite: bool,
 	pub sprite_0: bool,
 }
 
@@ -60,10 +48,10 @@ impl SpriteInfo {
 	pub fn new() -> Self {
 		Self {
 			pattern_queue: [0; 2],
-			sprite_line: 0,
 			attribute: 0,
 			xpos_counter: 0,
-			tile_index: 0xFF,
+			tile_index: 0,
+			valid_sprite: false,
 			sprite_0: false,
 		}
 	}
@@ -109,9 +97,7 @@ pub struct Sprites {
 	secondary_oam_addr: usize,
 	oam_data_buffer: u8,
 	eval_state: SpriteEvalState,
-	fetch_state: FetchState,
-	sprite_index: usize,
-	soam_count: u8,
+	sprite_count: u8,
 }
 
 impl Sprites {
@@ -124,9 +110,7 @@ impl Sprites {
 			secondary_oam_addr: 0,
 			oam_data_buffer: 0,
 			eval_state: SpriteEvalState::from_start_state(),
-			fetch_state: FetchState::ReadY,
-			sprite_index: 0,
-			soam_count: 0,
+			sprite_count: 0,
 		}
 	}
 
@@ -226,9 +210,9 @@ impl Sprites {
 				self.increment_low_m();
 				self.increment_high_n();
 				self.secondary_oam_addr += 1;
-				self.soam_count += 1;
+				self.sprite_count += 1;
 				if (self.oam_addr & 0xFC) == 0 { self.eval_state = SpriteEvalState::from_end_state(); }
-				else if self.secondary_oam_addr >= 0x20 {  self.secondary_oam_addr = 0; self.eval_state = SpriteEvalState::from_overflow_state(); }
+				else if self.secondary_oam_addr >= 0x20 {  self.secondary_oam_addr = 0x1F; self.eval_state = SpriteEvalState::from_overflow_state(); }
 				else { self.eval_state = SpriteEvalState::from_start_state(); }
 			}
 			SpriteEvalState::End(READ)=> {
@@ -242,11 +226,11 @@ impl Sprites {
 				self.increment_high_n();
 				self.eval_state.transition();
 			}
-			EvalState::OverflowReadY => {
+			SpriteEvalState::OverflowSearch(0, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::OverflowWriteY;
+				self.eval_state.transition();
 			}
-			EvalState::OverflowWriteY => {
+			SpriteEvalState::OverflowSearch(0, WRITE) => {
 				let buffer = self.oam_data_buffer;
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
 
@@ -255,70 +239,91 @@ impl Sprites {
 					// (incrementing 'm' after each byte and incrementing 'n' when 'm' overflows); if m = 3, increment n
 					context.status_reg.set(StatusRegister::SPRITE_OVERFLOW, true);
 					self.increment_low_m();  
-					self.eval_state = EvalState::OverflowReadTileIndex;
+					self.eval_state.transition();
 				}
 				else {
 					//  If the value is not in range, increment n and m (without carry). If n overflows to 0, go to 4; otherwise go to 3
 					self.increment_high_n();
 					self.increment_low_m();
-					if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
-					else { self.eval_state = EvalState::OverflowReadY; }
+					if (self.oam_addr & 0xFC) == 0 { self.eval_state = SpriteEvalState::from_end_state(); }
+					else { self.eval_state = SpriteEvalState::from_overflow_state(); }
 				}
 			}
-			EvalState::OverflowReadTileIndex => {
+			SpriteEvalState::OverflowSearch(1, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::OverflowWriteTileIndex;
+				self.eval_state.transition();
 			}
-			EvalState::OverflowWriteTileIndex => {
+			SpriteEvalState::OverflowSearch(1, WRITE) => {
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
 				self.increment_low_m();
-				self.eval_state = EvalState::OverflowReadAttribute;
+				self.eval_state.transition();
 			}
-			EvalState::OverflowReadAttribute => {
+			SpriteEvalState::OverflowSearch(2, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::OverflowWriteAttribute;
+				self.eval_state.transition();
 			}
-			EvalState::OverflowWriteAttribute => {
+			SpriteEvalState::OverflowSearch(2, WRITE) => {
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
 				self.increment_low_m();
-				self.eval_state = EvalState::OverflowReadX;
+				self.eval_state.transition();
 			}
-			EvalState::OverflowReadX => {
+			SpriteEvalState::OverflowSearch(3, READ) => {
 				self.oam_data_buffer = self.primary_oam[self.oam_addr];
-				self.eval_state = EvalState::OverflowWriteX;
+				self.eval_state.transition();
 			}
-			EvalState::OverflowWriteX => {
+			SpriteEvalState::OverflowSearch(3, WRITE) => {
 				self.oam_data_buffer = self.secondary_oam[self.secondary_oam_addr & 0x1F];
 				self.increment_high_n();
 				self.increment_low_m();
-				if (self.oam_addr & 0xFC) == 0 { self.eval_state = EvalState::FinishedRead; }
-				else { self.eval_state = EvalState::OverflowReadY; }
+				if (self.oam_addr & 0xFC) == 0 { self.eval_state = SpriteEvalState::from_end_state(); }
+				else { self.eval_state = SpriteEvalState::from_overflow_state(); }
+			}
+			_ => {
+				panic!("Invalid sprite evaluation state");
 			}
 		}
 	}
 
+	pub fn fetch_sprite_data(&mut self, context: &mut Context) {
+		// doesn't appear to have any side effects, should be able to grab all at once
+		let mut sprite_index = 0;
+		for i in (0..32).step_by(4) {
+			self.sprites[i].xpos_counter = self.secondary_oam[i+3];
+			self.sprites[i].attribute = self.secondary_oam[i+2];
+			self.sprites[i].tile_index = self.secondary_oam[i+1];
+			self.sprites[i].valid_sprite = if sprite_index < self.sprite_count {
+				 true
+			}
+			else {
+				false
+			};
+
+			sprite_index += 1;
+		}
+	}
+
 	pub fn pattern0_address(&mut self, context: &mut Context) -> u16 {
-        //let current_sprite_index= ((context.hpos - 1) >> 3) & 0x07;
+        let current_sprite_index= (((context.hpos - 1) >> 3) & 0x07) as usize;
         if context.control_reg.large_sprite() {
-			((((self.sprites[self.sprite_index].tile_index as u16) & 1) << 12) | (((self.sprites[self.sprite_index].tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((self.sprites[self.sprite_index].sprite_line as u16) & 7) | (((self.sprites[self.sprite_index].sprite_line as u16) & 0x08) << 1)) & 0xffff
+			((((self.sprites[current_sprite_index].tile_index as u16) & 1) << 12) | (((self.sprites[current_sprite_index].tile_index as u16) & 0xfe) << 4) | PATTERN0_OFFSET | ((self.sprites[current_sprite_index].sprite_line as u16) & 7) | (((self.sprites[current_sprite_index].sprite_line as u16) & 0x08) << 1)) & 0xffff
 		}
 		else {
-			(context.control_reg.sprite_table_address()| (((self.sprites[self.sprite_index].tile_index as u16)) << 4) | PATTERN0_OFFSET | (self.sprites[self.sprite_index].sprite_line as u16)) & 0xffff
+			(context.control_reg.sprite_table_address()| (((self.sprites[current_sprite_index].tile_index as u16)) << 4) | PATTERN0_OFFSET | (self.sprites[current_sprite_index].sprite_line as u16)) & 0xffff
 		}
     }
 
 	pub fn pattern1_address(&mut self, context: &mut Context) -> u16 {
-        //let current_sprite_index= ((context.hpos - 1) >> 3) & 0x07;
+        let current_sprite_index= (((context.hpos - 1) >> 3) & 0x07) as usize;
         if context.control_reg.large_sprite() {
-			((((self.sprites[self.sprite_index].tile_index as u16) & 1) << 12) | (((self.sprites[self.sprite_index].tile_index as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((self.sprites[self.sprite_index].sprite_line as u16) & 7) | (((self.sprites[self.sprite_index].sprite_line as u16) & 0x08) << 1)) & 0xffff
+			((((self.sprites[current_sprite_index].tile_index as u16) & 1) << 12) | (((self.sprites[current_sprite_index].tile_index as u16) & 0xfe) << 4) | PATTERN1_OFFSET | ((self.sprites[current_sprite_index].sprite_line as u16) & 7) | (((self.sprites[current_sprite_index].sprite_line as u16) & 0x08) << 1)) & 0xffff
 		}
 		else {
-			(context.control_reg.sprite_table_address()| (((self.sprites[self.sprite_index].tile_index as u16)) << 4) | PATTERN1_OFFSET | (self.sprites[self.sprite_index].sprite_line as u16)) & 0xffff
+			(context.control_reg.sprite_table_address()| (((self.sprites[current_sprite_index].tile_index as u16)) << 4) | PATTERN1_OFFSET | (self.sprites[current_sprite_index].sprite_line as u16)) & 0xffff
 		}
     }
 
 	pub fn set_pattern0(&mut self, context: &mut Context, mut data: u8) {
-		if self.sprite_index >= (self.soam_count as usize) {
+		if self.sprite_index >= (self.sprite_count as usize) {
 			//load pattern tables with transparent data
 			self.sprites[self.sprite_index].pattern_queue[PATTERN0_INDEX] = 0;
 		}
@@ -333,7 +338,7 @@ impl Sprites {
     }
 
     pub fn set_pattern1(&mut self, context: &mut Context, mut data: u8) {
-        if self.sprite_index >= (self.soam_count as usize) {
+        if self.sprite_index >= (self.sprite_count as usize) {
 			//load pattern tables with transparent data
 			self.sprites[self.sprite_index].pattern_queue[PATTERN1_INDEX] = 0;
 		}
@@ -380,7 +385,7 @@ impl Sprites {
 	fn begin_evaluation(&mut self) {
 		// reset sprite evaluation indices
 		self.secondary_oam_addr = 0;
-		self.soam_count = 0;
+		self.sprite_count = 0;
 		self.eval_state = SpriteEvalState::from_start_state();
 	}
 
@@ -471,8 +476,8 @@ mod test {
 			context.hpos += 1;
 		}
 		
-		//println!("++++++SPRITE COUNT: {}", sprites.soam_count);
-		assert_eq!(sprites.soam_count, 4);
+		//println!("++++++SPRITE COUNT: {}", sprites.sprite_count);
+		assert_eq!(sprites.sprite_count, 4);
 	}
 
 	#[test]
@@ -502,8 +507,8 @@ mod test {
 			context.hpos += 1;
 		}
 		
-		println!("++++++SPRITE COUNT: {}", sprites.soam_count);
-		assert_eq!(sprites.soam_count, 8);
+		println!("++++++SPRITE COUNT: {}", sprites.sprite_count);
+		assert_eq!(sprites.sprite_count, 8);
 		println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
 		assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), true);
 	}
@@ -536,8 +541,8 @@ mod test {
 			context.hpos += 1;
 		}
 		
-		println!("++++++SPRITE COUNT: {}", sprites.soam_count);
-		assert_eq!(sprites.soam_count, 8);
+		println!("++++++SPRITE COUNT: {}", sprites.sprite_count);
+		assert_eq!(sprites.sprite_count, 8);
 		//println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
 		//assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
 		
