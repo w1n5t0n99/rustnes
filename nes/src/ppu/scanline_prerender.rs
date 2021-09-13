@@ -1,7 +1,7 @@
 use super::Context;
 use super::bus::Bus;
 use super::background::Background;
-use super::sprites::Sprites;
+use super::ssprites::Sprites;
 use super::ppu_registers::*;
 use super::ppu_operations::*;
 use crate::mappers::Mapper;
@@ -113,7 +113,11 @@ pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Backgr
             bg.update_shift_registers_idle();
             ppu.hpos += 1;
         }
-        65 => { open_tile_index(ppu, bus, mapper); ppu.hpos += 1; }
+        65 => { 
+            sp.clear_sprites();
+            open_tile_index(ppu, bus, mapper); 
+            ppu.hpos += 1;
+         }
         66 => { read_tile_index(ppu, bus, bg, mapper); ppu.hpos += 1; }
         67 => { open_background_attribute(ppu, bus, mapper); ppu.hpos += 1; }
         68 => { read_background_attribute(ppu, bus, bg, mapper); ppu.hpos += 1; }
@@ -405,6 +409,7 @@ pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Backgr
         // sprite tile data fetched, garbage nt and attr fetched
         257 => {
             open_tile_index(ppu, bus, mapper);
+            sp.clear_oam_addr();
             sp.fetch_sprite_data(ppu);
             // update V horizontal bits
             ppu.addr_reg.update_horizontal();

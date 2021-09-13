@@ -1,7 +1,7 @@
 use super::Context;
 use super::bus::Bus;
 use super::background::Background;
-use super::sprites::Sprites;
+use super::ssprites::Sprites;
 use super::palette_ram::PaletteRam;
 use super::ppu_registers::*;
 use super::ppu_operations::*;
@@ -38,7 +38,7 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
         1 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.clear_secondary_oam();                // <======= TODO change to per cycle
+            sp.clear_secondary_oam();                
             ppu.hpos += 1;
         }
         2 => {
@@ -368,1176 +368,1176 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
         65 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         66 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         67 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         68 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         69 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         70 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         71 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         72 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         73 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         74 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         75 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         76 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         77 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         78 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         79 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         80 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         81 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         82 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         83 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         84 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         85 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         86 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         87 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         88 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         89 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         90 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         91 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         92 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         93 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         94 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         95 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         96 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         97 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         98 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         99 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         100 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         101 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         102 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         103 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         104 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         105 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         106 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         107 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         108 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         109 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         110 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         111 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         112 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         113 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         114 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         115 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         116 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         117 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         118 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         119 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         120 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         121 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         122 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         123 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         124 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         125 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         126 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         127 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         128 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         129 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         130 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         131 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         132 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         133 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         134 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         135 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         136 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         137 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         138 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         139 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         140 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         141 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         142 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         143 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         144 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         145 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         146 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         147 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         148 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         149 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         150 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         151 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         152 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         153 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         154 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         155 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         156 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         157 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         158 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         159 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         160 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         161 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         162 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         163 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         164 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         165 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         166 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         167 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         168 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         169 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         170 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         171 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         172 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         173 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         174 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         175 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         176 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         177 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         178 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         179 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         180 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         181 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         182 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         183 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         184 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         185 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         186 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         187 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         188 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         189 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         190 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         191 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         192 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         193 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         194 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         195 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         196 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         197 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         198 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         199 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         200 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         201 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         202 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         203 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         204 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         205 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         206 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         207 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         208 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         209 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         210 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         211 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         212 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         213 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         214 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         215 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         216 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         217 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         218 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         219 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         220 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         221 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         222 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         223 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         224 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         225 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         226 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         227 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         228 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         229 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         230 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         231 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         232 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         233 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         234 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         235 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         236 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         237 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         238 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         239 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         240 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         241 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         242 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         243 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         244 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         245 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         246 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         247 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         248 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.hpos += 1;
         }
         249 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_tile_index(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         250 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_tile_index(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         251 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_attribute(ppu, bus, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         252 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_attribute(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         253 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         254 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern0(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         255 => {
             select_pixel(fb, ppu, pram, bg, sp);
             open_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             ppu.hpos += 1;
         }
         256 => {
             select_pixel(fb, ppu, pram, bg, sp);
             read_background_pattern1(ppu, bus, bg, mapper);
-            sp.evaluate(ppu);
+            sp.process_sprite_evaluation(ppu);
             bg.update_shift_registers_render();
             ppu.addr_reg.y_increment();
             ppu.hpos += 1;
@@ -1546,6 +1546,7 @@ pub fn scanline_render_tick(fb: &mut[u16], ppu: &mut Context, bus: &mut Bus, pra
         257 => {
             open_tile_index(ppu, bus, mapper);
             sp.fetch_sprite_data(ppu);
+            sp.clear_oam_addr();
             // update V horizontal bits
             ppu.addr_reg.update_horizontal();
             ppu.hpos += 1;

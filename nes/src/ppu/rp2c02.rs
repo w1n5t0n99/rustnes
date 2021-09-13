@@ -4,7 +4,7 @@ use super::{Context, Pinout};
 use super::bus::Bus;
 use super::palette_ram::PaletteRam;
 use super::background::Background;
-use super::sprites::Sprites;
+use super::ssprites::Sprites;
 use super::scanline_postrender::scanline_postrender_tick;
 use super::scanline_vblank::scanline_vblank_tick;
 use super::scanline_prerender::{scanline_prerender_nonvisible_tick, scanline_prerender_tick};
@@ -99,18 +99,18 @@ impl Rp2c02 {
 
     pub fn write_oamaddr(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
-        self.sp.io_write_2003(pinout.data);
+        self.sp.write_oamaddr_reg(pinout.data);
         pinout
     }
 
     pub fn read_oamdata(&mut self, mut pinout: mos::Pinout) -> mos::Pinout {
-        pinout.data = self.sp.io_read_2004(&self.context);
+        pinout.data = self.sp.read_oamdata_reg(&self.context);
         pinout
     }
 
     pub fn write_oamdata(&mut self, pinout: mos::Pinout) -> mos::Pinout {
         self.context.io_db = pinout.data;
-        self.sp.io_write_2004(&self.context, pinout.data);
+        self.sp.write_oamdata_reg(&self.context, pinout.data);
         pinout
     }
 

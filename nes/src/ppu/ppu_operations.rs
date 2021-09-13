@@ -1,7 +1,7 @@
 use super::{Context, Pinout, Ctrl};
 use super::ppu_registers::*;
 use super::background::Background;
-use super::sprites::Sprites;
+use super::ssprites::Sprites;
 use super::bus::Bus;
 use crate::mappers::Mapper;
 

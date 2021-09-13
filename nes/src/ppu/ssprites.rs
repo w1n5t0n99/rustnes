@@ -149,7 +149,7 @@ impl Sprites {
 		}
 	}
 
-	pub fn clear_secondary_oam(&mut self, context: &mut Context) {
+	pub fn clear_secondary_oam(&mut self) {
 		for d in self.secondary_oam.iter_mut() { *d = 0xFF; }
 		self.oam_data_buffer = 0xFF;
 	}
@@ -373,21 +373,28 @@ impl Sprites {
 		// check if sprites should be drawn
 		if (context.mask_reg.contains(MaskRegister::LEFTMOST_8PXL_SPRITE) || (pixel_index >= 8)) && context.mask_reg.contains(MaskRegister::SHOW_SPRITES) {
 			for (sprite_index, sprite) in self.sprites.iter().enumerate() {
-				let x_offset = pixel_index.saturating_sub(sprite.xpos_counter as u16);
+				if sprite.valid_sprite == false {
+					continue;
+				}
 
+				let x_offset = pixel_index.saturating_sub(sprite.xpos_counter as u16);
 				// check if sprite is visible on this pixel, first sprite found takes priority
 				if x_offset < 8 {
 					let shift = 7 - x_offset;
-
 					let spr_pixel = ((sprite.pattern_queue[PATTERN0_INDEX] >> shift) & 0x01) | (((sprite.pattern_queue[PATTERN1_INDEX] >> shift) << 0x01) & 0x02);
-
 					// check if pixel is visible
 					if (spr_pixel & 0x03) > 0 {
 						// check for sprite 0 hit
 						// according to Mesen, a sprite 0 hit does not occur on hpos 255
-						if (sprite.attribute & OAM_ZERO) > 0 && context.hpos < 255 {
+						if (sprite.attribute & OAM_ZERO) > 0 && context.hpos < 255 && (bg_pixel & 0x03) > 0 {
 							context.status_reg.set(StatusRegister::SPRITE_ZERO_HIT, true);
 						}
+
+						if (sprite.attribute & OAM_PRIORITY) == 0 || (bg_pixel & 0x03) == 0 {
+							bg_pixel = 0x10 | spr_pixel | ((sprite.attribute & 0x02) << 2) & 0xff;
+						}
+
+						return bg_pixel;
 					}
 				}
 			}
@@ -401,8 +408,16 @@ impl Sprites {
 		self.oam_addr = 0;
 	}
 
-	fn reset_evaluation(&mut self) {
-		// called on cycle 320 - not real operation 
+	pub fn clear_sprites(&mut self) {
+		// call during prerender so no sprites will be drawn on render line 0
+		for spr in &mut self.sprites {
+			spr.valid_sprite = false;
+			spr.pattern_queue[PATTERN0_INDEX] = 0;
+			spr.pattern_queue[PATTERN1_INDEX] = 0;
+		}
+	}
+
+	fn begin_evaluation(&mut self) {
 		self.secondary_oam_addr = 0;
 		self.sprite_count = 0;
 		self.eval_state = SpriteEvalState::from_start_state();

@@ -218,6 +218,10 @@ impl Sprites {
         self.primary_oam_index.0 = 0;
     }
 
+    pub fn clear_sprites(&mut self) {
+		
+	}
+
     pub fn evaluate(&mut self, ppu: &mut Context) {
         // OAMDATA exposes OAM accesses during sprite eval
         let sprite_size = ppu.control_reg.sprite_size();
