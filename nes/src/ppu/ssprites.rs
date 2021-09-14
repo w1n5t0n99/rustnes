@@ -199,7 +199,7 @@ impl Sprites {
 
 				self.eval_state.transition();
 			}
-			SpriteEvalState::SpriteSearch(2, Write) => {
+			SpriteEvalState::SpriteSearch(2, WRITE) => {
 				self.secondary_oam[self.secondary_oam_addr] = self.oam_data_buffer;
 				self.secondary_oam_addr += 1;
 				self.increment_low_m();
