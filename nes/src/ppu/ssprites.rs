@@ -288,10 +288,11 @@ impl Sprites {
 		}
 	}
 
-	pub fn fetch_sprite_data(&mut self, context: &mut Context) {
+	pub fn fetch_sprite_tile_data(&mut self, context: &mut Context) {
 		// doesn't appear to have any side effects, should be able to grab all at once
+		let sc = self.sprite_count as usize;
 		let mut sprite_index = 0;
-		for i in (0..32).step_by(4) {
+		for i in (0..(sc*4)).step_by(4) {
 			self.sprites[sprite_index].xpos_counter = self.secondary_oam[i+3];
 			self.sprites[sprite_index].attribute = self.secondary_oam[i+2];
 			self.sprites[sprite_index].tile_index = self.secondary_oam[i+1];
@@ -462,6 +463,13 @@ mod test {
 		oam[(index*4)+3] = other_data;
 	}
 
+	fn set_sprite_full(oam: &mut [u8], ypos: u8, xpos: u8, at: u8, ti: u8, index: usize) {
+		oam[(index*4)+0] = ypos;
+		oam[(index*4)+1] = ti;
+		oam[(index*4)+2] = at;
+		oam[(index*4)+3] = xpos;
+	}
+
 	#[test]
 	fn test_oam_addr_increment() {
 		let mut sprites = Sprites::new();
@@ -541,9 +549,7 @@ mod test {
 			context.hpos += 1;
 		}
 		
-		println!("++++++SPRITE COUNT: {}", sprites.sprite_count);
 		assert_eq!(sprites.sprite_count, 8);
-		println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
 		assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), true);
 	}
 
@@ -575,11 +581,90 @@ mod test {
 			context.hpos += 1;
 		}
 		
-		println!("++++++SPRITE COUNT: {}", sprites.sprite_count);
 		assert_eq!(sprites.sprite_count, 8);
-		//println!("++++++SPRITE OVERFLOW: {}", context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW));
-		//assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
+		assert_eq!(context.status_reg.contains(StatusRegister::SPRITE_OVERFLOW), false);
+	}
+
+	#[test]
+	fn test_sprite_fetch_full() {
+		let mut context = Context::new();
+		let mut sprites = Sprites::new();
+		// set scanline position
+		context.vpos = 200;
+		context.hpos = 65;
+		// init oam test in range sprites
+		init_oam(&mut sprites.primary_oam);
+		// fill oam entirely with sprites but only 8 on line
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  0);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  1);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  2);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  3);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  4);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  5);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  6);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  7);
+
+		for n in 8..31 {
+			set_sprite(&mut sprites.primary_oam, 0x1, 0x8, n);
+		}
+
+		// sprite evaluation
+		for _i in 65..=256 {
+			sprites.process_sprite_evaluation(&mut context);
+			context.hpos += 1;
+		}
+
+		// sprite tile fetch
+		sprites.fetch_sprite_tile_data(&mut context);
+
+		assert_eq!(sprites.sprites[7].valid_sprite, true);
+		assert_eq!(sprites.sprites[7].sprite_line, 0);
+		assert_eq!(sprites.sprites[7].xpos_counter, 1);
+		assert_eq!(sprites.sprites[7].attribute, 2);
+		assert_eq!(sprites.sprites[7].tile_index, 3);
+	}
+
+	#[test]
+	fn test_sprite_fetch_partial() {
+		let mut context = Context::new();
+		let mut sprites = Sprites::new();
+		// set scanline position
+		context.vpos = 200;
+		context.hpos = 65;
+		// init oam test in range sprites
+		init_oam(&mut sprites.primary_oam);
+		// fill oam entirely with sprites but only 8 on line
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  0);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  1);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  2);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  3);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  4);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  5);
+		set_sprite_full(&mut sprites.primary_oam, 200, 0x1, 0x2, 0x3,  6);
+
+		for n in 7..31 {
+			set_sprite(&mut sprites.primary_oam, 0x1, 0x8, n);
+		}
+
+		// sprite evaluation
+		for _i in 65..=256 {
+			sprites.process_sprite_evaluation(&mut context);
+			context.hpos += 1;
+		}
+
+		// sprite tile fetch
+		sprites.fetch_sprite_tile_data(&mut context);
 		
+		assert_eq!(sprites.sprites[6].valid_sprite, true);
+		assert_eq!(sprites.sprites[6].sprite_line, 0);
+		assert_eq!(sprites.sprites[6].xpos_counter, 1);
+		assert_eq!(sprites.sprites[6].attribute, 2);
+		assert_eq!(sprites.sprites[6].tile_index, 3);
+
+		assert_eq!(sprites.sprites[7].valid_sprite, false);
+		
+		//println!("----SPRITE FETCH COUNT: {}----", sprites.sprite_count);
+		//assert_eq!(sprites.sprite_count, 7);
 	}
 
 }

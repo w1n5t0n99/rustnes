@@ -410,7 +410,7 @@ pub fn scanline_prerender_tick(ppu: &mut Context, bus: &mut Bus, bg: &mut Backgr
         257 => {
             open_tile_index(ppu, bus, mapper);
             sp.clear_oam_addr();
-            sp.fetch_sprite_data(ppu);
+            sp.fetch_sprite_tile_data(ppu);
             // update V horizontal bits
             ppu.addr_reg.update_horizontal();
             ppu.hpos += 1;
